@@ -40,6 +40,10 @@ export type AgentSessionStatusCounts = {
 export type AgentSessionStatusListRequest = {
   limit?: number | null;
   cursor?: string | null;
+  /** Bucket. Blank means every bucket. `idle` is an alias of `done`. */
+  group_key?: string | null;
+  /** Exact workspace id. Blank means every workspace. */
+  context_id?: string | null;
 };
 
 export type AgentSessionStatusListResponse = {

@@ -911,8 +911,9 @@ pub enum WsAction {
     LinkPreview,
 
     // ===== Per-session inbox =====
-    /// Live occupancy merged with the inbox catalog. Pages of 100, newest first.
-    /// Each chat row includes its title.
+    /// Live occupancy merged with the inbox catalog. Default page is 100, newest
+    /// first. Optional `group_key` / `context_id` filter that page. `counts`
+    /// and `total` stay catalog-wide. Each chat row includes its title.
     AgentSessionStatusList,
     /// Set archived_at. Unknown id is success.
     AgentSessionArchive,
@@ -926,6 +927,13 @@ pub struct AgentSessionStatusListRequest {
     /// Previous page's last `updated_at` and `session_id`, separated by a newline.
     #[serde(default)]
     pub cursor: Option<String>,
+    /// Bucket filter. Blank means every bucket. Unknown values return an empty page.
+    /// `idle` is an alias of `done`.
+    #[serde(default)]
+    pub group_key: Option<String>,
+    /// Exact workspace id. Blank means every workspace.
+    #[serde(default)]
+    pub context_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

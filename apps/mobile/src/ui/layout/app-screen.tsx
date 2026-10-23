@@ -5,6 +5,7 @@ import {
   type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -379,17 +380,35 @@ export function EmptyState({
 }
 
 /** Same spinner as pull-to-refresh, shown under the list while the next page loads. */
-export function ListLoadMoreFooter({ loading = false }: { loading?: boolean }) {
+export function ListLoadMoreFooter({
+  onRetry,
+  state = "hidden",
+}: {
+  onRetry?: () => void;
+  state?: "hidden" | "loading" | "error";
+}) {
   const theme = useMobileTheme();
-  if (!loading) return null;
+  if (state === "loading") {
+    return (
+      <View
+        accessibilityLabel="Loading more sessions"
+        accessibilityState={{ busy: true }}
+        style={{ alignItems: "center", justifyContent: "center", paddingVertical: 18 }}
+      >
+        <ActivityIndicator color={theme.colors.secondaryLabel} />
+      </View>
+    );
+  }
+  if (state !== "error" || !onRetry) return null;
 
   return (
-    <View
-      accessibilityLabel="Loading more sessions"
-      accessibilityState={{ busy: true }}
-      style={{ alignItems: "center", justifyContent: "center", paddingVertical: 18 }}
-    >
-      <ActivityIndicator color={theme.colors.secondaryLabel} />
+    <View style={{ alignItems: "center", paddingVertical: 18 }}>
+      <Text style={{ color: theme.colors.secondaryLabel, fontSize: 13, marginBottom: 8 }}>
+        Could not load more.
+      </Text>
+      <Pressable accessibilityLabel="Try again" accessibilityRole="button" onPress={onRetry}>
+        <Text style={{ color: theme.colors.label, fontSize: 15 }}>Try again</Text>
+      </Pressable>
     </View>
   );
 }

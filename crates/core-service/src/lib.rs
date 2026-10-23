@@ -11,9 +11,9 @@ pub use service::agent_status::{
     page_agent_sessions, parse_chat_status_session_id, provider_to_tool,
     resolve_workspace_agent_group_key, AgentActivity, AgentAttentionLatch, AgentAttentionReason,
     AgentAttentionSummary, AgentChildActivity, AgentOccupancy, AgentSessionChatRef,
-    AgentSessionLiveSet, AgentStatusContext, AgentStatusEvent, AgentStatusRecord,
-    AgentStatusService, AgentStatusUpdate, AgentSurface, AgentTodoItem, AgentToolLine,
-    AgentToolType, AgentTurn, AttentionSummaryPayload, AttentionSummarySettings,
+    AgentSessionListFilter, AgentSessionLiveSet, AgentStatusContext, AgentStatusEvent,
+    AgentStatusRecord, AgentStatusService, AgentStatusUpdate, AgentSurface, AgentTodoItem,
+    AgentToolLine, AgentToolType, AgentTurn, AttentionSummaryPayload, AttentionSummarySettings,
     AttentionSummaryStatus, HookPermissionOpen, HookPermissionWait, WorkspaceAgentGroupKey,
     WorkspaceAgentGroupSnapshot, AGENT_SESSION_PAGE_LIMIT,
 };

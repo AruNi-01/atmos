@@ -134,6 +134,8 @@ export function WorkspaceListScreen() {
     bootstrapQuery.error instanceof Error ? bootstrapQuery.error.message : null;
   const sessionError = createSession.error instanceof Error ? createSession.error.message : null;
   const [refreshing, setRefreshing] = useState(false);
+  const homeListEndRef = useRef<() => void>(() => {});
+  const [homeListHasMore, setHomeListHasMore] = useState(false);
   const refreshWorkspaces = useCallback(async () => {
     setRefreshing(true);
     try {
@@ -243,10 +245,17 @@ export function WorkspaceListScreen() {
           onRetry={retryConnection}
         />
       ) : (
-        <AppScreen onRefresh={refreshWorkspaces} refreshing={refreshing}>
+        <AppScreen
+          fillWhenShort={homeListHasMore}
+          onEndReached={() => homeListEndRef.current()}
+          onRefresh={refreshWorkspaces}
+          refreshing={refreshing}
+        >
           <WorkspaceHomeList
+            endRef={homeListEndRef}
             groups={bootstrap.groups ?? []}
             isLoading={bootstrapQuery.isPending}
+            onFillChange={setHomeListHasMore}
             projects={bootstrap.projects}
             workspacesByProject={bootstrap.workspaces_by_project}
           />

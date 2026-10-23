@@ -10,11 +10,14 @@ import {
   resolveSwipeRowTouch,
   hiddenSwipeSeparatorIndexes,
   SWIPE_ROW_BUTTON_EDGE,
+  SWIPE_ROW_CLOSED_EPSILON,
   SWIPE_ROW_SCREEN_BLEED,
   SWIPE_ROW_TRAILING_RADIUS,
   SWIPE_TAP_SLOP_PX,
+  swipeRowActionReveal,
   swipeRowCardFrame,
   swipeRowGestureConfig,
+  swipeRowIsOpen,
   swipeRowOpenChrome,
   swipeRowTouchAction,
 } from "./swipe-row-press";
@@ -146,6 +149,64 @@ describe("swipe row press", () => {
     expect(hiddenSwipeSeparatorIndexes([0])).toEqual([0, 1]);
     expect(hiddenSwipeSeparatorIndexes([2])).toEqual([2, 3]);
     expect(hiddenSwipeSeparatorIndexes([1, 3])).toEqual([1, 2, 3, 4]);
+  });
+
+  test("a closed row covers trailing and leading actions", () => {
+    expect(SWIPE_ROW_CLOSED_EPSILON).toBe(0.5);
+    expect(swipeRowIsOpen(0)).toBe(false);
+    expect(swipeRowIsOpen(SWIPE_ROW_CLOSED_EPSILON)).toBe(false);
+    expect(swipeRowIsOpen(-SWIPE_ROW_CLOSED_EPSILON)).toBe(false);
+    expect(swipeRowIsOpen(SWIPE_ROW_CLOSED_EPSILON + 0.01)).toBe(true);
+    expect(swipeRowIsOpen(-(SWIPE_ROW_CLOSED_EPSILON + 0.01))).toBe(true);
+
+    for (const edge of ["leading", "trailing"] as const) {
+      expect(swipeRowActionReveal(0, 132, edge)).toBe(0);
+      expect(swipeRowActionReveal(0.5, 132, edge)).toBe(0);
+      expect(swipeRowActionReveal(-0.5, 132, edge)).toBe(0);
+      expect(swipeRowActionReveal(0, 0, edge)).toBe(0);
+      expect(swipeRowActionReveal(-40, 0, edge)).toBe(0);
+      expect(swipeRowActionReveal(-40, -8, edge)).toBe(0);
+      expect(swipeRowActionReveal(Number.NaN, 132, edge)).toBe(0);
+      expect(swipeRowActionReveal(Number.POSITIVE_INFINITY, 132, edge)).toBe(0);
+    }
+  });
+
+  test("an open gap reveals only that edge and matches the card margin", () => {
+    const bay = 132;
+    for (const offset of [-24, -40, -120, -200, 24, 80, 200]) {
+      const frame = swipeRowCardFrame(offset);
+      const trailingGap = frame.marginRight > 0 ? frame.marginRight : 0;
+      const leadingGap = frame.marginLeft > 0 ? frame.marginLeft : 0;
+      expect(swipeRowActionReveal(offset, bay, "trailing")).toBe(Math.min(trailingGap, bay));
+      expect(swipeRowActionReveal(offset, bay, "leading")).toBe(Math.min(leadingGap, bay));
+      if (offset < 0) expect(swipeRowActionReveal(offset, bay, "leading")).toBe(0);
+      if (offset > 0) expect(swipeRowActionReveal(offset, bay, "trailing")).toBe(0);
+    }
+
+    expect(swipeRowActionReveal(-40, 132, "trailing")).toBe(40);
+    expect(swipeRowActionReveal(-200, 132, "trailing")).toBe(132);
+    expect(swipeRowActionReveal(80, 76, "leading")).toBe(76);
+    expect(swipeRowActionReveal(SWIPE_ROW_CLOSED_EPSILON + 0.01, 132, "leading")).toBeCloseTo(0.51);
+  });
+
+  test("the row source clips closed actions and keeps the open list-fill bay", () => {
+    const source = readFileSync(new URL("./session-swipe-row.tsx", import.meta.url), "utf8");
+    expect(source).toContain('swipeRowActionReveal(offset.get(), trailingW.get(), "trailing")');
+    expect(source).toContain('swipeRowActionReveal(offset.get(), leadingW.get(), "leading")');
+    expect(source).toContain('overflow: "hidden"');
+    expect(source).toContain("opacity: 0");
+    expect(source).toContain("width: 0");
+    expect(source).toContain('moving ? openColor.get() : "transparent"');
+    expect(source).toContain("swipeRowIsOpen");
+    expect(source).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+    expect(source).not.toContain("theme.colors.background");
+    expect(source).not.toContain("theme.colors.cardElevated");
+
+    const closed = swipeRowOpenChrome(false, lightColors);
+    expect(closed.cardBackground).toBe("transparent");
+    expect(closed.wellBackground).toBe("transparent");
+    expect(swipeRowActionReveal(0, 132, "trailing")).toBe(0);
+    expect(swipeRowActionReveal(0, 76, "leading")).toBe(0);
   });
 
   test("the swipe row does not hardcode colors", () => {
