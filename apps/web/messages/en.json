@@ -2780,6 +2780,17 @@
     }
   },
   "project": {
+    "deleteProjectDialog": {
+      "title": "Delete {projectName}",
+      "description": "This action cannot be undone. This will permanently delete the project and remove it from your workspace.",
+      "activeWorkspaces": "This project has active (non-archived) workspaces. Please archive all workspaces before deleting the project.",
+      "confirmLabel": "To confirm, type '{projectName}' in the box below",
+      "actions": {
+        "cancel": "Cancel",
+        "delete": "Delete this project",
+        "close": "Close"
+      }
+    },
     "createProjectDialog": {
       "title": "Import Project",
       "connection": {
@@ -3632,6 +3643,9 @@
         "viewPlan": "View plan",
         "viewTodos": "View todos",
         "planViewerEmpty": "No plan content available yet.",
+        "planShowLess": "Show less",
+        "planShowMore": "{count} more",
+        "downloadPlan": "Download plan",
         "sessionOpRequested": "Session action requested",
         "sessionOpFork": "Fork",
         "sessionOpRewind": "Rewind",
@@ -7940,7 +7954,24 @@
         "pinned": "Pinned to Canvas",
         "alreadyPinned": "Already pinned to Canvas",
         "pinFailed": "Failed to pin terminal to Canvas"
-      }
+      },
+      "status": {
+        "connecting": "Connecting to terminal...",
+        "reconnecting": "Reconnecting...",
+        "disconnected": "Disconnected",
+        "restoreFailed": "Failed to restore terminal session"
+      },
+      "search": {
+        "placeholder": "Search terminal",
+        "previousMatch": "Previous match",
+        "nextMatch": "Next match",
+        "close": "Close search"
+      },
+      "actions": {
+        "new": "New",
+        "retry": "Retry"
+      },
+      "scrollToBottom": "Scroll to bottom"
     }
   },
   "Settings": {

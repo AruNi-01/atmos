@@ -16,6 +16,10 @@ describe("streamdown mermaid diagrams", () => {
     expect(diagram).toContain("waitForMermaidSlotReady");
     expect(diagram).toContain("renderMermaidDiagram");
     expect(diagram).toContain("MERMAID_RENDERING_LABEL");
+    expect(diagram).toContain("errorLabel");
+    expect(diagram).toContain("MermaidDiagramLabelsProvider");
+    expect(diagram).toContain("DEFAULT_MERMAID_ERROR_LABEL");
+    expect(diagram).not.toContain('setError("Failed to render mermaid diagram")');
     expect(diagram).toContain("onError");
     expect(diagram).toContain("overflow-hidden");
     expect(diagram).not.toContain("overflow-x-auto");

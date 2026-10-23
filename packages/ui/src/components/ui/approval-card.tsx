@@ -253,6 +253,10 @@ export interface ApprovalCardProps {
   /** Fired for `actions` entries (and preferred over onApprove/onReject when set). */
   onAction?: (actionId: string) => void;
   onDownloadPlan?: () => void;
+  showLessLabel?: string;
+  /** Remaining hidden todo count. String form may include `{count}`. */
+  showMoreLabel?: string | ((count: number) => string);
+  downloadPlanLabel?: string;
   /**
    * Transcript / history: no Skip/Continue/Approve footer, and option radios
    * are display-only. Step nav stays for multi-question Ask.
@@ -287,6 +291,9 @@ export function ApprovalCard({
   onReject,
   onAction,
   onDownloadPlan,
+  showLessLabel,
+  showMoreLabel,
+  downloadPlanLabel,
   readOnly = false,
   allowCustom = false,
   className,
@@ -426,6 +433,13 @@ export function ApprovalCard({
     (variant === "questions" ? "Continue" : variant === "command" ? "Run" : "Approve");
 
   const resolvedReject = rejectLabel ?? (variant === "plan" ? "View Plan" : "Skip");
+  const resolvedShowLess = showLessLabel ?? "Show less";
+  const resolvedDownloadPlan = downloadPlanLabel ?? "Download plan";
+  const resolveShowMore = (count: number) => {
+    if (typeof showMoreLabel === "function") return showMoreLabel(count);
+    if (showMoreLabel) return showMoreLabel.replaceAll("{count}", String(count));
+    return `${count} more`;
+  };
 
   const canContinue =
     variant === "questions" ? allAnswered : variant === "command" ? Boolean(command.trim()) : true;
@@ -565,7 +579,7 @@ export function ApprovalCard({
             <button
               type="button"
               className={styles.headAction}
-              aria-label="Download plan"
+              aria-label={resolvedDownloadPlan}
               onClick={(e) => {
                 e.preventDefault();
                 onDownloadPlan();
@@ -783,7 +797,7 @@ export function ApprovalCard({
                                 )}
                               </svg>
                             </span>
-                            {planExpanded ? "Show less" : `${planRest.length} more`}
+                            {planExpanded ? resolvedShowLess : resolveShowMore(planRest.length)}
                           </button>
                         </>
                       )}

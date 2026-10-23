@@ -5,6 +5,13 @@ import { join } from "node:path";
 const view = readFileSync(join(import.meta.dir, "../AgentPartView.tsx"), "utf8");
 
 describe("agent part markdown rendering", () => {
+  it("injects a localized mermaid error label on the Agent Chat path", () => {
+    expect(view).toContain("MermaidDiagramLabelsProvider");
+    expect(view).toContain("shared.markdownRenderer.mermaid.errors");
+    expect(view).toContain('mermaidErrors("renderFailed")');
+    expect(view).toContain("errorLabel={mermaidErrorLabel}");
+  });
+
   it("renders thinking mermaid with the same markdown components as text", () => {
     expect(view).toContain("MessageResponse");
     expect(view).toContain("ReasoningContent");

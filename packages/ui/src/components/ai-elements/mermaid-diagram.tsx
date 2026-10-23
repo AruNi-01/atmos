@@ -1,6 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import { Loader2 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { cn } from "../../lib/utils";
@@ -14,6 +22,25 @@ import {
   type MermaidDiagramTheme,
 } from "../../lib/mermaid-diagram";
 
+/** Fallback when no `errorLabel` prop or provider is supplied. */
+export const DEFAULT_MERMAID_ERROR_LABEL = "Failed to render mermaid diagram";
+
+const MermaidDiagramLabelsContext = createContext<{ errorLabel: string } | null>(null);
+
+export function MermaidDiagramLabelsProvider({
+  children,
+  errorLabel,
+}: {
+  children: ReactNode;
+  errorLabel: string;
+}) {
+  return (
+    <MermaidDiagramLabelsContext.Provider value={{ errorLabel }}>
+      {children}
+    </MermaidDiagramLabelsContext.Provider>
+  );
+}
+
 function themeFromResolved(resolvedTheme: string | undefined): MermaidDiagramTheme {
   return resolvedTheme === "dark" ? "dark" : "light";
 }
@@ -22,13 +49,17 @@ export function MermaidDiagram({
   code,
   isIncomplete = false,
   className,
+  errorLabel: errorLabelProp,
 }: {
   code: string;
   isIncomplete?: boolean;
   language?: string;
   meta?: string;
   className?: string;
+  errorLabel?: string;
 }) {
+  const labels = useContext(MermaidDiagramLabelsContext);
+  const errorLabel = errorLabelProp ?? labels?.errorLabel ?? DEFAULT_MERMAID_ERROR_LABEL;
   const { resolvedTheme } = useTheme();
   const theme = themeFromResolved(resolvedTheme);
   const trimmed = code.trim();
@@ -68,12 +99,13 @@ export function MermaidDiagram({
         setError(null);
       } catch (err: unknown) {
         if (controller.signal.aborted) return;
-        setError(err instanceof Error ? err.message : "Failed to render mermaid diagram");
+        const message = err instanceof Error ? err.message : "";
+        setError(message && message !== DEFAULT_MERMAID_ERROR_LABEL ? message : errorLabel);
         setRecord(null);
       }
     })();
     return () => controller.abort();
-  }, [isIncomplete, theme, trimmed]);
+  }, [errorLabel, isIncomplete, theme, trimmed]);
 
   if (error) {
     return (
@@ -112,7 +144,7 @@ export function MermaidDiagram({
           style={imageStyle}
           onError={() => {
             setRecord(null);
-            setError("Failed to render mermaid diagram");
+            setError(errorLabel);
           }}
         />
       </div>

@@ -293,6 +293,7 @@ Each slice typechecks (`bun --filter @atmos/mobile typecheck`) and runs `cd apps
 - **Risk**: `maintainVisibleContentPosition` plus streaming rows may jitter. Mitigation: S5 spike with a recorded fixture; fallback to shared-rule offset compensation.
 - **Risk**: Inline tree for long command output hurts list performance. Mitigation: command output keeps web's collapse (line cap + expand), lazy-mounted bodies, row `React.memo`.
 - **Risk**: Markdown renderer (`react-native-streamdown` / `enriched-markdown`) cannot match streamdown for tables, code highlight, or mermaid. Mitigation: parity fixture F1 documents what differs; fallback is a custom renderer slice, decided with AruNi after S2 screenshots.
+- **Known non-goal (QUALITY-030 item 7)**: React Native mermaid→SVG and a full syntax-highlighter stack matching web are **not** in scope. Mermaid stays a fenced source block. See [APP-079 TECH](../APP-079_mobile-agent-chat/TECH.md#known-non-goals-quality-030). Do not claim highlight/mermaid diagram parity.
 - **Risk**: Shimmer/blur look weaker than web. Mitigation: deviation register, honest recordings.
 - **Risk**: Web import-path swaps (D2a) conflict with parallel web work. Mitigation: do S0 first, as its own commit set, rebase early.
 - **Tradeoff**: Collapsed-by-default card lane hides cards on first load. Chosen to protect transcript space; one-line change if rejected.

@@ -4,6 +4,7 @@ import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { Box, Layers, MessageCircleMore, MessageCirclePlus, TriangleAlert } from "lucide-react";
 import {
+  MermaidDiagramLabelsProvider,
   MessageResponse,
   Reasoning,
   ReasoningContent,
@@ -43,6 +44,8 @@ export function AgentPartView({
   toolResultOpen?: boolean;
 }) {
   const t = useTranslations("Agent.components.chatPanel");
+  const mermaidErrors = useTranslations("shared.markdownRenderer.mermaid.errors");
+  const mermaidErrorLabel = mermaidErrors("renderFailed");
   const historicPermissions = useHistoricPermissionParts();
   if (isHiddenTranscriptChromePart(part)) return null;
   if (part.type === "text" && !part.text) return null;
@@ -52,16 +55,18 @@ export function AgentPartView({
     const open = foldedPartIsOpen(part);
     const streamingTail = foldedPartIsStreamingDisplayTail(part, parts);
     return (
-      <MessageResponse
-        parseIncompleteMarkdown
-        isAnimating={streamingTail}
-        caret={open ? "block" : undefined}
-        className="break-words"
-        components={reviewComponents as never}
-        linkSafety={CONVERSATION_LINK_SAFETY}
-      >
-        {part.text}
-      </MessageResponse>
+      <MermaidDiagramLabelsProvider errorLabel={mermaidErrorLabel}>
+        <MessageResponse
+          parseIncompleteMarkdown
+          isAnimating={streamingTail}
+          caret={open ? "block" : undefined}
+          className="break-words"
+          components={reviewComponents as never}
+          linkSafety={CONVERSATION_LINK_SAFETY}
+        >
+          {part.text}
+        </MessageResponse>
+      </MermaidDiagramLabelsProvider>
     );
   }
 
@@ -71,30 +76,34 @@ export function AgentPartView({
       ? undefined
       : thinkingDurationSeconds(thinkingBlockDurationMs(part, parts, thinkingMs));
     return (
-      <Reasoning isStreaming={open} defaultOpen={toolResultOpen || open} duration={duration}>
-        <ReasoningTrigger
-          getThinkingMessage={(isStreaming, seconds) => {
-            if (isStreaming || seconds === 0) {
+      <MermaidDiagramLabelsProvider errorLabel={mermaidErrorLabel}>
+        <Reasoning isStreaming={open} defaultOpen={toolResultOpen || open} duration={duration}>
+          <ReasoningTrigger
+            getThinkingMessage={(isStreaming, seconds) => {
+              if (isStreaming || seconds === 0) {
+                return (
+                  <TextShimmer as="span" duration={1} className="text-sm">
+                    {t("thinking")}
+                  </TextShimmer>
+                );
+              }
+              if (seconds === undefined) {
+                return <span>{t("thoughtForFew")}</span>;
+              }
               return (
-                <TextShimmer as="span" duration={1} className="text-sm">
-                  {t("thinking")}
-                </TextShimmer>
+                <span>{t("thoughtFor", { duration: formatWorkDuration(seconds * 1000) })}</span>
               );
-            }
-            if (seconds === undefined) {
-              return <span>{t("thoughtForFew")}</span>;
-            }
-            return <span>{t("thoughtFor", { duration: formatWorkDuration(seconds * 1000) })}</span>;
-          }}
-        />
-        <ReasoningContent
-          className="prose-sm dark:prose-invert max-w-full min-w-0 break-words"
-          components={reviewComponents as never}
-          linkSafety={CONVERSATION_LINK_SAFETY}
-        >
-          {part.text}
-        </ReasoningContent>
-      </Reasoning>
+            }}
+          />
+          <ReasoningContent
+            className="prose-sm dark:prose-invert max-w-full min-w-0 break-words"
+            components={reviewComponents as never}
+            linkSafety={CONVERSATION_LINK_SAFETY}
+          >
+            {part.text}
+          </ReasoningContent>
+        </Reasoning>
+      </MermaidDiagramLabelsProvider>
     );
   }
 
