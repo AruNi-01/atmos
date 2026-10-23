@@ -372,6 +372,24 @@ impl AgentChatService {
         self.store.get_snapshot(id)
     }
 
+    /// Existence plus leftover-part close without folding the transcript.
+    ///
+    /// Subscribe uses this instead of [`Self::get`]: QUALITY-018 needed
+    /// NotFound + crash-settle, not a snapshot. Folding a long chat exceeds
+    /// the mobile 30s WS timeout (QUALITY-033).
+    pub async fn ensure_chat(&self, id: &str) -> Result<()> {
+        let _ = self.store.get_meta(id)?;
+        let live = {
+            let map = self.runtimes.lock().await;
+            map.get(id)
+                .is_some_and(|runtime| runtime.alive.load(Ordering::SeqCst))
+        };
+        if !live {
+            self.store.close_leftover_open_parts(id)?;
+        }
+        Ok(())
+    }
+
     pub fn rename(&self, id: &str, title: &str) -> Result<AgentChatMeta> {
         self.store.rename(id, title)
     }

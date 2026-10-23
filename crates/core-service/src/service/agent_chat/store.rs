@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use chrono::{DateTime, Utc};
@@ -27,6 +28,7 @@ pub struct AgentChatStore {
     locks: Mutex<HashMap<String, Arc<Mutex<()>>>>,
     index_lock: Mutex<()>,
     seqs: Mutex<HashMap<String, u64>>,
+    fold_chat_dir_calls: AtomicU64,
 }
 
 impl AgentChatStore {
@@ -36,6 +38,7 @@ impl AgentChatStore {
             locks: Mutex::new(HashMap::new()),
             index_lock: Mutex::new(()),
             seqs: Mutex::new(HashMap::new()),
+            fold_chat_dir_calls: AtomicU64::new(0),
         }
     }
 
@@ -173,11 +176,23 @@ impl AgentChatStore {
         Ok(meta)
     }
 
+    /// How many times this store folded `transcript.jsonl` + `live.jsonl` into turns.
+    /// Subscribe existence must not increment this (QUALITY-033).
+    #[doc(hidden)]
+    pub fn fold_chat_dir_calls(&self) -> u64 {
+        self.fold_chat_dir_calls.load(Ordering::SeqCst)
+    }
+
+    fn count_fold_chat_dir(&self) {
+        self.fold_chat_dir_calls.fetch_add(1, Ordering::SeqCst);
+    }
+
     pub fn get_snapshot(&self, id: &str) -> Result<AgentChatSnapshot> {
         require_chat_id(id)?;
         let lock = self.lock_arc(id);
         let _guard = lock.lock().expect("agent chat lock");
         let meta = self.get_meta(id)?;
+        self.count_fold_chat_dir();
         let turns = fold_chat_dir(&self.dir_for(id))?;
         let turns = apply_rewind_view(turns, meta.rewind_view.as_ref());
         let queue = self.read_queue_unlocked(id)?;
@@ -203,6 +218,7 @@ impl AgentChatStore {
         require_chat_id(id)?;
         let lock = self.lock_arc(id);
         let _guard = lock.lock().expect("agent chat lock");
+        self.count_fold_chat_dir();
         fold_chat_dir(&self.dir_for(id))
     }
 

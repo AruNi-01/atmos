@@ -191,16 +191,18 @@ impl WsMessageService {
         conn_id: &str,
         req: AgentChatSubscribeRequest,
     ) -> Result<Value> {
-        // Register before snapshot and replay. A live emit after this insert is
+        // Register before existence and replay. A live emit after this insert is
         // fanned out to conn_id. Replay may deliver the same event; the client
         // EventGate dedupes on event_id. This handler does not filter that overlap.
         // Roll back only a conn this call inserted. A repeat subscribe that fails
         // must leave the earlier registration in place.
+        // Existence is ensure_chat (get_meta + leftover-part close), not get():
+        // QUALITY-018 discarded the snapshot; folding long chats times out (QUALITY-033).
         let opts = super::AgentChatSubOpts::from_flag(req.include_tool_detail);
         let inserted = self
             .register_agent_chat_sub(&req.chat_id, conn_id, opts)
             .await;
-        if let Err(error) = self.agent_chat().get(&req.chat_id).await {
+        if let Err(error) = self.agent_chat().ensure_chat(&req.chat_id).await {
             if inserted {
                 self.unregister_agent_chat_sub(&req.chat_id, conn_id).await;
             }
@@ -1280,6 +1282,116 @@ mod tests {
         let conns = subs.get(&chat_id).expect("chat");
         assert!(conns.get("conn-full").expect("full").include_tool_detail);
         assert!(!conns.get("conn-lean").expect("lean").include_tool_detail);
+    }
+
+    fn append_leftover_live_chunk(chat_dir: &std::path::Path) {
+        std::fs::write(
+            chat_dir.join("live.jsonl"),
+            r#"{"event_id":"e-left","turn_id":"t-left","timestamp":"2026-01-01T00:00:00Z","event":{"type":"text_chunk","part_id":"p-left","message_id":"a-left","ordinal":0,"kind":"answer","offset":0,"text":"leftover"}}
+"#,
+        )
+        .expect("write live leftover");
+    }
+
+    fn leftover_part_finished(chat_dir: &std::path::Path) -> bool {
+        std::fs::read_to_string(chat_dir.join("transcript.jsonl"))
+            .unwrap_or_default()
+            .lines()
+            .filter(|line| !line.trim().is_empty())
+            .any(|line| {
+                let value: serde_json::Value = serde_json::from_str(line).unwrap();
+                value["event"]["type"] == "part_finished"
+                    && value["event"]["part_id"] == "p-left"
+                    && value["event"]["text"] == "leftover"
+            })
+    }
+
+    #[tokio::test]
+    async fn subscribe_does_not_fold_transcript_for_existence() {
+        let root = TempRoot(std::env::temp_dir().join(format!(
+            "atmos-subscribe-no-fold-{}",
+            uuid::Uuid::new_v4()
+        )));
+        std::fs::create_dir_all(&root.0).expect("temp root");
+        let service = service_at(&root.0).await;
+        let chat_id = create_chat(&service, &root.0);
+        let dir = service.agent_chat().store().dir_for(&chat_id);
+        append_user_turns(&dir, 24);
+        let folds_before = service.agent_chat().store().fold_chat_dir_calls();
+
+        let response = service
+            .handle_agent_chat_subscribe(
+                "conn-no-fold",
+                AgentChatSubscribeRequest {
+                    chat_id: chat_id.clone(),
+                    after_sequence: Some(0),
+                    include_tool_detail: None,
+                },
+            )
+            .await
+            .expect("subscribe");
+
+        assert!(response["last_event_seq"].as_u64().is_some());
+        assert_eq!(
+            service.agent_chat().store().fold_chat_dir_calls(),
+            folds_before,
+            "subscribe must not fold transcript.jsonl for existence"
+        );
+        let subs = service.agent_chat_subs.read().await;
+        assert!(
+            subs.get(&chat_id)
+                .is_some_and(|conns| conns.contains_key("conn-no-fold")),
+            "successful subscribe must register the connection"
+        );
+    }
+
+    #[tokio::test]
+    async fn subscribe_closes_leftover_open_parts_without_folding() {
+        let root = TempRoot(std::env::temp_dir().join(format!(
+            "atmos-subscribe-leftover-{}",
+            uuid::Uuid::new_v4()
+        )));
+        std::fs::create_dir_all(&root.0).expect("temp root");
+        let service = service_at(&root.0).await;
+        let chat_id = create_chat(&service, &root.0);
+        let dir = service.agent_chat().store().dir_for(&chat_id);
+        append_user_turns(&dir, 24);
+        append_leftover_live_chunk(&dir);
+        let folds_before = service.agent_chat().store().fold_chat_dir_calls();
+
+        service
+            .handle_agent_chat_subscribe(
+                "conn-leftover",
+                AgentChatSubscribeRequest {
+                    chat_id: chat_id.clone(),
+                    after_sequence: Some(0),
+                    include_tool_detail: None,
+                },
+            )
+            .await
+            .expect("subscribe");
+
+        assert_eq!(
+            service.agent_chat().store().fold_chat_dir_calls(),
+            folds_before,
+            "leftover close on subscribe must not fold the transcript"
+        );
+        assert!(
+            leftover_part_finished(&dir),
+            "subscribe must persist PartFinished for leftover text"
+        );
+        assert!(
+            std::fs::read_to_string(dir.join("live.jsonl"))
+                .unwrap_or_default()
+                .trim()
+                .is_empty(),
+            "subscribe must truncate live.jsonl after leftover close"
+        );
+        let subs = service.agent_chat_subs.read().await;
+        assert!(
+            subs.get(&chat_id)
+                .is_some_and(|conns| conns.contains_key("conn-leftover"))
+        );
     }
 
     #[tokio::test]
