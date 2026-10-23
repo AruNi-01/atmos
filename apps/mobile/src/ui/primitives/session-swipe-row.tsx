@@ -15,8 +15,10 @@ import { ArchiveIcon, PinIcon, TrashIcon } from "@/ui/icons/lucide-native";
 import {
   applySwipeRowTouch,
   SWIPE_ROW_BUTTON_EDGE,
+  swipeRowActionReveal,
   swipeRowCardFrame,
   swipeRowGestureConfig,
+  swipeRowIsOpen,
 } from "@/ui/primitives/swipe-row-press";
 import type { SessionSwipeRowProps } from "./session-swipe-row.types";
 
@@ -233,7 +235,7 @@ export function SessionSwipeRow({
   }, []);
 
   useAnimatedReaction(
-    () => Math.abs(offset.get()) > 0.5,
+    () => swipeRowIsOpen(offset.get()),
     (open, previous) => {
       if (previous == null || open === previous) return;
       scheduleOnRN(reportRevealed, open);
@@ -276,9 +278,18 @@ export function SessionSwipeRow({
     return Gesture.Exclusive(pan, tap);
   }, [dragStart, leadingW, offset, rowId, trailingW]);
 
+  const leadingClipStyle = useAnimatedStyle(() => {
+    const width = swipeRowActionReveal(offset.get(), leadingW.get(), "leading");
+    return { opacity: width > 0 ? 1 : 0, width };
+  });
+  const trailingClipStyle = useAnimatedStyle(() => {
+    const width = swipeRowActionReveal(offset.get(), trailingW.get(), "trailing");
+    return { opacity: width > 0 ? 1 : 0, width };
+  });
+
   const cardStyle = useAnimatedStyle(() => {
     const frame = swipeRowCardFrame(offset.get());
-    const moving = Math.abs(offset.get()) > 0.5;
+    const moving = swipeRowIsOpen(offset.get());
     return {
       backgroundColor: moving ? openColor.get() : "transparent",
       borderBottomLeftRadius: frame.radiusBottomLeft,
@@ -308,14 +319,24 @@ export function SessionSwipeRow({
   return (
     <View pointerEvents="box-none" style={{ overflow: "visible" }}>
       <View
-        pointerEvents="box-none"
+        accessibilityElementsHidden={!revealed}
+        importantForAccessibility={revealed ? "auto" : "no-hide-descendants"}
+        pointerEvents={revealed ? "box-none" : "none"}
         style={{ bottom: 0, left: 0, position: "absolute", right: 0, top: 0 }}
       >
-        <View
-          accessibilityElementsHidden={!revealed}
-          importantForAccessibility={revealed ? "auto" : "no-hide-descendants"}
-          pointerEvents={revealed ? "box-none" : "none"}
-          style={{ bottom: 0, left: 0, position: "absolute", right: 0, top: 0 }}
+        <Reanimated.View
+          style={[
+            {
+              bottom: 0,
+              left: 0,
+              opacity: 0,
+              overflow: "hidden",
+              position: "absolute",
+              top: 0,
+              width: 0,
+            },
+            leadingClipStyle,
+          ]}
         >
           <View
             style={{
@@ -338,7 +359,22 @@ export function SessionSwipeRow({
               onPress={() => runAction(onPinRef.current)}
             />
           </View>
-          {trailingWidth > 0 ? (
+        </Reanimated.View>
+        {trailingWidth > 0 ? (
+          <Reanimated.View
+            style={[
+              {
+                bottom: 0,
+                opacity: 0,
+                overflow: "hidden",
+                position: "absolute",
+                right: 0,
+                top: 0,
+                width: 0,
+              },
+              trailingClipStyle,
+            ]}
+          >
             <View
               style={{
                 alignItems: "center",
@@ -370,8 +406,8 @@ export function SessionSwipeRow({
                 />
               ) : null}
             </View>
-          ) : null}
-        </View>
+          </Reanimated.View>
+        ) : null}
       </View>
       <GestureDetector gesture={gesture}>
         <Reanimated.View
