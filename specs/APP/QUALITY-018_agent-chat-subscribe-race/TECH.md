@@ -139,3 +139,7 @@ One PR. No feature flag. No backward-compatible response field.
 ## Open questions
 
 None. Overlap dedupe stays on the client. No compatibility shim.
+
+## Follow-up
+
+[QUALITY-033](../QUALITY-033_agent-chat-subscribe-light-existence/TECH.md) keeps this register-first order and the leftover-part close, but replaces the discarded `AgentChatService::get` fold with `ensure_chat` (`get_meta` + `close_leftover_open_parts` when detached).

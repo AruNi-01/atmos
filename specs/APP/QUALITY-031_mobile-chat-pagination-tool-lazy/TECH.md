@@ -250,7 +250,7 @@ Same chat access as `agent_chat_get`. `tool_call_ids` are looked up only inside 
 
 - **Risk**: Lean `turn_snapshot` plus a later full `tool_get` can race. Merge rule keeps full params when `detail_omitted` incoming hits a complete part.
 - **Risk**: First 20 messages that still fit on screen fire `onStartReached`. That is intended fill-the-viewport paging; `has_more: false` stops it.
-- **Risk**: Server still folds the whole jsonl per get. Acceptable for this cut; the Relay bytes are the mobile constraint.
+- **Risk**: Server still folds the whole jsonl per get. Acceptable for this cut; the Relay bytes are the mobile constraint. Subscribe must not repeat that fold for existence — [QUALITY-033](../QUALITY-033_agent-chat-subscribe-light-existence/TECH.md).
 - **Tradeoff**: JSON `detail_omitted` injection vs a new `AgentTool` field. Injection avoids churning every host `AgentTool { ... }` literal.
 - **Rollback**: Mobile can omit the new fields and get the old full snapshot.
 
