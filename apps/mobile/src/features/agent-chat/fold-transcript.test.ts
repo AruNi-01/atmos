@@ -335,6 +335,29 @@ describe("applyAgentChatResync", () => {
     expect(applied.backfills).toEqual([]);
   });
 
+  test("resync of a last-20 window keeps already loaded older messages", () => {
+    const previous = transcriptFromAgentChatSnapshot("chat-1", {
+      meta: { id: "chat-1", last_event_seq: 40 },
+      messages: [
+        { id: "m1", role: "user", parts: [{ type: "text", text: "old" }] },
+        { id: "m2", role: "user", parts: [{ type: "text", text: "mid" }] },
+        { id: "m3", role: "assistant", parts: [{ type: "text", text: "tail" }] },
+      ],
+      queue: [],
+    } as unknown as AgentChatSnapshot);
+    const snapshot = {
+      meta: { id: "chat-1", last_event_seq: 41, has_more_messages: true },
+      messages: [
+        { id: "m2", role: "user", parts: [{ type: "text", text: "mid" }] },
+        { id: "m3", role: "assistant", parts: [{ type: "text", text: "tail" }] },
+        { id: "m4", role: "user", parts: [{ type: "text", text: "new" }] },
+      ],
+      queue: [],
+    } as unknown as AgentChatSnapshot;
+    const applied = applyAgentChatResync("chat-1", snapshot, [], previous);
+    expect(applied.state.messages.map((message) => message.id)).toEqual(["m1", "m2", "m3", "m4"]);
+  });
+
   test("rememberChatEvent drops the oldest events past the ring limit", () => {
     const recent: AgentChatEvent[] = [];
     expect(

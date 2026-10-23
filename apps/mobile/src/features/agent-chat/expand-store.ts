@@ -67,17 +67,16 @@ export function agentChatUserMetaExpandKey(entryId: string): string {
 }
 
 /**
- * Chat boundary available without a chat id prop.
- * Reset only when the first message id changes from one non-empty id to another.
- * Appending messages keeps `messages[0]`. An empty gap remembers the previous id.
+ * Reset expand state when the open chat changes.
+ * Prepending older history must not collapse open tools.
  */
-export function expandResetForFirstMessage(
-  previousFirstId: string | undefined,
-  nextFirstId: string | undefined,
-): { reset: boolean; firstId: string | undefined } {
-  const reset = Boolean(previousFirstId && nextFirstId && previousFirstId !== nextFirstId);
+export function expandResetForChat(
+  previousChatId: string | undefined,
+  nextChatId: string | undefined,
+): { reset: boolean; chatId: string | undefined } {
+  const reset = Boolean(previousChatId && nextChatId && previousChatId !== nextChatId);
   return {
     reset,
-    firstId: nextFirstId ? nextFirstId : previousFirstId,
+    chatId: nextChatId ? nextChatId : previousChatId,
   };
 }

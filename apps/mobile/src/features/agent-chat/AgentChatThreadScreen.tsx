@@ -18,6 +18,7 @@ import { TitleSkeleton } from "@/ui/primitives/list-skeleton";
 import { ExpoDrawer } from "@/ui/primitives/expo-drawer";
 import { AgentChatComposer } from "./AgentChatComposer";
 import { AgentChatTranscript, type AgentChatTranscriptHandle } from "./AgentChatTranscript";
+import { AgentChatToolDetailProvider } from "./tool-detail-context";
 import {
   INITIAL_LANE,
   pillShowsAttention,
@@ -139,29 +140,50 @@ export function AgentChatThreadScreen({
   const listProviderId = rows.find((row) => row.id === chatId)?.providerId.trim() ?? "";
   const [picked, setPicked] = useState<PickedConfig | null>(null);
   const active = picked?.chatId === chatId ? picked : null;
-  const snapshotQuery = useQuery({
-    queryKey: ["agent-chat-get", selectedServerId, chatId, wsState],
-    enabled: Boolean(client && wsState === "open"),
-    queryFn: () => {
-      if (!client) return Promise.reject(new Error("Atmos mobile WebSocket is not connected"));
-      return wsActions.agentChatGet(client, { chat_id: chatId });
-    },
-  });
-  const snapshotTitle = snapshotQuery.data?.meta.title?.trim() ?? "";
+  const {
+    messages,
+    meta,
+    hasMore,
+    olderLoading,
+    olderError,
+    loadOlder,
+    loadToolDetail,
+    toolDetailStatusFor,
+    pendingPermission,
+    pendingSessionOp,
+    queue,
+    sessionUsage,
+    grokGoal,
+    grokWorkflow,
+    runningTurnId,
+    loading,
+    error,
+    commands,
+    send,
+    steer,
+    queueAdd,
+    queueUpdate,
+    queueDelete,
+    queueReorder,
+    cancel,
+    respondPermission,
+    respondSessionOp,
+  } = useAgentChatThread(chatId);
+  const snapshotTitle = meta?.title?.trim() ?? "";
   const screenTitle = passedTitle || matchedTitle || snapshotTitle;
-  const titlePending = screenTitle.length === 0 && (listLoading || snapshotQuery.isPending);
-  const savedConfig = snapshotQuery.data?.meta.descriptor.current_config;
-  const providerId = (
-    active?.providerId ??
-    snapshotQuery.data?.meta.provider_id ??
-    listProviderId
-  ).trim();
+  const titlePending = screenTitle.length === 0 && (listLoading || loading);
+  const savedConfig = meta?.descriptor.current_config;
+  const providerId = (active?.providerId ?? meta?.provider_id ?? listProviderId).trim();
   const modelId = active?.model ?? savedConfig?.model ?? null;
   const thinkingId = active?.thinking ?? savedConfig?.thinking ?? null;
   const modeId = active?.mode ?? savedConfig?.mode ?? null;
   const permissionId = active?.permissionMode ?? savedConfig?.permission_mode ?? null;
   const fastId = active?.fast ?? savedConfig?.fast ?? null;
   const contextId = active?.context ?? savedConfig?.context ?? null;
+  const toolDetailApi = useMemo(
+    () => ({ statusFor: toolDetailStatusFor, load: loadToolDetail }),
+    [loadToolDetail, toolDetailStatusFor],
+  );
   const registryQuery = useQuery({
     queryKey: ["agent-registry-list", selectedServerId, wsState],
     enabled: Boolean(client && wsState === "open"),
@@ -197,28 +219,6 @@ export function AgentChatThreadScreen({
   const composerPlaceholder = agentName
     ? copy.connectedPlaceholder.replace("{agent}", agentName)
     : copy.resumePlaceholder;
-  const {
-    messages,
-    pendingPermission,
-    pendingSessionOp,
-    queue,
-    sessionUsage,
-    grokGoal,
-    grokWorkflow,
-    runningTurnId,
-    loading,
-    error,
-    commands,
-    send,
-    steer,
-    queueAdd,
-    queueUpdate,
-    queueDelete,
-    queueReorder,
-    cancel,
-    respondPermission,
-    respondSessionOp,
-  } = useAgentChatThread(chatId);
   const cards = useMemo(
     () =>
       deriveComposerCards({
@@ -307,7 +307,7 @@ export function AgentChatThreadScreen({
   );
   const [photos, setPhotos] = useState<ComposerPhoto[]>([]);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const chatCwd = snapshotQuery.data?.meta.cwd || ".";
+  const chatCwd = meta?.cwd || ".";
 
   const onPatch = useCallback(
     (patch: ComposerPatch) => {
@@ -343,7 +343,6 @@ export function AgentChatThreadScreen({
         })
         .catch(() => {
           setPicked((current) => (current === next ? null : current));
-          void snapshotQuery.refetch();
         });
     },
     [
@@ -355,7 +354,6 @@ export function AgentChatThreadScreen({
       modelId,
       permissionId,
       providerId,
-      snapshotQuery,
       thinkingId,
       wsState,
     ],
@@ -620,17 +618,42 @@ export function AgentChatThreadScreen({
             </View>
           ) : null}
           {error && messages.length === 0 ? null : (
-            <AgentChatTranscript
-              ref={transcriptRef}
-              // Stick source check still looks for the unmeasured literal expandedCardHeight={0}.
-              expandedCardHeight={measuredCardHeight}
-              focusMessageId={focusMessageId}
-              messages={messages}
-              onStickChange={onStickChange}
-              pillRowHeight={pillRowHeight}
-              stickToken={stickToken}
-              streaming={runningTurnId != null}
-            />
+            <AgentChatToolDetailProvider value={toolDetailApi}>
+              <AgentChatTranscript
+                ref={transcriptRef}
+                chatId={chatId}
+                // Stick source check still looks for the unmeasured literal expandedCardHeight={0}.
+                expandedCardHeight={measuredCardHeight}
+                focusMessageId={focusMessageId}
+                header={
+                  olderLoading || olderError ? (
+                    <View style={{ alignItems: "center", paddingVertical: 8 }}>
+                      {olderLoading ? (
+                        <ActivityIndicator
+                          accessibilityLabel={copy.loadingTool}
+                          color={theme.colors.secondaryLabel}
+                        />
+                      ) : (
+                        <Pressable accessibilityRole="button" onPress={loadOlder}>
+                          <Text style={{ color: theme.colors.red, fontSize: 13, lineHeight: 18 }}>
+                            {olderError ?? copy.retry}
+                          </Text>
+                        </Pressable>
+                      )}
+                    </View>
+                  ) : null
+                }
+                messages={messages}
+                onStartReached={() => {
+                  if (!hasMore || olderLoading || olderError) return;
+                  loadOlder();
+                }}
+                onStickChange={onStickChange}
+                pillRowHeight={pillRowHeight}
+                stickToken={stickToken}
+                streaming={runningTurnId != null}
+              />
+            </AgentChatToolDetailProvider>
           )}
           <ExpoDrawer
             isPresented={messagesOpen}

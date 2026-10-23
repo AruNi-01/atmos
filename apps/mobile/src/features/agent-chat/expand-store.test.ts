@@ -8,7 +8,7 @@ import {
   agentChatToolGroupExpandKey,
   agentChatUserBodyExpandKey,
   agentChatUserMetaExpandKey,
-  expandResetForFirstMessage,
+  expandResetForChat,
   useAgentChatExpandStore,
 } from "./expand-store";
 
@@ -54,10 +54,10 @@ describe("agent chat expand store", () => {
     expect(ticks).toBe(0);
   });
 
-  test("resets only when the first message id changes from one chat to another", () => {
-    expect(expandResetForFirstMessage(undefined, "m1")).toEqual({ reset: false, firstId: "m1" });
-    expect(expandResetForFirstMessage("m1", "m1")).toEqual({ reset: false, firstId: "m1" });
-    expect(expandResetForFirstMessage("m1", undefined)).toEqual({ reset: false, firstId: "m1" });
-    expect(expandResetForFirstMessage("m1", "m9")).toEqual({ reset: true, firstId: "m9" });
+  test("resets only when the chat id changes from one chat to another", () => {
+    expect(expandResetForChat(undefined, "chat-1")).toEqual({ reset: false, chatId: "chat-1" });
+    expect(expandResetForChat("chat-1", "chat-1")).toEqual({ reset: false, chatId: "chat-1" });
+    expect(expandResetForChat("chat-1", undefined)).toEqual({ reset: false, chatId: "chat-1" });
+    expect(expandResetForChat("chat-1", "chat-2")).toEqual({ reset: true, chatId: "chat-2" });
   });
 });

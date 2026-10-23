@@ -477,6 +477,53 @@ describe("MobileWsClient", () => {
     expect(client.state).toBe("open");
   });
 
+  test("relay catch-up reuses lean get and subscribe flags", async () => {
+    const timers: TimerCall[] = [];
+    FakeMobileWebSocket.instances = [];
+    const client = createClient({ timers });
+    client.connect();
+    const socket = FakeMobileWebSocket.instances[0]!;
+    socket.open();
+    const got = client.request("agent_chat_get", {
+      chat_id: "chat-1",
+      message_limit: 20,
+      include_tool_detail: false,
+    });
+    replyOk(socket, {
+      meta: { id: "chat-1", last_event_seq: 10 },
+      messages: [],
+      queue: [],
+    });
+    await got;
+    const subscribed = client.request("agent_chat_subscribe", {
+      chat_id: "chat-1",
+      after_sequence: 10,
+      include_tool_detail: false,
+    });
+    replyOk(socket, { last_event_seq: 10 });
+    await subscribed;
+
+    socket.emit({ type: "relay_ctrl", code: "server_offline" });
+    const first = timers.find((timer) => timer.delayMs === 0);
+    expect(first).toBeDefined();
+    first!.callback();
+    await flushMicrotasks();
+    expect(lastRequest(socket)).toMatchObject({
+      payload: {
+        action: "agent_chat_subscribe",
+        data: { chat_id: "chat-1", after_sequence: 10, include_tool_detail: false },
+      },
+    });
+    replyOk(socket, { last_event_seq: 40 });
+    await flushMicrotasks();
+    expect(lastRequest(socket)).toMatchObject({
+      payload: {
+        action: "agent_chat_get",
+        data: { chat_id: "chat-1", message_limit: 20, include_tool_detail: false },
+      },
+    });
+  });
+
   test("failed snapshot fetch keeps the old cursor so retry still gets", async () => {
     const timers: TimerCall[] = [];
     FakeMobileWebSocket.instances = [];

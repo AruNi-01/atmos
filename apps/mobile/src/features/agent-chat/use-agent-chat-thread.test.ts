@@ -15,7 +15,10 @@ const thread = readFileSync(
 describe("useAgentChatThread restore", () => {
   test("loads the snapshot before subscribing from the EventGate cursor", () => {
     expect(thread).toContain("agentChatGet");
-    expect(thread).toContain("after_sequence: pump.cursor");
+    expect(thread).toContain("leanChatGetRequest(chatId)");
+    expect(thread).toContain("leanChatSubscribeRequest(chatId, pump.cursor)");
+    expect(thread).toContain("olderPageRequest");
+    expect(thread).toContain("agentChatToolGet");
     expect(thread).toContain("snapshot.meta?.last_event_seq");
     expect(thread).toContain("finishHydrate");
     expect(thread).toContain("canResumeAgentChatSession");
@@ -43,7 +46,7 @@ describe("useAgentChatThread restore", () => {
     expect(thread).toContain("pump.startHydrate()");
     expect(thread).toContain("pump.isHydrateGeneration(generation)");
     expect(thread.indexOf("pump.isHydrateGeneration(generation)")).toBeLessThan(
-      thread.indexOf("applyAgentChatResync(chatId, snapshot, recentEvents)"),
+      thread.indexOf("applyAgentChatResync("),
     );
     expect(thread).toContain("pump.ingest(event)");
     expect(thread).toContain("rememberChatEvent(recentEvents, decision.event)");
