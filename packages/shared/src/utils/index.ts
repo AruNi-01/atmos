@@ -3,6 +3,7 @@
 // Time utilities
 export * from "./time";
 export * from "./quota-provider-order";
+export * from "./token-usage-model-icon";
 
 /**
  * Format a date to locale string

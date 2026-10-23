@@ -20,6 +20,8 @@ import { useSmoothStreamText } from "./smooth-stream-text";
 import { streamdownPlainTableComponents } from "./streamdown-table";
 import { MermaidDiagram } from "./mermaid-diagram";
 
+export { DEFAULT_MERMAID_ERROR_LABEL, MermaidDiagramLabelsProvider } from "./mermaid-diagram";
+
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   from: UIMessage["role"];
 };

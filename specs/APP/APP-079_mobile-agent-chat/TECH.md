@@ -155,6 +155,15 @@ Steps 1–4 are the Must Have bar. Each step typechecks with `bun --filter @atmo
 - **Tradeoff**: mermaid stays a code fence. Diagram layout is not the 1:1 bar; message text and tool cards are.
 - **Rollback**: revert the mobile navigation change. Server chats are untouched. Terminal route still exists.
 
+## Known non-goals (QUALITY-030)
+
+Mobile Agent Chat does **not** implement React Native mermaid→SVG rendering or a full syntax-highlighter stack matching web streamdown/shiki. These are documented gaps, not silent parity misses:
+
+- **Mermaid**: remains a fenced source block in `apps/mobile/src/features/agent-chat/AgentChatMarkdown.tsx`. Do not add an RN mermaid→SVG renderer in this spec’s follow-ups unless a later spec explicitly takes that on.
+- **Highlight**: mobile code fences use the RN markdown/streamdown default; they are not required to match web Shiki highlighting.
+
+[QUALITY-030](../QUALITY-030_friday-i18n-audit-fixes/TECH.md) records this as item 7. [APP-081](../APP-081_mobile-agent-chat-web-parity/TECH.md) already keeps mermaid as a fence and lists mermaid/highlight as a markdown-renderer risk; QUALITY-030 promotes that to a **known non-goal**.
+
 ## Dependencies & compatibility
 
 - Depends on APP-067 / APP-068 / APP-069 wire and on the phone already connecting (APP-077).

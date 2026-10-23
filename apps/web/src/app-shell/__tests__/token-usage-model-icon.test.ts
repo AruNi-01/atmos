@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import {
   BREAKDOWN_OTHER_ID,
@@ -13,7 +15,19 @@ import {
   resolveTokenUsageModelIconSrc,
 } from "@/app-shell/token-usage-dialog-utils";
 
+const webAdapter = readFileSync(
+  join(import.meta.dir, "../../features/token-usage/token-usage-dialog-utils.ts"),
+  "utf8",
+);
+
 describe("resolveTokenUsageModelIconSrc", () => {
+  test("adapts the shared icon map instead of keeping a forked copy", () => {
+    expect(webAdapter).toContain('from "@atmos/shared"');
+    expect(webAdapter).toContain("resolveTokenUsageModelIconRef");
+    expect(webAdapter).not.toContain("const AI_PROVIDER_ICON_IDS");
+    expect(webAdapter).not.toContain("const PROVIDER_TO_AI_PROVIDER_ICON");
+  });
+
   test("maps anthropic / openai / google providers to brand assets", () => {
     expect(resolveTokenUsageModelIconSrc("anthropic", "claude-opus-4")).toBe(
       "/ai-provider/claude.svg",
@@ -42,9 +56,15 @@ describe("resolveTokenUsageModelIconSrc", () => {
     expect(resolveTokenUsageModelIconSrc("qwen", "qwen3-coder")).toBe("/agents/qwen-code.svg");
   });
 
-  test("returns null for unknown families", () => {
-    expect(resolveTokenUsageModelIconSrc("deepseek", "deepseek-r1")).toBeNull();
+  test("maps deepseek onto the shared ai-provider asset", () => {
+    expect(resolveTokenUsageModelIconSrc("deepseek", "deepseek-r1")).toBe(
+      "/ai-provider/deepseek.svg",
+    );
     expect(inferProviderIdFromModel("deepseek-r1")).toBe("deepseek");
+  });
+
+  test("returns null for unknown families", () => {
+    expect(resolveTokenUsageModelIconSrc("mystery", "some-local-model")).toBeNull();
   });
 });
 

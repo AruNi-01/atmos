@@ -98,7 +98,7 @@ Committed under `packages/agent-transcript/fixtures/parity/` (TECH D7), scrubbed
 - **Given**: fixture F1 loaded in the web harness and the phone preview route.
 - **When**: both surfaces render the settled turn.
 - **Then**: the ordered node list matches (paragraph, heading, list, table, inline code, code block, mermaid-as-fence where documented, path chip, link).
-- **Signals**: `compare.ts` exit code 0; per-node diff report is empty. Known differences (table rendering, code highlight) must be listed in the report as `known`, never hidden.
+- **Signals**: `compare.ts` exit code 0; per-node diff report is empty. Known differences (table rendering, code highlight, mermaid-as-fence rather than SVG) must be listed in the report as `known`, never hidden. QUALITY-030 item 7: RN mermaid→SVG and full syntax-highlight parity with web are known non-goals under APP-079.
 
 ### S7 Process fold and expand persistence
 

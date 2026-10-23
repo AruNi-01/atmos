@@ -203,7 +203,7 @@ export function TerminalBuiltinKeyboard({ onKey }: { onKey: (result: TerminalKey
     <View style={styles.keyboard}>
       <View style={styles.modifierRow}>
         <Pressable
-          accessibilityLabel="组合键模式"
+          accessibilityLabel="Combo mode"
           accessibilityRole="checkbox"
           accessibilityState={{ checked: comboMode }}
           onPress={toggleCombo}
@@ -213,7 +213,7 @@ export function TerminalBuiltinKeyboard({ onKey }: { onKey: (result: TerminalKey
             {comboMode ? <CheckIcon color="#ffffff" size={12} strokeWidth={3} /> : null}
           </View>
           <Text numberOfLines={1} style={styles.comboLabel}>
-            组合键模式
+            Combo mode
           </Text>
         </Pressable>
         {MODIFIERS.map((name) => {

@@ -37,6 +37,18 @@ describe("approval-card dynamic actions", () => {
     expect(card).toContain("setPlanExpanded");
   });
 
+  it("accepts injected show less / more / download plan labels", () => {
+    expect(card).toContain("showLessLabel?: string");
+    expect(card).toContain("showMoreLabel?: string | ((count: number) => string)");
+    expect(card).toContain("downloadPlanLabel?: string");
+    expect(card).toContain("resolvedShowLess");
+    expect(card).toContain("resolveShowMore");
+    expect(card).toContain("resolvedDownloadPlan");
+    expect(card).not.toContain('{planExpanded ? "Show less" : `${planRest.length} more`}');
+    expect(card).not.toContain('aria-label="Download plan"');
+    expect(card).toContain("aria-label={resolvedDownloadPlan}");
+  });
+
   it("keeps binary approve/reject when actions are absent", () => {
     expect(card).toContain("handleReject()");
     expect(card).toContain("handleApprove()");

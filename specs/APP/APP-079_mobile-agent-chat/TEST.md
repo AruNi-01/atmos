@@ -237,7 +237,7 @@ The phone UI is verified on the simulator, not with `agent-browser`. If a side-b
 ## Non-coverage
 
 - Server persistence, auth, and provider adapters (existing web chat tests).
-- Mermaid or other diagram layout (TECH renders the fence source).
+- Mermaid or other diagram layout (TECH renders the fence source). QUALITY-030 item 7: RN mermaid→SVG and full syntax-highlight parity with web are **known non-goals**, not missing coverage.
 - Pixel-identical fonts with web markdown.
 - Reaching the terminal from these lists (intentionally removed).
 - Web or Desktop session inbox behavior.

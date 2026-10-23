@@ -1,4 +1,7 @@
+"use client";
+
 import { ArrowDown, ChevronDown, ChevronUp, Loader2, Search, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button, cn } from "@workspace/ui";
 import type { CSSProperties, ReactNode, RefObject } from "react";
 import type { ITheme } from "@xterm/xterm";
@@ -64,6 +67,7 @@ export function TerminalChrome({
   onRetry,
   onCreateNew,
 }: TerminalChromeProps) {
+  const t = useTranslations("Terminal.chrome");
   const normalizedTerminalScale =
     Number.isFinite(terminalScale) && terminalScale > 0 ? terminalScale : 1;
   const scrollbarWidth = Math.max(2, 6 * normalizedTerminalScale);
@@ -137,20 +141,20 @@ export function TerminalChrome({
               color: isDark ? "#71717a" : "#a1a1aa",
             }}
           >
-            Connecting to terminal...
+            {t("status.connecting")}
           </span>
         </div>
       )}
       {uiStatus === "reconnecting" && (
         <TerminalStatusBadge
-          label="Reconnecting..."
+          label={t("status.reconnecting")}
           backgroundColor="rgba(234, 179, 8, 0.2)"
           color="#eab308"
         />
       )}
       {uiStatus === "disconnected" && (
         <TerminalStatusBadge
-          label="Disconnected"
+          label={t("status.disconnected")}
           backgroundColor="rgba(239, 68, 68, 0.2)"
           color="#ef4444"
         />
@@ -178,7 +182,7 @@ export function TerminalChrome({
               maxWidth: "360px",
             }}
           >
-            {errorMessage || "Failed to restore terminal session"}
+            {errorMessage || t("status.restoreFailed")}
           </span>
           {(onCreateNew || onRetry) && (
             <div
@@ -191,12 +195,12 @@ export function TerminalChrome({
             >
               {onCreateNew && (
                 <Button type="button" size="sm" variant="default" onClick={onCreateNew}>
-                  New
+                  {t("actions.new")}
                 </Button>
               )}
               {onRetry && (
                 <Button type="button" size="sm" variant="outline" onClick={onRetry}>
-                  Retry
+                  {t("actions.retry")}
                 </Button>
               )}
             </div>
@@ -236,8 +240,8 @@ export function TerminalChrome({
       {showScrollDown ? (
         <button
           type="button"
-          aria-label="Scroll to bottom"
-          title="Scroll to bottom"
+          aria-label={t("scrollToBottom")}
+          title={t("scrollToBottom")}
           className="terminal-scroll-to-bottom"
           onClick={onScrollToBottom}
         >
@@ -296,6 +300,7 @@ function TerminalSearchOverlay({
   searchQuery: string;
   searchStats: { current: number; total: number };
 }) {
+  const t = useTranslations("Terminal.chrome");
   return (
     <div className="terminal-search-overlay">
       <div className="terminal-search-panel">
@@ -320,7 +325,7 @@ function TerminalSearchOverlay({
               runSearch(event.shiftKey ? "previous" : "next");
             }
           }}
-          placeholder="Search terminal"
+          placeholder={t("search.placeholder")}
           spellCheck={false}
           className={cn(
             "terminal-search-input",
@@ -335,7 +340,7 @@ function TerminalSearchOverlay({
           variant="ghost"
           size="icon-xs"
           className="terminal-search-btn"
-          aria-label="Previous match"
+          aria-label={t("search.previousMatch")}
           onClick={() => runSearch("previous")}
           disabled={!searchQuery.trim()}
         >
@@ -346,7 +351,7 @@ function TerminalSearchOverlay({
           variant="ghost"
           size="icon-xs"
           className="terminal-search-btn"
-          aria-label="Next match"
+          aria-label={t("search.nextMatch")}
           onClick={() => runSearch("next")}
           disabled={!searchQuery.trim()}
         >
@@ -357,7 +362,7 @@ function TerminalSearchOverlay({
           variant="ghost"
           size="icon-xs"
           className="terminal-search-btn terminal-search-close"
-          aria-label="Close search"
+          aria-label={t("search.close")}
           onClick={closeSearch}
         >
           <X size={13} />

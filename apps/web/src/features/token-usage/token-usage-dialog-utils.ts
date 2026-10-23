@@ -10,8 +10,15 @@ import {
   startOfYear,
 } from "date-fns";
 
+import {
+  inferProviderIdFromModel,
+  primaryProviderSegment,
+  resolveTokenUsageModelIconRef,
+} from "@atmos/shared";
 import type { DailyTokenUsageResponse } from "@/api/ws/token-usage-api";
 import type { ChartConfig } from "@/shared/components/ui/chart";
+
+export { inferProviderIdFromModel, primaryProviderSegment };
 
 export type Resolution = "month" | "day";
 
@@ -193,170 +200,16 @@ export function formatModelLabel(modelId: string): string {
   return leaf || raw;
 }
 
-/** Asset basenames present under `public/ai-provider/`. */
-const AI_PROVIDER_ICON_IDS = new Set([
-  "amp",
-  "antigravity",
-  "claude",
-  "codex",
-  "commandcode",
-  "cursor",
-  "factory",
-  "gemini",
-  "grok",
-  "kimi",
-  "mimo",
-  "minimax",
-  "opencode",
-  "zai",
-  "zed",
-  "deepseek",
-]);
-
 /**
- * Map tokscale / litellm-style `provider_id` onto `/ai-provider/*.svg` assets.
- * Keys are normalized with `-` → `_` and lowercased.
- */
-const PROVIDER_TO_AI_PROVIDER_ICON: Record<string, string> = {
-  anthropic: "claude",
-  claude: "claude",
-  openai: "codex",
-  openai_codex: "codex",
-  codex: "codex",
-  google: "gemini",
-  gemini: "gemini",
-  xai: "grok",
-  x_ai: "grok",
-  grok: "grok",
-  moonshotai: "kimi",
-  moonshot: "kimi",
-  kimi: "kimi",
-  minimax: "minimax",
-  minimaxai: "minimax",
-  minimax_ai: "minimax",
-  zai: "zai",
-  zhipu: "zai",
-  z_ai: "zai",
-  xiaomi: "mimo",
-  mimo: "mimo",
-  cursor: "cursor",
-  amp: "amp",
-  antigravity: "antigravity",
-  factory: "factory",
-  opencode: "opencode",
-  zed: "zed",
-  commandcode: "commandcode",
-  command_code: "commandcode",
-};
-
-/** Providers without an ai-provider glyph — fall back to `/agents/*`. */
-const PROVIDER_TO_AGENT_ICON: Record<string, string> = {
-  qwen: "qwen-code",
-  mistral: "mistral-vibe",
-  mistralai: "mistral-vibe",
-};
-
-function normalizeProviderKey(raw: string): string {
-  return raw.trim().toLowerCase().replace(/-/g, "_");
-}
-
-/**
- * tokscale may merge providers as `"openai, anthropic"`. Pick the first segment
- * that maps to a known icon, else the first non-empty segment.
- */
-export function primaryProviderSegment(providerId: string): string | null {
-  const parts = providerId
-    .split(/[,/]/)
-    .map((part) => normalizeProviderKey(part))
-    .filter(Boolean);
-  for (const part of parts) {
-    if (
-      PROVIDER_TO_AI_PROVIDER_ICON[part] ||
-      PROVIDER_TO_AGENT_ICON[part] ||
-      AI_PROVIDER_ICON_IDS.has(part)
-    ) {
-      return part;
-    }
-  }
-  return parts[0] ?? null;
-}
-
-/**
- * Infer provider when tokscale left `provider_id` empty — mirrors
- * `tokscale_core::provider_identity::inferred_provider_from_model` lightly.
- */
-export function inferProviderIdFromModel(modelId: string): string | null {
-  const lower = modelId.trim().toLowerCase();
-  if (!lower || lower === "unknown" || lower === "other") return null;
-
-  if (lower.startsWith("ollama/")) {
-    return inferProviderIdFromModel(lower.slice("ollama/".length));
-  }
-
-  if (
-    lower.includes("claude") ||
-    lower.includes("anthropic") ||
-    /(^|[^a-z])(opus|sonnet|haiku)([^a-z]|$)/.test(lower)
-  ) {
-    return "anthropic";
-  }
-  if (
-    lower.includes("gpt") ||
-    lower.includes("openai") ||
-    /(^|[^a-z])(o1|o3|o4)([^a-z]|$)/.test(lower)
-  ) {
-    return "openai";
-  }
-  if (lower.includes("gemini") || lower.includes("google")) return "google";
-  if (lower.includes("grok")) return "xai";
-  if (lower.includes("deepseek")) return "deepseek";
-  if (lower.includes("minimax")) return "minimax";
-  if (lower.includes("mistral") || lower.includes("mixtral")) return "mistral";
-  if (lower.includes("llama") || /(^|[^a-z])meta([^a-z]|$)/.test(lower)) {
-    return "meta";
-  }
-  if (lower.includes("qwen")) return "qwen";
-  if (/(^|[^a-z])kimi([^a-z]|$)/.test(lower)) return "moonshotai";
-  if (/(^|[^a-z])(k2|k3)([^a-z]|$)/.test(lower)) return "moonshotai";
-  if (/(^|[^a-z])mimo([^a-z]|$)/.test(lower)) return "xiaomi";
-  if (/(^|[^a-z])glm([^a-z]|$)/.test(lower)) return "zai";
-
-  // `provider/model` style ids
-  if (lower.includes("/")) {
-    return primaryProviderSegment(lower.slice(0, lower.indexOf("/")));
-  }
-
-  return null;
-}
-
-/**
- * Resolve a public icon URL for a model row, or null if we have no asset.
- * Prefers explicit tokscale `provider_id`, then model-name inference.
+ * Web adapter: shared icon ref → public SVG URL.
  */
 export function resolveTokenUsageModelIconSrc(
   providerId: string | null | undefined,
   modelId: string,
 ): string | null {
-  const candidates: string[] = [];
-  if (providerId?.trim()) {
-    const primary = primaryProviderSegment(providerId);
-    if (primary) candidates.push(primary);
-  }
-  const inferred = inferProviderIdFromModel(modelId);
-  if (inferred && !candidates.includes(inferred)) {
-    candidates.push(inferred);
-  }
-
-  for (const key of candidates) {
-    const mapped = PROVIDER_TO_AI_PROVIDER_ICON[key] ?? key;
-    if (AI_PROVIDER_ICON_IDS.has(mapped)) {
-      return `/ai-provider/${mapped}.svg`;
-    }
-    const agentIcon = PROVIDER_TO_AGENT_ICON[key];
-    if (agentIcon) {
-      return `/agents/${agentIcon}.svg`;
-    }
-  }
+  const ref = resolveTokenUsageModelIconRef(providerId, modelId);
+  if (ref.kind === "ai-provider") return `/ai-provider/${ref.id}.svg`;
+  if (ref.kind === "agent") return `/agents/${ref.id}.svg`;
   return null;
 }
 
