@@ -5,8 +5,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 
-use crate::TokenUsageError;
 use crate::models::{BrowserCookieAccess, BrowserCookieConsent, TokenUsageQuery};
+use crate::TokenUsageError;
 
 const CURSOR_CSV_ENDPOINT: &str =
     "https://cursor.com/api/dashboard/export-usage-events-csv?strategy=tokens";
