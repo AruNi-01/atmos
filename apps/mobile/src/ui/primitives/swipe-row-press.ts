@@ -19,6 +19,12 @@ export const SWIPE_ROW_BUTTON_EDGE = 16;
 /** Drag distance at which the open corner reaches its full radius. */
 export const SWIPE_ROW_OPEN_DISTANCE = 24;
 
+/**
+ * Offsets at or under this are still the closed row.
+ * The open fill, the separator hide, and the action clip share it.
+ */
+export const SWIPE_ROW_CLOSED_EPSILON = 0.5;
+
 export const swipeRowGestureConfig = {
   panActiveOffsetX: SWIPE_TAP_SLOP_PX,
   panFailOffsetY: 16,
@@ -101,6 +107,30 @@ export function swipeRowCardFrame(offset: number) {
   };
 }
 
+/** True once the row has moved far enough to count as open for fill and separators. */
+export function swipeRowIsOpen(offset: number) {
+  "worklet";
+  return Math.abs(offset) > SWIPE_ROW_CLOSED_EPSILON;
+}
+
+/**
+ * Paintable width of one action bay.
+ * Zero while that edge is closed, so the circles cannot show through the transparent card.
+ * Otherwise the positive gap `swipeRowCardFrame` opens on that edge, capped at the bay.
+ * The trailing clip anchors to the right edge. The leading clip anchors to the left edge.
+ */
+export function swipeRowActionReveal(
+  offset: number,
+  bayWidth: number,
+  edge: "leading" | "trailing",
+) {
+  "worklet";
+  if (!(bayWidth > 0) || !Number.isFinite(offset)) return 0;
+  const opened = edge === "trailing" ? -offset : offset;
+  if (!(opened > SWIPE_ROW_CLOSED_EPSILON)) return 0;
+  return Math.min(opened, bayWidth);
+}
+
 /** Separators above and below each open row. `separatorIndex` is the line before that row. Hiding them does not change tap versus pan. */
 export function hiddenSwipeSeparatorIndexes(openIndexes: readonly number[]): number[] {
   const hidden = new Set<number>();
@@ -117,6 +147,8 @@ export function swipeRowOpenChrome(revealed: boolean, colors: { secondaryBackgro
   const frame = swipeRowCardFrame(offset);
   return {
     ...frame,
+    // Closed stays transparent so the section corner radius stays visible.
+    // Actions stay hidden because swipeRowActionReveal is 0 at rest, not because this fill is opaque.
     cardBackground: revealed ? colors.secondaryBackground : "transparent",
     // The button bay stays unpainted so the section's list fill shows through.
     wellBackground: "transparent" as const,

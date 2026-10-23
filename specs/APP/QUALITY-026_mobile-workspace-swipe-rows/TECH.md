@@ -119,6 +119,8 @@ System swipe actions are not this chrome. SwiftUI `List` `.swipeActions`, UIKit 
 
 Revision (2026-10-22): the first landing used a four-corner `radii.cardNested` card, inset on every side, still filled with `cardElevated`. That read as a bordered card on the same fill as the other rows. The next pass clamped the leading edge at the screen padding and painted the button bay with the page color. The page-colored bay was a separate band. This section leaves the bay transparent and hides the two adjacent separators while the row is open. Gesture classification did not change.
 
+Follow-up: that transparent closed card let the circular actions show through, because the section does not clip (`overflow: visible`). [QUALITY-032](../QUALITY-032_mobile-swipe-closed-cover-actions/TECH.md) clips each action bay to the opened gap and leaves this closed fill transparent so the section corners stay rounded.
+
 ### D5. One swipe implementation
 
 Delete the platform split. `session-swipe-row.tsx` is the implementation Metro loads for iOS, Android, and web. `session-swipe-row.ios.tsx` and `session-swipe-row.android.tsx` go away so iOS cannot keep SwiftUI `SwipeActions`.
