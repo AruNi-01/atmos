@@ -2780,6 +2780,17 @@
     }
   },
   "project": {
+    "deleteProjectDialog": {
+      "title": "删除 {projectName}",
+      "description": "此操作无法撤销。项目将被永久删除，并从你的工作区中移除。",
+      "activeWorkspaces": "该项目仍有未归档的工作区。请先归档全部工作区，然后再删除项目。",
+      "confirmLabel": "请在下方输入“{projectName}”以确认",
+      "actions": {
+        "cancel": "取消",
+        "delete": "删除此项目",
+        "close": "关闭"
+      }
+    },
     "createProjectDialog": {
       "title": "导入项目",
       "connection": {
@@ -3632,6 +3643,9 @@
         "viewPlan": "查看计划",
         "viewTodos": "查看待办",
         "planViewerEmpty": "暂无计划内容。",
+        "planShowLess": "收起",
+        "planShowMore": "还有 {count} 项",
+        "downloadPlan": "下载计划",
         "sessionOpRequested": "会话操作请求中",
         "sessionOpFork": "分叉",
         "sessionOpRewind": "回退",
@@ -7940,7 +7954,24 @@
         "pinned": "已固定到 Canvas",
         "alreadyPinned": "已固定到 Canvas",
         "pinFailed": "无法将终端固定到 Canvas"
-      }
+      },
+      "status": {
+        "connecting": "正在连接终端...",
+        "reconnecting": "重连中...",
+        "disconnected": "已断开",
+        "restoreFailed": "无法恢复终端会话"
+      },
+      "search": {
+        "placeholder": "搜索终端",
+        "previousMatch": "上一处匹配",
+        "nextMatch": "下一处匹配",
+        "close": "关闭搜索"
+      },
+      "actions": {
+        "new": "新建",
+        "retry": "重试"
+      },
+      "scrollToBottom": "滚动到底部"
     }
   },
   "Settings": {
@@ -9535,7 +9566,7 @@
         "oversizedWarning": "由于内联图片载荷过大，截图预览已被隐藏。"
       },
       "protocol": {
-        "promptBody": "Appshot record is stored locally in Atmos appshots records for timestamp {timestamp}. The default location is ~/.atmos/appshots/records/{timestamp}/. Read metadata.json, context.md, and snapshot.png before answering. Inspect snapshot.png when visual context matters.",
+        "promptBody": "Appshot 记录按时间戳 {timestamp} 保存在本机 Atmos appshots 记录中。默认路径为 ~/.atmos/appshots/records/{timestamp}/。回答前请先阅读 metadata.json、context.md 和 snapshot.png。需要视觉上下文时再查看 snapshot.png。",
         "unknownApp": "未知应用",
         "appshotTitle": "Appshot {timestamp}",
         "quality": {

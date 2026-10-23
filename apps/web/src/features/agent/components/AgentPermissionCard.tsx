@@ -165,6 +165,12 @@ export function AgentPermissionCard({
     return actions;
   }, [hasTodos, permission, t, viewingPlan]);
 
+  const approvalExpandLabels = {
+    downloadPlanLabel: t("downloadPlan"),
+    showLessLabel: t("planShowLess"),
+    showMoreLabel: (count: number) => t("planShowMore", { count }),
+  };
+
   if (isAskUser) {
     return (
       <div data-agent-chat-permission="" className="max-h-[50cqh] min-h-0 min-w-0">
@@ -176,6 +182,7 @@ export function AgentPermissionCard({
           readOnly={readOnly}
           approveLabel={t("continue")}
           rejectLabel={t("skip")}
+          {...approvalExpandLabels}
           onApprove={
             readOnly
               ? undefined
@@ -224,6 +231,7 @@ export function AgentPermissionCard({
             ) : undefined
           }
           actions={readOnly ? undefined : planActions}
+          {...approvalExpandLabels}
           onAction={
             readOnly
               ? undefined
@@ -250,6 +258,7 @@ export function AgentPermissionCard({
         actions={readOnly || commandActions.length === 0 ? undefined : commandActions}
         approveLabel={t("allow")}
         rejectLabel={t("deny")}
+        {...approvalExpandLabels}
         onAction={readOnly ? undefined : (optionId) => onRespond(optionId)}
         onApprove={readOnly ? undefined : () => onRespond(defaultAllowOptionId(permission))}
         onReject={readOnly ? undefined : () => onRespond(defaultRejectOptionId(permission))}

@@ -1,4 +1,7 @@
+"use client";
+
 import React, { useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   Dialog,
   DialogContent,
@@ -28,6 +31,7 @@ export const DeleteProjectDialog: React.FC<DeleteProjectDialogProps> = ({
   onConfirm,
   canDelete = true,
 }) => {
+  const t = useTranslations("project.deleteProjectDialog");
   const [confirmName, setConfirmName] = useState("");
 
   const handleClose = () => {
@@ -53,16 +57,12 @@ export const DeleteProjectDialog: React.FC<DeleteProjectDialogProps> = ({
               <AlertTriangle className="size-6 text-destructive" />
             </div>
           </div>
-          <DialogTitle className="text-center">Delete {projectName}</DialogTitle>
+          <DialogTitle className="text-center">{t("title", { projectName })}</DialogTitle>
           {canDelete ? (
-            <DialogDescription className="text-center">
-              This action cannot be undone. This will permanently delete the project and remove it
-              from your workspace.
-            </DialogDescription>
+            <DialogDescription className="text-center">{t("description")}</DialogDescription>
           ) : (
             <DialogDescription className="text-center text-amber-500">
-              This project has active (non-archived) workspaces. Please archive all workspaces
-              before deleting the project.
+              {t("activeWorkspaces")}
             </DialogDescription>
           )}
         </DialogHeader>
@@ -70,9 +70,7 @@ export const DeleteProjectDialog: React.FC<DeleteProjectDialogProps> = ({
         {canDelete && (
           <div className="py-4">
             <Label htmlFor="confirm-name" className="text-sm text-muted-foreground">
-              To confirm, type &apos;
-              <span className="font-semibold text-foreground">{projectName}</span>&apos; in the box
-              below
+              {t("confirmLabel", { projectName })}
             </Label>
             <Input
               id="confirm-name"
@@ -90,7 +88,7 @@ export const DeleteProjectDialog: React.FC<DeleteProjectDialogProps> = ({
           {canDelete ? (
             <>
               <Button variant="outline" onClick={handleClose} className="cursor-pointer">
-                Cancel
+                {t("actions.cancel")}
               </Button>
               <Button
                 variant="destructive"
@@ -98,12 +96,12 @@ export const DeleteProjectDialog: React.FC<DeleteProjectDialogProps> = ({
                 disabled={!isNameMatch}
                 className="cursor-pointer"
               >
-                Delete this project
+                {t("actions.delete")}
               </Button>
             </>
           ) : (
             <Button variant="outline" onClick={handleClose} className="w-full cursor-pointer">
-              Close
+              {t("actions.close")}
             </Button>
           )}
         </DialogFooter>

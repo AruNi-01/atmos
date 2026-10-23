@@ -5,6 +5,13 @@ import { join } from "node:path";
 const card = readFileSync(join(import.meta.dir, "../AgentPermissionCard.tsx"), "utf8");
 
 describe("agent permission card", () => {
+  it("passes i18n show less / more / download plan labels into ApprovalCard", () => {
+    expect(card).toContain('downloadPlanLabel: t("downloadPlan")');
+    expect(card).toContain('showLessLabel: t("planShowLess")');
+    expect(card).toContain('t("planShowMore", { count })');
+    expect(card).toContain("{...approvalExpandLabels}");
+  });
+
   it("uses AIcss ApprovalCard command/questions/plan variants", () => {
     expect(card).toContain("ApprovalCard");
     expect(card).toContain('variant="command"');
