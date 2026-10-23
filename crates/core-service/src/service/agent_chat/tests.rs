@@ -11,6 +11,8 @@ use agent::{
 };
 use tokio::time::timeout;
 
+use crate::error::ServiceError;
+
 use super::coalesce::{concat_adjacent_text, TextChunkCoalescer, COALESCE_FLUSH};
 use super::options::{parse_followup_policy, FollowupPolicy, OptionsPrefetchWorker};
 use super::service::AgentChatService;
@@ -3333,6 +3335,124 @@ async fn lifecycle_load_without_runtime_closes_leftover_open_parts() {
         .find(|message| message.role == "assistant")
         .expect("assistant");
     assert!(!assistant.streaming);
+}
+
+fn seed_leftover_open_text(store: &AgentChatStore, chat_id: &str) {
+    store
+        .append_record(
+            chat_id,
+            &TranscriptEnvelope::new("t1", TranscriptEvent::TurnStarted),
+        )
+        .unwrap();
+    store
+        .append_record(
+            chat_id,
+            &TranscriptEnvelope::new(
+                "t1",
+                TranscriptEvent::UserMessage {
+                    message_id: "u1".into(),
+                    kind: UserMessageKind::Normal,
+                    text: "hello".into(),
+                    attachments: Vec::new(),
+                },
+            ),
+        )
+        .unwrap();
+    store
+        .append_record(
+            chat_id,
+            &TranscriptEnvelope::new(
+                "t1",
+                TranscriptEvent::TextChunk {
+                    part_id: "p1".into(),
+                    message_id: "a1".into(),
+                    parent_part_id: None,
+                    ordinal: 0,
+                    kind: TextKind::Answer,
+                    offset: 0,
+                    text: "leftover".into(),
+                },
+            ),
+        )
+        .unwrap();
+}
+
+fn leftover_part_finished(path: &std::path::Path) -> bool {
+    jsonl_events(path).into_iter().any(|event| {
+        matches!(
+            event,
+            TranscriptEvent::PartFinished {
+                ref part_id,
+                ref text,
+                ..
+            } if part_id == "p1" && text == "leftover"
+        )
+    })
+}
+
+#[tokio::test]
+async fn ensure_chat_unknown_is_not_found() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    let (dir, service) = make_service(provider);
+    let chat_id = uuid::Uuid::new_v4().to_string();
+    let error = service.ensure_chat(&chat_id).await.unwrap_err();
+    assert!(
+        matches!(error, ServiceError::NotFound(_)),
+        "missing chat must be NotFound, got {error:?}"
+    );
+    assert!(
+        !dir.path().join("chats").join(&chat_id).exists(),
+        "ensure_chat must not create a chat dir for a missing id"
+    );
+}
+
+#[tokio::test]
+async fn ensure_chat_closes_leftover_open_parts_without_folding() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    let (_dir, service) = make_service(provider);
+    let meta = service.create(create_req("/tmp/proj")).unwrap();
+    let store = service.store();
+    seed_leftover_open_text(store, &meta.id);
+    let folds_before = store.fold_chat_dir_calls();
+
+    service.ensure_chat(&meta.id).await.unwrap();
+
+    assert_eq!(
+        store.fold_chat_dir_calls(),
+        folds_before,
+        "ensure_chat must not fold transcript.jsonl"
+    );
+    let transcript = store.dir_for(&meta.id).join("transcript.jsonl");
+    let live = store.dir_for(&meta.id).join("live.jsonl");
+    assert!(
+        leftover_part_finished(&transcript),
+        "ensure_chat must persist PartFinished for leftover text"
+    );
+    assert!(
+        std::fs::read_to_string(&live)
+            .unwrap_or_default()
+            .trim()
+            .is_empty(),
+        "ensure_chat must truncate live.jsonl after leftover close"
+    );
+
+    service.ensure_chat(&meta.id).await.unwrap();
+    let finished_count = jsonl_events(&transcript)
+        .into_iter()
+        .filter(|event| {
+            matches!(
+                event,
+                TranscriptEvent::PartFinished {
+                    ref part_id,
+                    ..
+                } if part_id == "p1"
+            )
+        })
+        .count();
+    assert_eq!(
+        finished_count, 1,
+        "second ensure_chat must not append another PartFinished"
+    );
 }
 
 fn jsonl_events(path: &std::path::Path) -> Vec<TranscriptEvent> {
