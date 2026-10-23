@@ -88,3 +88,43 @@ Mix of unit/component tests, message-key presence checks, and source scans. No n
 
 - **Given** root package.json lint script
 - **Then** still `oxlint --max-warnings=455`
+
+## Coverage Status
+
+> Filled 2026-10-23 on `aarynlu/quality-030-friday-i18n-audit-3e87` after the commands below. Head `1a0bf5069`.
+
+| Scenario | Result | Evidence                                                                                                                                                                                                                    |
+| -------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| S1       | pass   | `bun test apps/mobile/src/features/terminal/TerminalBuiltinKeyboard.test.ts`. Source has `Combo mode`; `rg` finds no `组合键模式`.                                                                                          |
+| S2       | pass   | mermaid-diagram + agent-part-view tests. Chat path injects `t("shared.markdownRenderer.mermaid.errors.renderFailed")` via `MermaidDiagramLabelsProvider`. zh is `Mermaid 渲染失败`, not `Failed to render mermaid diagram`. |
+| S3       | pass   | approval-card.actions + agent-permission-card tests. Web passes `planShowLess` / `planShowMore` / `downloadPlan`. Keys exist in en+zh.                                                                                      |
+| S4       | pass   | `terminal-chrome-i18n.test.ts`. `rg` on `TerminalChrome.tsx` finds no hardcoded Connecting/Reconnecting/Disconnected/Search terminal.                                                                                       |
+| S5       | pass   | quality-030-friday-i18n.test.ts. zh `appshot.lib.protocol.promptBody` is Chinese and keeps `{timestamp}`, `~/.atmos/appshots/records/{timestamp}/`, `metadata.json`, `context.md`, `snapshot.png`.                          |
+| S6       | pass   | `delete-project-dialog-i18n.test.ts`. Title is `t("title", { projectName })` under `project.deleteProjectDialog`.                                                                                                           |
+| S7       | pass   | APP-079 TECH `## Known non-goals (QUALITY-030)`; APP-079 TEST non-coverage; APP-081 TECH/TEST cite QUALITY-030. No RN mermaid renderer files.                                                                               |
+| S8       | pass   | shared + web + mobile `token-usage-model-icon` bun tests. Both adapters import `resolveTokenUsageModelIconRef` from `@atmos/shared`.                                                                                        |
+| S9       | pass   | `package.json` lint script still `oxlint --max-warnings=455`. Full run exit 0 with 431 warnings.                                                                                                                            |
+
+Commands:
+
+```bash
+bun test \
+  apps/mobile/src/features/token-usage/model-icon.test.ts \
+  apps/mobile/src/features/terminal/TerminalBuiltinKeyboard.test.ts \
+  apps/web/src/features/agent/components/__tests__/agent-permission-card.test.ts \
+  apps/web/src/app-shell/__tests__/token-usage-model-icon.test.ts \
+  apps/web/src/features/terminal/components/__tests__/terminal-chrome-i18n.test.ts \
+  apps/web/src/features/project/components/__tests__/delete-project-dialog-i18n.test.ts \
+  packages/ui/src/components/ai-elements/mermaid-diagram.test.ts \
+  packages/ui/src/components/ui/approval-card.actions.test.ts \
+  apps/web/src/features/agent/components/__tests__/agent-part-view.test.ts \
+  packages/shared/src/utils/token-usage-model-icon.test.ts \
+  apps/web/src/shared/__tests__/quality-030-friday-i18n.test.ts
+# 56 pass, 0 fail, 313 expect()
+
+bun run --filter @atmos/shared typecheck
+bun run --filter @workspace/ui typecheck
+bun run --filter web typecheck
+bun run --filter @atmos/mobile typecheck
+bunx oxlint --max-warnings=455
+```
