@@ -1,8 +1,20 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { resolveTokenUsageModelIcon } from "./model-icon";
 
+const source = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "model-icon.ts"), "utf8");
+
 describe("resolveTokenUsageModelIcon", () => {
+  test("adapts the shared icon map instead of keeping a forked copy", () => {
+    expect(source).toContain('from "@atmos/shared"');
+    expect(source).toContain("resolveTokenUsageModelIconRef");
+    expect(source).toContain("AGENT_ICON_FOR_PROVIDER");
+    expect(source).not.toContain("PROVIDER_TO_AI_PROVIDER_ICON");
+  });
+
   test("maps provider ids onto the same Agent icons web uses", () => {
     expect(resolveTokenUsageModelIcon("anthropic", "claude-opus-4")).toEqual({
       kind: "agent",
