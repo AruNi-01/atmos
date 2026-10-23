@@ -64,7 +64,7 @@ import { ErrorPart } from "./error-part";
 import {
   agentChatInspectExpandKey,
   agentChatToolGroupExpandKey,
-  expandResetForFirstMessage,
+  expandResetForChat,
   useAgentChatExpandStore,
 } from "./expand-store";
 import { HideScrollEdge } from "./hide-scroll-edge";
@@ -399,9 +399,12 @@ const ChatMessage = memo(function ChatMessage({
 export const AgentChatTranscript = forwardRef<
   AgentChatTranscriptHandle,
   {
+    chatId?: string;
     expandedCardHeight?: number;
     focusMessageId?: string | null;
+    header?: ReactNode;
     messages: AgentMessage[];
+    onStartReached?: () => void;
     onStickChange?: (next: TranscriptStick) => void;
     /** Real scroll offsets. The stick callback can lag behind `viewRef` during a jump. */
     onViewport?: (next: TranscriptStick) => void;
@@ -413,9 +416,12 @@ export const AgentChatTranscript = forwardRef<
   }
 >(function AgentChatTranscript(
   {
+    chatId,
     expandedCardHeight = 0,
     focusMessageId,
+    header,
     messages,
+    onStartReached,
     onStickChange,
     onViewport,
     onContentSizeChange: onContentSizeChangeProp,
@@ -435,7 +441,7 @@ export const AgentChatTranscript = forwardRef<
   const jumpRetryIndexRef = useRef(-1);
   const jumpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listHeightRef = useRef(0);
-  const seenFirstId = useRef<string | undefined>(undefined);
+  const seenChatId = useRef<string | undefined>(undefined);
   const seenStickToken = useRef(stickToken);
   const scrolledFocusRef = useRef<string | null>(null);
   const measurementsRef = useRef<Array<TranscriptMeasurement | undefined>>([]);
@@ -841,8 +847,6 @@ export const AgentChatTranscript = forwardRef<
     }
     return messages;
   }, [messages, streaming]);
-  const firstMessageId = messages[0]?.id;
-
   useLayoutEffect(() => {
     onStickChangeRef.current = onStickChange;
     onViewportRef.current = onViewport;
@@ -862,10 +866,10 @@ export const AgentChatTranscript = forwardRef<
   }, []);
 
   useEffect(() => {
-    const boundary = expandResetForFirstMessage(seenFirstId.current, firstMessageId);
+    const boundary = expandResetForChat(seenChatId.current, chatId);
     if (boundary.reset) useAgentChatExpandStore.getState().reset();
-    seenFirstId.current = boundary.firstId;
-  }, [firstMessageId]);
+    seenChatId.current = boundary.chatId;
+  }, [chatId]);
 
   useEffect(() => {
     if (stickToken === seenStickToken.current) return;
@@ -908,9 +912,12 @@ export const AgentChatTranscript = forwardRef<
           keyboardShouldPersistTaps="handled"
           keyExtractor={(item) => item.id}
           ListEmptyComponent={<EmptyChat />}
+          ListHeaderComponent={header ? <>{header}</> : null}
           maintainVisibleContentPosition={
             stickToEnd ? undefined : { autoscrollToTopThreshold: 10, minIndexForVisible: 0 }
           }
+          onStartReached={onStartReached}
+          onStartReachedThreshold={0.05}
           onContentSizeChange={onContentSizeChange}
           onLayout={onLayout}
           onMomentumScrollEnd={onMomentumScrollEnd}

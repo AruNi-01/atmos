@@ -64,9 +64,22 @@ export type AgentChatIdRequest = {
   chat_id: string;
 };
 
+export type AgentChatGetRequest = {
+  chat_id: string;
+  message_limit?: number | null;
+  include_tool_detail?: boolean | null;
+};
+
 export type AgentChatMessagesRequest = {
   chat_id: string;
   limit?: number | null;
+  before_message_id?: string | null;
+  include_tool_detail?: boolean | null;
+};
+
+export type AgentChatMessagesResponse = {
+  messages: AgentMessage[];
+  has_more?: boolean;
 };
 
 export type AgentChatRenameRequest = {
@@ -88,6 +101,16 @@ export type AgentChatConfigureRequest = {
 export type AgentChatSubscribeRequest = {
   chat_id: string;
   after_sequence?: number | null;
+  include_tool_detail?: boolean | null;
+};
+
+export type AgentChatToolGetRequest = {
+  chat_id: string;
+  tool_call_ids: string[];
+};
+
+export type AgentChatToolGetResponse = {
+  parts: AgentPart[];
 };
 
 export type AgentChatBackfillPart = {
@@ -459,6 +482,8 @@ export type AgentTool = {
   status: AgentToolStatus;
   params: AgentToolParams;
   result?: AgentToolResult | null;
+  /** Present on lean wire objects after tool bodies were stripped. */
+  detail_omitted?: boolean;
 };
 
 export type SessionLifecycleAction = "create" | "resume";
@@ -557,6 +582,8 @@ export type AgentSessionOpRequest = {
 export type AgentChatSnapshot = {
   meta: AgentChatMeta;
   messages: AgentMessage[];
+  /** Present only when a paged get window is not the full history. */
+  has_more_messages?: boolean;
   queue: AgentQueueItem[];
   pending_permission?: {
     request_id: string;

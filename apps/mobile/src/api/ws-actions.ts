@@ -2,9 +2,11 @@ import type {
   AgentChatBackfillRequest,
   AgentChatConfigureRequest,
   AgentChatCreateRequest,
+  AgentChatGetRequest,
   AgentChatIdRequest,
   AgentChatListRequest,
   AgentChatMessagesRequest,
+  AgentChatToolGetRequest,
   AgentChatPermissionRespondRequest,
   AgentChatPrefsSetRequest,
   AgentChatQueueAddRequest,
@@ -14,7 +16,6 @@ import type {
   AgentChatRenameRequest,
   AgentChatSendRequest,
   AgentChatSessionOpRespondRequest,
-  AgentChatSnapshot,
   AgentChatSteerRequest,
   AgentChatSubscribeRequest,
   AgentOptionsGetRequest,
@@ -223,8 +224,11 @@ export const wsActions = {
   agentChatMessages(client: MobileWsClient, payload: AgentChatMessagesRequest) {
     return client.request("agent_chat_messages", payload);
   },
-  agentChatGet(client: MobileWsClient, payload: AgentChatIdRequest) {
-    return client.request("agent_chat_get", payload) as Promise<AgentChatSnapshot>;
+  agentChatGet(client: MobileWsClient, payload: AgentChatGetRequest) {
+    return client.request("agent_chat_get", payload);
+  },
+  agentChatToolGet(client: MobileWsClient, payload: AgentChatToolGetRequest) {
+    return client.request("agent_chat_tool_get", payload);
   },
   agentChatSubscribe(client: MobileWsClient, payload: AgentChatSubscribeRequest) {
     return client.request("agent_chat_subscribe", payload);

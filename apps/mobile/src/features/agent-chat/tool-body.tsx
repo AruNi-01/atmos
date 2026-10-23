@@ -341,12 +341,14 @@ export function toolGroupDiffTotals(parts: AgentPart[]): { additions: number; de
 
 // @view
 
-import { useState, type ReactNode } from "react";
-import { Image, Linking, Pressable, Text, View } from "react-native";
+import { useEffect, useState, type ReactNode } from "react";
+import { ActivityIndicator, Image, Linking, Pressable, Text, View } from "react-native";
 import { useMobileTheme } from "@/theme/theme-store";
 import { XCircleIcon } from "@/ui/icons/lucide-native";
 import { AgentChatMarkdown } from "./AgentChatMarkdown";
 import { agentChatToolExpandKey, useAgentChatExpand } from "./expand-store";
+import { shouldFetchToolDetail, toolDetailPhase } from "./lean-chat";
+import { useAgentChatToolDetail } from "./tool-detail-context";
 import { TextShimmer } from "./motion/text-shimmer";
 import { toolTriggerMetrics } from "./tool-chrome";
 import { ToolKindIcon } from "./tool-kind-icon";
@@ -681,6 +683,25 @@ export function ToolCallRow({ part }: { part: AgentToolCallPart }) {
   const theme = useMobileTheme();
   const model = toolBodyModel(part);
   const [open, setOpen] = useAgentChatExpand(agentChatToolExpandKey(part.tool_call_id), false);
+  const { statusFor, load } = useAgentChatToolDetail();
+  const detailStatus = statusFor(part.tool_call_id);
+  const omitted = part.detail_omitted === true;
+  const phase = toolDetailPhase({
+    open,
+    detailOmitted: omitted,
+    status: detailStatus,
+  });
+  useEffect(() => {
+    if (
+      shouldFetchToolDetail({
+        open,
+        detailOmitted: omitted,
+        status: detailStatus,
+      })
+    ) {
+      load(part.tool_call_id);
+    }
+  }, [detailStatus, load, omitted, open, part.tool_call_id]);
   if (model.kind === "subagent") {
     return <SubagentCard status={model.status} title={model.title} />;
   }
@@ -730,7 +751,20 @@ export function ToolCallRow({ part }: { part: AgentToolCallPart }) {
       </Pressable>
       {open ? (
         <View style={{ paddingTop: metrics.bodyPadTop }}>
-          <ToolBodyView model={model} />
+          {phase === "loading" ? (
+            <ActivityIndicator
+              accessibilityLabel={copy.loadingTool}
+              color={theme.colors.secondaryLabel}
+            />
+          ) : null}
+          {phase === "retry" ? (
+            <Pressable accessibilityRole="button" onPress={() => load(part.tool_call_id)}>
+              <Text style={{ color: theme.colors.red, fontSize: 13, lineHeight: 18 }}>
+                {copy.toolDetailFailed}
+              </Text>
+            </Pressable>
+          ) : null}
+          {phase === "body" ? <ToolBodyView model={model} /> : null}
         </View>
       ) : null}
     </View>

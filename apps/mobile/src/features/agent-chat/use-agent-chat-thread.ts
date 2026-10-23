@@ -49,12 +49,23 @@ import {
   createChatTranscript,
   pruneChatEvents,
   rememberChatEvent,
+  withTranscriptMessages,
   type ChatTranscriptState,
 } from "./fold-transcript";
 import { agentChatEventFromMessage, eventsForChat } from "./foreign-event";
 import { nextAgentChatResyncDelayMs, shouldAbandonAgentChatHydrate } from "./hydrate-recovery";
+import {
+  leanChatGetRequest,
+  leanChatSubscribeRequest,
+  olderPageAfterFailure,
+  olderPageRequest,
+  shouldRefetchLeanCompleted,
+  type ToolDetailStatus,
+} from "./lean-chat";
 import { useReducedMotion } from "./motion/use-reduced-motion";
+import { patchToolParts, prependOlderMessages } from "./paged-transcript";
 import { canResumeAgentChatSession } from "./session-resume";
+import { agentChatToolExpandKey, useAgentChatExpandStore } from "./expand-store";
 
 function backfillKey(request: BackfillRequest): string {
   return `${request.partId}:${request.fromOffset}`;
@@ -76,6 +87,15 @@ export function useAgentChatThread(chatId: string) {
   const loadedClientRef = useRef<object | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const hasMoreRef = useRef(false);
+  const [hasMore, setHasMore] = useState(false);
+  const olderInflightRef = useRef(false);
+  const [olderLoading, setOlderLoading] = useState(false);
+  const [olderError, setOlderError] = useState<string | null>(null);
+  const toolStatusRef = useRef<Record<string, ToolDetailStatus>>({});
+  const [toolStatus, setToolStatus] = useState<Record<string, ToolDetailStatus>>({});
+  const loadToolDetailRef = useRef<(toolCallId: string) => void>(() => {});
+  const loadOlderRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     if (chatId.trim() === "") {
@@ -125,6 +145,13 @@ export function useAgentChatThread(chatId: string) {
       setTranscript(empty);
       setLoading(true);
       setError(null);
+      hasMoreRef.current = false;
+      setHasMore(false);
+      olderInflightRef.current = false;
+      setOlderLoading(false);
+      setOlderError(null);
+      toolStatusRef.current = {};
+      setToolStatus({});
     } else {
       setTranscript(transcriptRef.current);
     }
@@ -160,12 +187,92 @@ export function useAgentChatThread(chatId: string) {
         });
     };
 
+    const setToolStatusFor = (toolCallId: string, status: ToolDetailStatus) => {
+      toolStatusRef.current = { ...toolStatusRef.current, [toolCallId]: status };
+      setToolStatus(toolStatusRef.current);
+    };
+
+    const loadToolDetail = (toolCallId: string) => {
+      if (!client || cancelled || toolCallId.trim() === "") return;
+      if (toolStatusRef.current[toolCallId] === "loading") return;
+      setToolStatusFor(toolCallId, "loading");
+      void wsActions
+        .agentChatToolGet(client, { chat_id: chatId, tool_call_ids: [toolCallId] })
+        .then((response) => {
+          if (cancelled) return;
+          const parts = response.parts ?? [];
+          transcriptRef.current = withTranscriptMessages(
+            transcriptRef.current,
+            patchToolParts(transcriptRef.current.messages, parts),
+          );
+          setTranscript(transcriptRef.current);
+          setToolStatusFor(toolCallId, "ready");
+        })
+        .catch(() => {
+          if (!cancelled) setToolStatusFor(toolCallId, "error");
+        });
+    };
+    loadToolDetailRef.current = loadToolDetail;
+
+    const loadOlder = (retries = 0) => {
+      if (!client || cancelled || olderInflightRef.current || !hasMoreRef.current) return;
+      const oldestId = transcriptRef.current.messages[0]?.id;
+      if (!oldestId) return;
+      olderInflightRef.current = true;
+      setOlderLoading(true);
+      setOlderError(null);
+      void wsActions
+        .agentChatMessages(client, olderPageRequest(chatId, oldestId))
+        .then((page) => {
+          if (cancelled) return;
+          const older = page.messages ?? [];
+          transcriptRef.current = withTranscriptMessages(
+            transcriptRef.current,
+            prependOlderMessages(transcriptRef.current.messages, older),
+          );
+          const more = page.has_more === true;
+          hasMoreRef.current = more;
+          setHasMore(more);
+          setTranscript(transcriptRef.current);
+          olderInflightRef.current = false;
+          setOlderLoading(false);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          olderInflightRef.current = false;
+          const next = olderPageAfterFailure(retries);
+          if (next.retry) {
+            loadOlder(next.retries);
+            return;
+          }
+          setOlderLoading(false);
+          setOlderError(copy.loadOlderFailed);
+        });
+    };
+    loadOlderRef.current = () => loadOlder(0);
+
     const applyDecision = (decision: AgentChatPumpIngest) => {
       if (decision.action !== "apply") return;
       if (rememberChatEvent(recentEvents, decision.event)) markOpenThreadOverflow(resyncCtrl);
       const next = applyChatEvent(transcriptRef.current, decision.event);
       transcriptRef.current = next.state;
       if (next.backfill) requestBackfill(next.backfill);
+      const payload = decision.event.payload;
+      if (payload.type === "tool_call_completed" || payload.type === "tool_call_failed") {
+        const tool = payload.tool_call;
+        const expanded =
+          useAgentChatExpandStore.getState().values[agentChatToolExpandKey(tool.tool_call_id)] ===
+          true;
+        if (
+          shouldRefetchLeanCompleted({
+            expanded,
+            detailOmitted: tool.detail_omitted === true,
+            status: tool.status,
+          })
+        ) {
+          loadToolDetail(tool.tool_call_id);
+        }
+      }
       pushAgentChatCommit(commitBuffer, decision.event.payload.type, reducedMotionRef.current);
     };
 
@@ -179,8 +286,15 @@ export function useAgentChatThread(chatId: string) {
       generation?: number,
     ): boolean => {
       if (!pump.isHydrateGeneration(generation)) return false;
-      const applied = applyAgentChatResync(chatId, snapshot, recentEvents);
+      const applied = applyAgentChatResync(chatId, snapshot, recentEvents, transcriptRef.current);
       transcriptRef.current = applied.state;
+      const windowOldest = snapshot.messages?.[0]?.id;
+      const localOldest = applied.state.messages[0]?.id;
+      if (!(windowOldest && localOldest && windowOldest !== localOldest)) {
+        const more = snapshot.has_more_messages === true;
+        hasMoreRef.current = more;
+        setHasMore(more);
+      }
       for (const request of applied.backfills) requestBackfill(request);
       const seq = snapshot.meta?.last_event_seq ?? 0;
       pruneChatEvents(recentEvents, seq);
@@ -190,10 +304,10 @@ export function useAgentChatThread(chatId: string) {
     };
 
     const subscribeFromCursor = async () => {
-      const subscribed = await wsActions.agentChatSubscribe(client, {
-        chat_id: chatId,
-        after_sequence: pump.cursor,
-      });
+      const subscribed = await wsActions.agentChatSubscribe(
+        client,
+        leanChatSubscribeRequest(chatId, pump.cursor),
+      );
       return subscribed.last_event_seq ?? pump.cursor;
     };
 
@@ -204,7 +318,7 @@ export function useAgentChatThread(chatId: string) {
       const generation = pump.startHydrate();
       let stillBehind = false;
       try {
-        const snapshot = await wsActions.agentChatGet(client, { chat_id: chatId });
+        const snapshot = await wsActions.agentChatGet(client, leanChatGetRequest(chatId));
         if (cancelled) {
           if (shouldAbandonAgentChatHydrate("cancelled")) drainAbandonedHydrate(generation);
           return;
@@ -244,7 +358,7 @@ export function useAgentChatThread(chatId: string) {
           ctrl: resyncCtrl,
           incoming: resync.snapshot,
           fetchReplacement: () =>
-            facade.fetchSnapshot(() => wsActions.agentChatGet(client, { chat_id: chatId })),
+            facade.fetchSnapshot(() => wsActions.agentChatGet(client, leanChatGetRequest(chatId))),
           publish: (snapshot) => {
             const applied = applySnapshot(snapshot, facade.takeGeneration());
             if (applied) setError((prev) => (prev === copy.sendFailed ? prev : null));
@@ -267,7 +381,7 @@ export function useAgentChatThread(chatId: string) {
       try {
         if (!isResume) {
           const generation = pump.startHydrate();
-          const snapshot = await wsActions.agentChatGet(client, { chat_id: chatId });
+          const snapshot = await wsActions.agentChatGet(client, leanChatGetRequest(chatId));
           if (cancelled) {
             if (shouldAbandonAgentChatHydrate("cancelled")) drainAbandonedHydrate(generation);
             return;
@@ -470,8 +584,26 @@ export function useAgentChatThread(chatId: string) {
     [chatId, client],
   );
 
+  const loadOlder = useCallback(() => {
+    loadOlderRef.current();
+  }, []);
+  const loadToolDetail = useCallback((toolCallId: string) => {
+    loadToolDetailRef.current(toolCallId);
+  }, []);
+  const statusFor = useCallback(
+    (toolCallId: string): ToolDetailStatus => toolStatus[toolCallId] ?? "idle",
+    [toolStatus],
+  );
+
   return {
     messages: transcript.messages,
+    meta: transcript.meta,
+    hasMore,
+    olderLoading,
+    olderError,
+    loadOlder,
+    loadToolDetail,
+    toolDetailStatusFor: statusFor,
     pendingPermission: transcript.pendingPermission,
     pendingSessionOp: transcript.pendingSessionOp,
     queue: transcript.queue,

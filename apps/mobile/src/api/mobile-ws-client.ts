@@ -1,4 +1,3 @@
-import type { AgentChatSnapshot } from "@atmos/api-types/ws/dto/agent-chat";
 import type { MappedWsAction, WsContract } from "@atmos/api-types/ws/contract";
 import {
   createWsSession,
@@ -159,6 +158,30 @@ function adaptSocket(
   };
 }
 
+type ChatViewOpts = {
+  message_limit?: number;
+  include_tool_detail?: boolean;
+};
+
+function chatIdFromData(data: unknown): string | null {
+  if (!data || typeof data !== "object") return null;
+  const chatId = (data as { chat_id?: unknown }).chat_id;
+  return typeof chatId === "string" && chatId.length > 0 ? chatId : null;
+}
+
+function rememberViewOpts(current: ChatViewOpts | undefined, data: unknown): ChatViewOpts {
+  const next: ChatViewOpts = { ...current };
+  if (!data || typeof data !== "object") return next;
+  const record = data as { message_limit?: unknown; include_tool_detail?: unknown };
+  if (typeof record.message_limit === "number" && Number.isFinite(record.message_limit)) {
+    next.message_limit = record.message_limit;
+  }
+  if (typeof record.include_tool_detail === "boolean") {
+    next.include_tool_detail = record.include_tool_detail;
+  }
+  return next;
+}
+
 function subscribePayload(data: unknown): { chatId: string; afterSequence: number | null } | null {
   if (!data || typeof data !== "object") return null;
   const record = data as { chat_id?: unknown; after_sequence?: unknown };
@@ -192,6 +215,7 @@ export class MobileWsClient {
   private readonly cursors = new AgentChatCursorTracker();
   private readonly pendingSnapshots = new Set<string>();
   private readonly resyncGeneration = new Map<string, number>();
+  private readonly chatViewOpts = new Map<string, ChatViewOpts>();
   private readonly setTimer: (callback: () => void, delayMs: number) => MobileTimer;
   private readonly clearTimer: (timer: MobileTimer) => void;
   private readonly reconnectEnabled: boolean;
@@ -310,15 +334,23 @@ export class MobileWsClient {
     opts?: WsRequestCallOpts,
   ): Promise<WsContract[A]["output"]>;
   request(action: string, data?: unknown, opts?: WsRequestCallOpts): Promise<unknown> {
+    const chatId = chatIdFromData(data);
+    if (action === "agent_chat_get" && chatId) {
+      this.chatViewOpts.set(chatId, rememberViewOpts(this.chatViewOpts.get(chatId), data));
+    }
     if (action === "agent_chat_subscribe") {
       const payload = subscribePayload(data);
       if (payload) this.cursors.noteSubscribe(payload.chatId, payload.afterSequence);
+      if (chatId) {
+        this.chatViewOpts.set(chatId, rememberViewOpts(this.chatViewOpts.get(chatId), data));
+      }
     } else if (action === "agent_chat_unsubscribe") {
       const payload = subscribePayload(data);
       if (payload) {
         this.bumpResyncGeneration(payload.chatId);
         this.cursors.noteUnsubscribe(payload.chatId);
         this.pendingSnapshots.delete(payload.chatId);
+        this.chatViewOpts.delete(payload.chatId);
       }
     }
     return this.session.request(action as never, data as never, opts).catch((err) => {
@@ -419,9 +451,11 @@ export class MobileWsClient {
   private async resyncChat(chat: { chat_id: string; after_sequence: number }) {
     const generation = this.bumpResyncGeneration(chat.chat_id);
     const live = () => !this.disposed && this.resyncGeneration.get(chat.chat_id) === generation;
+    const view = this.chatViewOpts.get(chat.chat_id);
     const subscribed = await this.session.request("agent_chat_subscribe", {
       chat_id: chat.chat_id,
       after_sequence: chat.after_sequence,
+      ...(view?.include_tool_detail === false ? { include_tool_detail: false } : {}),
     });
     if (!live()) return;
     const lastSeq = lastEventSeqFromSubscribe(subscribed);
@@ -433,9 +467,11 @@ export class MobileWsClient {
     }
     this.pendingSnapshots.add(chat.chat_id);
     if (!this.lifecycleLive()) throw new Error("lifecycle paused");
-    const snapshot = (await this.session.request("agent_chat_get", {
+    const snapshot = await this.session.request("agent_chat_get", {
       chat_id: chat.chat_id,
-    })) as AgentChatSnapshot;
+      ...(view?.message_limit != null ? { message_limit: view.message_limit } : {}),
+      ...(view?.include_tool_detail === false ? { include_tool_detail: false } : {}),
+    });
     if (!live()) return;
     const snapshotSeq = snapshot.meta?.last_event_seq;
     if (typeof snapshotSeq === "number") this.cursors.noteRevision(chat.chat_id, snapshotSeq);

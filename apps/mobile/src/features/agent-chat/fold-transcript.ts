@@ -23,6 +23,7 @@ import type {
 } from "@atmos/api-types/ws/dto/agent-chat";
 import { normalizeSlashCommands, type SlashCommand } from "./composer-suggestions";
 import { eventsForChat } from "./foreign-event";
+import { mergePagedMessages, restoreToolDetailsOnMessage } from "./paged-transcript";
 import { defaultToolParams, wireToolKind } from "./tool-kind";
 
 export type PendingPermission = NonNullable<AgentChatSnapshot["pending_permission"]>;
@@ -30,6 +31,7 @@ export type PendingPermission = NonNullable<AgentChatSnapshot["pending_permissio
 export type ChatTranscriptState = {
   chatId: string;
   messages: AgentMessage[];
+  meta: AgentChatSnapshot["meta"] | null;
   pendingPermission: PendingPermission | null;
   pendingSessionOp: AgentSessionOpRequest | null;
   queue: AgentQueueItem[];
@@ -104,6 +106,7 @@ function seedStore(messages: AgentMessage[], openPartIds?: ReadonlySet<string>):
           kind: part.kind,
           params: part.params,
           result: part.result,
+          detail_omitted: part.detail_omitted,
         });
       }
     });
@@ -128,6 +131,7 @@ export function createChatTranscript(
   return {
     chatId,
     messages: normalized,
+    meta: null,
     pendingPermission: null,
     pendingSessionOp: null,
     queue: [],
@@ -140,6 +144,18 @@ export function createChatTranscript(
   };
 }
 
+export function withTranscriptMessages(
+  state: ChatTranscriptState,
+  messages: AgentMessage[],
+): ChatTranscriptState {
+  const next = createChatTranscript(state.chatId, messages);
+  return {
+    ...state,
+    messages: next.messages,
+    store: next.store,
+  };
+}
+
 export function transcriptFromAgentChatSnapshot(
   chatId: string,
   snapshot: AgentChatSnapshot,
@@ -147,6 +163,7 @@ export function transcriptFromAgentChatSnapshot(
   const state = createChatTranscript(chatId, snapshot.messages ?? [], snapshot.meta);
   return {
     ...state,
+    meta: snapshot.meta ?? null,
     pendingPermission: snapshot.pending_permission ?? null,
     pendingSessionOp: snapshot.pending_session_op ?? null,
     queue: snapshot.queue ?? [],
@@ -182,8 +199,16 @@ export function applyAgentChatResync(
   chatId: string,
   snapshot: AgentChatSnapshot,
   recentEvents: ReadonlyArray<AgentChatEvent>,
+  previous?: ChatTranscriptState | null,
 ): AppliedChatResync {
-  let state = transcriptFromAgentChatSnapshot(chatId, snapshot);
+  const windowed =
+    previous && previous.chatId === chatId && previous.messages.length > 0
+      ? {
+          ...snapshot,
+          messages: mergePagedMessages(previous.messages, snapshot.messages ?? []),
+        }
+      : snapshot;
+  let state = transcriptFromAgentChatSnapshot(chatId, windowed);
   const after = snapshot.meta?.last_event_seq ?? 0;
   const backfills: BackfillRequest[] = [];
   for (const event of recentEvents) {
@@ -375,6 +400,7 @@ function toolStateFromEvent(payload: ToolEvent): ToolCallState {
     kind,
     params: tool.params ?? defaultToolParams(kind),
     result: tool.result ?? errorResult,
+    detail_omitted: tool.detail_omitted,
   };
 }
 
@@ -390,6 +416,7 @@ function toolPartFromState(tool: ToolCallState): Extract<AgentPart, { type: "too
     status: tool.status,
     params: tool.params ?? defaultToolParams(kind),
     result: tool.result,
+    detail_omitted: tool.detail_omitted,
   };
 }
 
@@ -462,7 +489,7 @@ export function applyChatEvent(
       const snap = byId.get(message.id);
       if (snap) {
         seen.add(message.id);
-        messages.push(snap);
+        messages.push(restoreToolDetailsOnMessage(snap, message));
       } else {
         messages.push(message);
       }

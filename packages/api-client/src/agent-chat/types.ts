@@ -29,6 +29,7 @@ export type ToolCallState = {
   kind?: AgentToolKind | null;
   params?: AgentToolParams | null;
   result?: AgentToolResult | null;
+  detail_omitted?: boolean;
 };
 
 export type SessionChrome =

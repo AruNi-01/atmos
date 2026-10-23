@@ -116,6 +116,9 @@ export function mergeToolCallState(
   existing: ToolCallState,
   incoming: ToolCallState,
 ): ToolCallState {
+  const incomingOmits = incoming.detail_omitted === true;
+  const existingComplete = existing.detail_omitted !== true;
+  const keepFull = incomingOmits && existingComplete;
   return {
     tool_call_id: incoming.tool_call_id || existing.tool_call_id,
     parent_tool_call_id: incoming.parent_tool_call_id ?? existing.parent_tool_call_id,
@@ -123,8 +126,9 @@ export function mergeToolCallState(
     name: keepOptional(incoming.name, existing.name),
     title: keepOptional(incoming.title, existing.title),
     kind: keepOptional(incoming.kind, existing.kind),
-    params: keepOptional(incoming.params, existing.params),
-    result: keepOptional(incoming.result, existing.result),
+    params: keepFull ? existing.params : keepOptional(incoming.params, existing.params),
+    result: keepFull ? existing.result : keepOptional(incoming.result, existing.result),
+    detail_omitted: keepFull ? existing.detail_omitted : incoming.detail_omitted,
   };
 }
 
