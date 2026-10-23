@@ -26,20 +26,20 @@ Deterministic coverage lives in Rust (page/strip/handlers) and Bun (contract, fo
 
 ## Execution map
 
-| Scenario | Level      | Expected tool       | Target command / method         | Fixture / data                | Signals                                 | Status  |
-| -------- | ---------- | ------------------- | ------------------------------- | ----------------------------- | --------------------------------------- | ------- |
-| S1       | Rust unit  | `cargo test`        | `page_messages`                 | 25 synthetic messages         | last 20; `has_more` true                | planned |
-| S2       | Rust unit  | `cargo test`        | `strip_message_tool_details`    | Diff + Execute + FileContent  | no full contents; JSON `detail_omitted` | planned |
-| S3       | Rust unit  | `cargo test`        | `page_messages` before id       | cursor at message 6           | previous 5; `has_more` false            | planned |
-| S4       | Bun        | `bun test`          | fold prepend / resync merge     | local older + snapshot window | prefix kept; ids unique                 | planned |
-| S5       | Bun        | `bun test`          | load-older retry helper         | failed then ok                | three retries then header error         | planned |
-| S6       | Rust / API | `cargo test -p api` | `agent_chat_tool_get`           | snapshot with one tool        | full part returned                      | planned |
-| S7       | Bun        | `bun test`          | tool-detail helper              | `detail_omitted` open         | loading → ready / error                 | planned |
-| S8       | Bun        | `bun test`          | `use-agent-chat-thread.ts` scan | source                        | lean get+subscribe; no unbounded get    | planned |
-| S9       | Bun        | `bun test`          | ToolCallRow / tool-body         | omitted vs full               | spinner vs body                         | planned |
-| S10      | Rust       | `cargo test -p api` | subscribe lean opt              | HashMap opts                  | lean conn stored; full default          | planned |
-| S11      | Bun        | `bun test`          | web `agent-chat-api.ts`         | source                        | `{ chat_id }` only                      | planned |
-| S12      | Rust unit  | `cargo test`        | unknown before id               | missing cursor                | empty + `has_more` false                | planned |
+| Scenario | Level      | Expected tool       | Target command / method         | Fixture / data                | Signals                                 | Status |
+| -------- | ---------- | ------------------- | ------------------------------- | ----------------------------- | --------------------------------------- | ------ |
+| S1       | Rust unit  | `cargo test`        | `page_messages`                 | 25 synthetic messages         | last 20; `has_more` true                | pass   |
+| S2       | Rust unit  | `cargo test`        | `strip_message_tool_details`    | Diff + Execute + FileContent  | no full contents; JSON `detail_omitted` | pass   |
+| S3       | Rust unit  | `cargo test`        | `page_messages` before id       | cursor at message 6           | previous 5; `has_more` false            | pass   |
+| S4       | Bun        | `bun test`          | fold prepend / resync merge     | local older + snapshot window | prefix kept; ids unique                 | pass   |
+| S5       | Bun        | `bun test`          | load-older retry helper         | failed then ok                | three retries then header error         | pass   |
+| S6       | Rust / API | `cargo test -p api` | `agent_chat_tool_get`           | snapshot with one tool        | full part returned                      | pass   |
+| S7       | Bun        | `bun test`          | tool-detail helper              | `detail_omitted` open         | loading → ready / error                 | pass   |
+| S8       | Bun        | `bun test`          | `use-agent-chat-thread.ts` scan | source                        | lean get+subscribe; no unbounded get    | pass   |
+| S9       | Bun        | `bun test`          | ToolCallRow / tool-body         | omitted vs full               | spinner vs body                         | pass   |
+| S10      | Rust       | `cargo test -p api` | subscribe lean opt              | HashMap opts                  | lean conn stored; full default          | pass   |
+| S11      | Bun        | `bun test`          | web `agent-chat-api.ts`         | source                        | `{ chat_id }` only                      | pass   |
+| S12      | Rust unit  | `cargo test`        | unknown before id               | missing cursor                | empty + `has_more` false                | pass   |
 
 ## Scenarios
 
@@ -147,12 +147,12 @@ Deterministic coverage lives in Rust (page/strip/handlers) and Bun (contract, fo
 
 ## Regression checklist
 
-- [ ] QUALITY-018 subscribe register-before-snapshot tests still pass (`contains_key` after HashMap change).
-- [ ] EventGate hydrate order (get → finishHydrate → subscribe cursor) unchanged.
-- [ ] `agent_chat_backfill` still used for text holes, not tools.
-- [ ] Expand store does not reset when older messages prepend (`messages[0]` changes).
-- [ ] oxlint `--max-warnings=455` is not raised.
-- [ ] Web chat session still hydrates via `agentChatApi.get(id)` with no limit.
+- [x] QUALITY-018 subscribe register-before-snapshot tests still pass (`contains_key` after HashMap change).
+- [x] EventGate hydrate order (get → finishHydrate → subscribe cursor) unchanged.
+- [x] `agent_chat_backfill` still used for text holes, not tools.
+- [x] Expand store does not reset when older messages prepend (`messages[0]` changes).
+- [x] oxlint `--max-warnings=455` is not raised.
+- [x] Web chat session still hydrates via `agentChatApi.get(id)` with no limit.
 
 ## Exploratory agent-browser checks
 
@@ -160,12 +160,12 @@ Omitted. This spec does not change the web chat surface. Mobile verification is 
 
 ## Acceptance criteria
 
-- [ ] S1–S12 have automated coverage at the declared level, or S6 is covered by service-level collect+handler tests if a live tool fixture is too heavy.
-- [ ] First Mobile get payload is lean and `message_limit` is 20.
-- [ ] `has_more` / `has_more_messages` distinguish “exactly 20 messages” from “more exist”.
-- [ ] No new REST endpoint.
-- [ ] Web is not forced onto pagination.
-- [ ] `just lint` on changed TS (oxlint/oxfmt) and `cargo clippy -p api -p core-service` pass.
+- [x] S1–S12 have automated coverage at the declared level, or S6 is covered by service-level collect+handler tests if a live tool fixture is too heavy.
+- [x] First Mobile get payload is lean and `message_limit` is 20.
+- [x] `has_more` / `has_more_messages` distinguish “exactly 20 messages” from “more exist”.
+- [x] No new REST endpoint.
+- [x] Web is not forced onto pagination.
+- [x] `just lint` on changed TS (oxlint/oxfmt) and `cargo clippy -p api -p core-service` pass.
 
 ## Manual verification steps
 
@@ -180,4 +180,27 @@ Omitted. This spec does not change the web chat surface. Mobile verification is 
 
 ## Coverage Status
 
-> Filled after implementation.
+- S1 — ✅ `core-service` `page_messages_keeps_the_tail`; API `get_pages_last_twenty_and_strips_tools` (24 user turns + tool turn → 20 messages, `has_more_messages`).
+- S2 — ✅ `strip_replaces_diff_and_execute_bodies`, `strip_diff_becomes_stats_and_json_is_flagged`; API lean get asserts `detail_omitted` and no `old_content`/`new_content`.
+- S3 — ✅ `page_messages_before_id_loads_older_window`; API `messages_before_id_loads_older_page`.
+- S4 — ✅ `paged-transcript.test.ts` merge keeps m1..m40 + m41; `fold-transcript.test.ts` resync last-20 keeps older prefix.
+- S5 — ✅ `lean-chat.test.ts` `olderPageAfterFailure` three retries then header error.
+- S6 — ✅ API `tool_get_returns_full_diff` (`edit-1` full `diff`); `collect_tool_parts` + `clamp_tool_get_ids_caps_at_twenty`.
+- S7 — ✅ `toolDetailPhase` / `shouldFetchToolDetail` in `lean-chat.test.ts`.
+- S8 — ✅ `use-agent-chat-thread.test.ts` scans `leanChatGetRequest` / `leanChatSubscribeRequest` / `agentChatToolGet`.
+- S9 — ✅ `lean-chat.test.ts` scans `tool-body.tsx` for `ActivityIndicator` + `toolDetailPhase`.
+- S10 — ✅ API `subscribe_stores_lean_and_full_opts`; QUALITY-018 `subscribe_rolls_back_*` still pass.
+- S11 — ✅ `lean-chat.test.ts` web `agent-chat-api.ts` is `{ chat_id }` only; API `get_without_flags_keeps_full_snapshot`.
+- S12 — ✅ `unknown_before_id_returns_empty`; API missing cursor → empty + `has_more: false`.
+
+Commands (2026-10-23):
+
+```
+cargo test -p core-service transcript_view
+cargo test -p api --bin api -- get_pages_last_twenty_and_strips_tools messages_before_id_loads_older_page tool_get_returns_full_diff subscribe_stores_lean_and_full_opts get_without_flags_keeps_full_snapshot subscribe
+cargo clippy -p api -p core-service --tests -- -D warnings
+bun test packages/api-types packages/api-client/src/agent-chat/fold.test.ts apps/mobile/src/features/agent-chat/*.test.ts apps/mobile/src/api/mobile-ws-client.test.ts
+bun lint   # oxlint --max-warnings=455, exit 0
+```
+
+Remaining: iOS/Android simulator smoke (TEST.md Manual verification). Agent-browser omitted (no web UI change).

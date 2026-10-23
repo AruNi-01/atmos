@@ -348,6 +348,13 @@ mod tests {
     }
 
     #[test]
+    fn clamp_tool_get_ids_caps_at_twenty() {
+        assert_eq!(clamp_tool_get_ids(0), 0);
+        assert_eq!(clamp_tool_get_ids(20), 20);
+        assert_eq!(clamp_tool_get_ids(21), 20);
+    }
+
+    #[test]
     fn collect_tools_keeps_request_order_and_skips_missing() {
         let messages = vec![msg("a1", Some(diff_tool())), msg("u1", None)];
         let parts = collect_tool_parts(
