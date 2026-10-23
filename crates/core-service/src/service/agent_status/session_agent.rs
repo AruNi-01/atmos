@@ -57,6 +57,14 @@ pub struct AgentSessionStatusSnapshot {
 
 pub const AGENT_SESSION_PAGE_LIMIT: usize = 100;
 
+/// Optional page filter. Blank fields mean the full catalog.
+/// `counts` and `total` stay catalog-wide either way.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct AgentSessionListFilter<'a> {
+    pub group_key: Option<&'a str>,
+    pub context_id: Option<&'a str>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct AgentSessionStatusCounts {
     pub permission: u32,
@@ -73,14 +81,26 @@ pub struct AgentSessionStatusPage {
 }
 
 /// Newest first. `cursor` is the previous page's last `updated_at` and `session_id`.
+/// A non-blank `group_key` or `context_id` filters the page after totals are counted.
+/// An unknown group returns no rows. `idle` matches `done`.
 pub fn page_agent_sessions(
     sessions: Vec<AgentSessionStatusSnapshot>,
     cursor: Option<&str>,
     limit: usize,
+    filter: AgentSessionListFilter<'_>,
 ) -> AgentSessionStatusPage {
     let counts = count_agent_sessions(&sessions);
     let total = sessions.len() as u64;
     let mut ordered = sessions;
+    if let Some(context_id) = nonempty_filter(filter.context_id) {
+        ordered.retain(|row| row.context_id.as_deref() == Some(context_id));
+    }
+    if let Some(group_key) = nonempty_filter(filter.group_key) {
+        match parse_list_group_key(group_key) {
+            Some(key) => ordered.retain(|row| row.group_key == key),
+            None => ordered.clear(),
+        }
+    }
     ordered.sort_by(|left, right| {
         right
             .updated_at
@@ -106,6 +126,25 @@ pub fn page_agent_sessions(
         next_cursor,
         total,
         counts,
+    }
+}
+
+fn nonempty_filter(value: Option<&str>) -> Option<&str> {
+    let trimmed = value?.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed)
+    }
+}
+
+fn parse_list_group_key(raw: &str) -> Option<WorkspaceAgentGroupKey> {
+    match raw {
+        "permission" => Some(WorkspaceAgentGroupKey::Permission),
+        "attention" => Some(WorkspaceAgentGroupKey::Attention),
+        "running" => Some(WorkspaceAgentGroupKey::Running),
+        "done" | "idle" => Some(WorkspaceAgentGroupKey::Done),
+        _ => None,
     }
 }
 
@@ -705,7 +744,10 @@ mod tests {
     use sea_orm_migration::MigratorTrait;
     use tokio::sync::oneshot;
 
-    use crate::service::agent_status::{AgentStatusContext, AgentToolType, OccupancyUpdateKind};
+    use crate::service::agent_status::{
+        AgentStatusContext, AgentSurface, AgentToolType, OccupancyUpdateKind,
+        WorkspaceAgentGroupKey,
+    };
 
     use super::super::catalog::AgentSessionCatalogStore;
 
@@ -1381,5 +1423,115 @@ mod tests {
         async fn archived_workspace_ids(&self) -> std::result::Result<HashSet<String>, String> {
             Ok(HashSet::new())
         }
+    }
+
+    fn status_snapshot(
+        session_id: &str,
+        context_id: Option<&str>,
+        group_key: WorkspaceAgentGroupKey,
+        updated_at: &str,
+    ) -> AgentSessionStatusSnapshot {
+        AgentSessionStatusSnapshot {
+            session_id: session_id.to_string(),
+            context_id: context_id.map(str::to_string),
+            surface: AgentSurface::Chat,
+            surface_id: None,
+            tool: None,
+            group_key,
+            updated_at: updated_at.to_string(),
+            project_path: None,
+            title: None,
+        }
+    }
+
+    #[test]
+    fn page_agent_sessions_filters_group_and_context_without_changing_totals() {
+        let snaps = vec![
+            status_snapshot(
+                "a",
+                Some("ws-1"),
+                WorkspaceAgentGroupKey::Running,
+                "2026-01-03T00:00:00Z",
+            ),
+            status_snapshot(
+                "b",
+                Some("ws-1"),
+                WorkspaceAgentGroupKey::Done,
+                "2026-01-02T00:00:00Z",
+            ),
+            status_snapshot(
+                "c",
+                Some("ws-2"),
+                WorkspaceAgentGroupKey::Running,
+                "2026-01-01T00:00:00Z",
+            ),
+            status_snapshot(
+                "d",
+                Some("ws-1"),
+                WorkspaceAgentGroupKey::Running,
+                "2026-01-04T00:00:00Z",
+            ),
+        ];
+        let running = AgentSessionListFilter {
+            group_key: Some("running"),
+            context_id: Some("ws-1"),
+        };
+        let page = page_agent_sessions(snaps.clone(), None, 1, running);
+        assert_eq!(page.sessions.len(), 1);
+        assert_eq!(page.sessions[0].session_id, "d");
+        assert_eq!(page.total, 4);
+        assert_eq!(page.counts.running, 3);
+        assert_eq!(page.counts.done, 1);
+        assert_eq!(page.counts.permission, 0);
+        assert_eq!(page.counts.attention, 0);
+        let cursor = page.next_cursor.expect("older running row");
+
+        let next = page_agent_sessions(snaps.clone(), Some(&cursor), 1, running);
+        assert_eq!(
+            next.sessions
+                .iter()
+                .map(|row| row.session_id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["a"]
+        );
+        assert!(next.next_cursor.is_none());
+        assert_eq!(next.total, 4);
+
+        let unknown = page_agent_sessions(
+            snaps.clone(),
+            None,
+            20,
+            AgentSessionListFilter {
+                group_key: Some("nope"),
+                context_id: Some("ws-1"),
+            },
+        );
+        assert!(unknown.sessions.is_empty());
+        assert_eq!(unknown.total, 4);
+        assert!(unknown.next_cursor.is_none());
+
+        let idle = page_agent_sessions(
+            snaps.clone(),
+            None,
+            20,
+            AgentSessionListFilter {
+                group_key: Some("idle"),
+                context_id: Some("ws-1"),
+            },
+        );
+        assert_eq!(idle.sessions.len(), 1);
+        assert_eq!(idle.sessions[0].session_id, "b");
+
+        let blank = page_agent_sessions(
+            snaps.clone(),
+            None,
+            1,
+            AgentSessionListFilter {
+                group_key: Some("  "),
+                context_id: None,
+            },
+        );
+        assert_eq!(blank.sessions[0].session_id, "d");
+        assert_eq!(blank.total, 4);
     }
 }

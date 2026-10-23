@@ -38,8 +38,8 @@ pub use attention_summary::{
 };
 pub use attention_summary_generate::generate_attention_summary;
 pub use session_agent::{
-    page_agent_sessions, AgentSessionChatRef, AgentSessionLiveSet, AgentSessionStatusSnapshot,
-    AGENT_SESSION_PAGE_LIMIT,
+    page_agent_sessions, AgentSessionChatRef, AgentSessionListFilter, AgentSessionLiveSet,
+    AgentSessionStatusSnapshot, AGENT_SESSION_PAGE_LIMIT,
 };
 pub use workspace_agent_group::{
     resolve_workspace_agent_group_key, WorkspaceAgentGroupKey, WorkspaceAgentGroupSnapshot,

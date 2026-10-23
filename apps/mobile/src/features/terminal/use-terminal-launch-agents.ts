@@ -10,13 +10,19 @@ import {
   type MobileLaunchAgent,
 } from "./terminal-launch-agents";
 
+type ServerCustomAgents = {
+  serverId: string | null;
+  agents: CodeAgentCustomEntry[];
+};
+
 /** Cached agent list for this Computer, then a background refresh. */
 export function useTerminalLaunchAgents(active: boolean): MobileLaunchAgent[] {
   const { client, state } = useMobileWs();
   const selectedServerId = useSessionStore((store) => store.selectedServerId);
-  const [custom, setCustom] = useState<CodeAgentCustomEntry[] | null>(null);
+  const [custom, setCustom] = useState<ServerCustomAgents | null>(null);
 
   useEffect(() => {
+    if (!active) return;
     const key = terminalLaunchAgentCacheKey(selectedServerId);
     let cancelled = false;
     let fetched = false;
@@ -26,7 +32,7 @@ export function useTerminalLaunchAgents(active: boolean): MobileLaunchAgent[] {
         .then((raw) => {
           if (cancelled || fetched || !raw) return;
           const parsed = parseCachedAgents(raw);
-          if (parsed) setCustom(parsed);
+          if (parsed) setCustom({ serverId: selectedServerId, agents: parsed });
         })
         .catch(() => undefined);
     }
@@ -41,7 +47,7 @@ export function useTerminalLaunchAgents(active: boolean): MobileLaunchAgent[] {
         if (cancelled) return;
         fetched = true;
         const agents = Array.isArray(payload.agents) ? payload.agents : [];
-        setCustom(agents);
+        setCustom({ serverId: selectedServerId, agents });
         void AsyncStorage.setItem(key, JSON.stringify(agents)).catch(() => undefined);
       })
       .catch(() => undefined);
@@ -50,7 +56,8 @@ export function useTerminalLaunchAgents(active: boolean): MobileLaunchAgent[] {
     };
   }, [active, client, selectedServerId, state]);
 
-  return useMemo(() => mergeTerminalLaunchAgents(custom), [custom]);
+  const agents = active && custom?.serverId === selectedServerId ? custom.agents : null;
+  return useMemo(() => mergeTerminalLaunchAgents(agents), [agents]);
 }
 
 function parseCachedAgents(raw: string): CodeAgentCustomEntry[] | null {

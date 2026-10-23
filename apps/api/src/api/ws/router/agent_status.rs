@@ -23,7 +23,15 @@ impl WsMessageService {
         } else {
             req.limit as usize
         };
-        let page = core_service::page_agent_sessions(sessions, req.cursor.as_deref(), limit);
+        let page = core_service::page_agent_sessions(
+            sessions,
+            req.cursor.as_deref(),
+            limit,
+            core_service::AgentSessionListFilter {
+                group_key: req.group_key.as_deref(),
+                context_id: req.context_id.as_deref(),
+            },
+        );
         Ok(json!({
             "sessions": page.sessions,
             "next_cursor": page.next_cursor,

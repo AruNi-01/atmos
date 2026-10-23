@@ -39,6 +39,9 @@ spawn_sleeper() {
 sleep() {
   if [[ "${KILL_DURING_WAIT:-0}" == "1" && -n "${SLEEPER_PID:-}" ]]; then
     kill "$SLEEPER_PID" 2>/dev/null || true
+    # Reap the child. A zombie still passes `kill -0`, so the cold-launch
+    # check can report the process alive and this case exits 0.
+    wait "$SLEEPER_PID" 2>/dev/null || true
   fi
   if [[ "${IPS_DURING_WAIT:-0}" == "1" && -n "${ATMOS_DIAGNOSTIC_REPORTS:-}" && -d "$ATMOS_DIAGNOSTIC_REPORTS" ]]; then
     printf 'crash\n' >"$ATMOS_DIAGNOSTIC_REPORTS/Atmos-2026-10-20-120000.ips"

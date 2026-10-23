@@ -6,6 +6,8 @@ import { wsActions } from "@/api/ws-actions";
 import { copy } from "@/features/agent-chat/copy";
 import { historyTimeLabel, type ChatListRow } from "@/features/agent-chat/list-rows";
 import { useAgentChatList } from "@/features/agent-chat/use-agent-chat-list";
+import { LIST_PAGE_SIZE, listFooterState, listWindow } from "@/features/lists/list-page";
+import { useListReveal } from "@/features/lists/use-list-window";
 import { MobileAgentIcon } from "@/features/terminal/MobileAgentIcon";
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { typography } from "@/theme/typography";
@@ -27,7 +29,19 @@ import { NativeTextInput } from "@/ui/primitives/native-text-input";
 export function AgentChatSessionListScreen({ workspaceId }: { workspaceId: string }) {
   const router = useRouter();
   const theme = useMobileTheme();
-  const list = useAgentChatList(workspaceId);
+  const reveal = useListReveal("workspace-chats", workspaceId);
+  const list = useAgentChatList(workspaceId, {
+    enabled: reveal.ready,
+    pageSize: LIST_PAGE_SIZE,
+  });
+  const visibleRows = listWindow(list.rows, reveal.shown);
+  const loadMore = () => {
+    if (reveal.applyEnd(list.rows.length, list.hasNextPage)) list.retryNextPage();
+  };
+  const fillWhenShort =
+    reveal.ready &&
+    !list.isFetchNextPageError &&
+    (list.rows.length > reveal.shown || list.hasNextPage);
   const { client } = useMobileWs();
   const [renaming, setRenaming] = useState<ChatListRow | null>(null);
   const [titleDraft, setTitleDraft] = useState("");
@@ -64,12 +78,12 @@ export function AgentChatSessionListScreen({ workspaceId }: { workspaceId: strin
               }),
         }}
       />
-      <AppScreen onEndReached={list.retryNextPage}>
-        {list.loading || list.rows.length > 0 || !list.error ? (
+      <AppScreen fillWhenShort={fillWhenShort} onEndReached={loadMore}>
+        {list.loading || visibleRows.length > 0 || !list.error ? (
           <Section>
-            {list.loading && list.rows.length === 0 ? (
+            {visibleRows.length === 0 && (list.loading || fillWhenShort) ? (
               <ListSkeleton />
-            ) : list.rows.length === 0 ? (
+            ) : visibleRows.length === 0 ? (
               <EmptyState
                 layout="section"
                 message={copy.emptyDescription}
@@ -108,12 +122,18 @@ export function AgentChatSessionListScreen({ workspaceId }: { workspaceId: strin
                       : { chatId: row.id, workspaceId },
                   });
                 }}
-                rows={list.rows}
+                rows={visibleRows}
               />
             )}
           </Section>
         ) : null}
-        <ListLoadMoreFooter loading={list.isFetchingNextPage} />
+        <ListLoadMoreFooter
+          onRetry={list.retryNextPage}
+          state={listFooterState({
+            fetching: list.isFetchingNextPage,
+            fetchFailed: list.isFetchNextPageError,
+          })}
+        />
         <InlineError message={list.error} />
         {renaming ? (
           <View style={{ gap: 12, padding: 18 }}>

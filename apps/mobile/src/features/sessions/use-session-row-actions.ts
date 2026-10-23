@@ -11,6 +11,7 @@ import {
   sessionDeleteFlags,
   type SessionDeleteChoice,
 } from "./session-row-actions";
+import { omitSessionFromStatusPages } from "./session-status-page";
 
 export function useSessionRowActions() {
   const { client, state } = useMobileWs();
@@ -102,18 +103,9 @@ export function useSessionRowActions() {
 
   const hideSession = useCallback(
     (sessionId: string) => {
-      queryClient.setQueryData<InfiniteData<AgentSessionStatusListResponse>>(
-        statusKey,
-        (current) => {
-          if (!current?.pages) return current;
-          return {
-            ...current,
-            pages: current.pages.map((page) => ({
-              ...page,
-              sessions: page.sessions.filter((session) => session.session_id !== sessionId),
-            })),
-          };
-        },
+      queryClient.setQueriesData<InfiniteData<AgentSessionStatusListResponse>>(
+        { queryKey: statusKey },
+        (current) => omitSessionFromStatusPages(current, sessionId),
       );
     },
     [queryClient, selectedServerId],

@@ -17,6 +17,14 @@ import type {
   WorkspaceModel,
 } from "@/api/types";
 import { wsActions } from "@/api/ws-actions";
+import {
+  mountedItemCount,
+  pageBlocks,
+  openItemCount,
+  type PagedBlock,
+} from "@/features/lists/list-page";
+import { markListNavigation } from "@/features/lists/list-navigation";
+import { useListWindow } from "@/features/lists/use-list-window";
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { useSessionStore } from "@/stores/session-store";
 import { collectProjectGroupStatusPaths } from "@/features/workspaces/workspace-list-git-status";
@@ -48,15 +56,29 @@ import { Row, Separator } from "@/ui/layout/row";
 const SECTION_TITLE_SIZE = 17;
 const SECTION_CHEVRON_SIZE = 20;
 const SECTION_MOTION_MS = 220;
+const sectionCloseTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+type HomeBlock = PagedBlock<WorkspaceHomeEntry> & {
+  count?: number;
+  onToggle: () => void;
+  open: boolean;
+  subtitleFor?: (item: WorkspaceHomeEntry) => string | undefined;
+  subtitleNumberOfLines?: number;
+  title: string;
+};
 
 export function WorkspaceHomeList({
+  endRef,
   groups,
   isLoading = false,
+  onFillChange,
   projects,
   workspacesByProject,
 }: {
+  endRef?: { current: () => void };
   groups: GroupModel[];
   isLoading?: boolean;
+  onFillChange?: (fill: boolean) => void;
   projects: ProjectModel[];
   workspacesByProject: Record<string, WorkspaceModel[]>;
 }) {
@@ -69,6 +91,45 @@ export function WorkspaceHomeList({
   const recentExpanded = useWorkspaceHomeStore((state) => state.recentExpanded);
   const toggleRecent = useWorkspaceHomeStore((state) => state.toggleRecent);
   const actions = useWorkspaceRowActions();
+  const windowResetKey = [
+    grouping,
+    filters.groupIds.join(","),
+    filters.labelIds.join(","),
+    filters.priorities.join(","),
+    filters.projectIds.join(","),
+    filters.statuses.join(","),
+    filters.showAutomation ? "1" : "0",
+  ].join("|");
+  const { applyEnd, shown } = useListWindow(windowResetKey);
+  const [closingCounts, setClosingCounts] = useState<ReadonlyMap<string, number>>(() => new Map());
+  const holdRowsWhileClosing = (key: string, count: number) => {
+    setClosingCounts((current) => {
+      if (current.get(key) === count) return current;
+      const next = new Map(current);
+      next.set(key, count);
+      return next;
+    });
+    const pending = sectionCloseTimers.get(key);
+    if (pending) clearTimeout(pending);
+    sectionCloseTimers.set(
+      key,
+      setTimeout(() => {
+        sectionCloseTimers.delete(key);
+        setClosingCounts((current) => {
+          if (!current.has(key)) return current;
+          const next = new Map(current);
+          next.delete(key);
+          return next;
+        });
+      }, SECTION_MOTION_MS),
+    );
+  };
+  useEffect(() => {
+    return () => {
+      for (const timer of sectionCloseTimers.values()) clearTimeout(timer);
+      sectionCloseTimers.clear();
+    };
+  }, []);
   const [deleteEntry, setDeleteEntry] = useState<WorkspaceHomeEntry | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -115,7 +176,6 @@ export function WorkspaceHomeList({
     [expanded, grouping, projects, sections, workspaceById],
   );
   const gitStatusByPath = useWorkspaceListGitStatus(gitStatusPaths);
-  const openEntry = (entry: WorkspaceHomeEntry) => router.push(`/workspace/${entry.id}`);
   const subtitleForGroup =
     (section: WorkspaceHomeSection) =>
     (item: WorkspaceHomeEntry): string | undefined => {
@@ -137,6 +197,73 @@ export function WorkspaceHomeList({
         uncommitted: path ? gitStatusByPath.get(path)?.uncommitted : undefined,
       });
     };
+  const blocks: HomeBlock[] = [];
+  if (pinnedEntries.length > 0) {
+    blocks.push({
+      key: "pinned",
+      items: pinnedEntries,
+      keep: true,
+      open: true,
+      title: "Pinned",
+      onToggle: () => undefined,
+    });
+  }
+  if (recent.length > 0) {
+    const recentHeld = closingCounts.get("recent");
+    blocks.push({
+      key: "recent",
+      items: recentExpanded ? recent : recentHeld === undefined ? [] : recent.slice(0, recentHeld),
+      keep: true,
+      closed: !recentExpanded,
+      open: recentExpanded,
+      subtitleFor: recentEntrySubtitle,
+      subtitleNumberOfLines: 1,
+      title: "Recently",
+      onToggle: () => {
+        if (recentExpanded) {
+          holdRowsWhileClosing("recent", mountedItemCount(blocks, shown, "recent"));
+        }
+        toggleRecent();
+      },
+    });
+  }
+  for (const section of sections) {
+    const workspaceCount = section.items.filter((item) => item.kind === "workspace").length;
+    const open = expanded[section.key] !== false;
+    const held = closingCounts.get(section.key);
+    blocks.push({
+      key: section.key,
+      items: open ? section.items : held === undefined ? [] : section.items.slice(0, held),
+      keep: true,
+      closed: !open,
+      open,
+      subtitleFor: subtitleForGroup(section),
+      subtitleNumberOfLines: 1,
+      title: section.title,
+      count: workspaceCount > 0 ? workspaceCount : undefined,
+      onToggle: () => {
+        if (open) {
+          holdRowsWhileClosing(section.key, mountedItemCount(blocks, shown, section.key));
+        }
+        toggleExpanded(section.key);
+      },
+    });
+  }
+  const visibleBlocks = pageBlocks(blocks, shown);
+  const totalOpen = openItemCount(blocks);
+  useEffect(() => {
+    if (!endRef) return;
+    endRef.current = () => {
+      applyEnd(totalOpen, false);
+    };
+  }, [applyEnd, endRef, totalOpen]);
+  useEffect(() => {
+    onFillChange?.(totalOpen > shown);
+  }, [onFillChange, shown, totalOpen]);
+  const openEntry = (entry: WorkspaceHomeEntry) => {
+    markListNavigation("workspace-activity", entry.id);
+    router.push(`/workspace/${entry.id}`);
+  };
   const rowActions = {
     onArchive: (entry: WorkspaceHomeEntry) => {
       setActionError(null);
@@ -184,45 +311,20 @@ export function WorkspaceHomeList({
           {actionError}
         </Text>
       ) : null}
-      {pinnedEntries.length > 0 ? (
+      {visibleBlocks.map((block) => (
         <WorkspaceGroup
-          items={pinnedEntries}
+          count={block.count}
+          items={[...block.items]}
+          key={block.key}
           onOpen={openEntry}
-          onToggle={() => undefined}
-          open
-          title="Pinned"
+          onToggle={block.onToggle}
+          open={block.open}
+          title={block.title}
+          subtitleFor={block.subtitleFor}
+          subtitleNumberOfLines={block.subtitleNumberOfLines}
           {...rowActions}
         />
-      ) : null}
-      {recent.length > 0 ? (
-        <WorkspaceGroup
-          items={recent}
-          onOpen={openEntry}
-          onToggle={toggleRecent}
-          open={recentExpanded}
-          subtitleFor={recentEntrySubtitle}
-          subtitleNumberOfLines={1}
-          title="Recently"
-          {...rowActions}
-        />
-      ) : null}
-      {sections.map((section) => {
-        const workspaceCount = section.items.filter((item) => item.kind === "workspace").length;
-        return (
-          <WorkspaceGroup
-            count={workspaceCount > 0 ? workspaceCount : undefined}
-            items={section.items}
-            key={section.key}
-            onOpen={openEntry}
-            onToggle={() => toggleExpanded(section.key)}
-            open={expanded[section.key] !== false}
-            subtitleFor={subtitleForGroup(section)}
-            subtitleNumberOfLines={1}
-            title={section.title}
-            {...rowActions}
-          />
-        );
-      })}
+      ))}
       <ExpoDrawer
         isPresented={deleteEntry != null}
         matchContents

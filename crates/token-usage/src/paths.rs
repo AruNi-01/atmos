@@ -80,7 +80,7 @@ fn copy_dir_recursive(src: &std::path::Path, dst: &std::path::Path) -> std::io::
 }
 
 /// `paths` and `cursor_sync` tests both write `ATMOS_TOKEN_USAGE_DIR`.
-/// Separate mutexes let those writes interleave inside one test binary.
+/// One lock covers both modules; separate mutexes still race in one test process.
 #[cfg(test)]
 pub(crate) static TOKEN_USAGE_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
