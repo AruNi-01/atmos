@@ -1308,10 +1308,9 @@ mod tests {
 
     #[tokio::test]
     async fn subscribe_does_not_fold_transcript_for_existence() {
-        let root = TempRoot(std::env::temp_dir().join(format!(
-            "atmos-subscribe-no-fold-{}",
-            uuid::Uuid::new_v4()
-        )));
+        let root = TempRoot(
+            std::env::temp_dir().join(format!("atmos-subscribe-no-fold-{}", uuid::Uuid::new_v4())),
+        );
         std::fs::create_dir_all(&root.0).expect("temp root");
         let service = service_at(&root.0).await;
         let chat_id = create_chat(&service, &root.0);
@@ -1347,10 +1346,9 @@ mod tests {
 
     #[tokio::test]
     async fn subscribe_closes_leftover_open_parts_without_folding() {
-        let root = TempRoot(std::env::temp_dir().join(format!(
-            "atmos-subscribe-leftover-{}",
-            uuid::Uuid::new_v4()
-        )));
+        let root = TempRoot(
+            std::env::temp_dir().join(format!("atmos-subscribe-leftover-{}", uuid::Uuid::new_v4())),
+        );
         std::fs::create_dir_all(&root.0).expect("temp root");
         let service = service_at(&root.0).await;
         let chat_id = create_chat(&service, &root.0);
@@ -1388,10 +1386,9 @@ mod tests {
             "subscribe must truncate live.jsonl after leftover close"
         );
         let subs = service.agent_chat_subs.read().await;
-        assert!(
-            subs.get(&chat_id)
-                .is_some_and(|conns| conns.contains_key("conn-leftover"))
-        );
+        assert!(subs
+            .get(&chat_id)
+            .is_some_and(|conns| conns.contains_key("conn-leftover")));
     }
 
     #[tokio::test]

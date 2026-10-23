@@ -21,17 +21,17 @@ This is a server cost bug. Proof is Rust tests on `AgentChatService::ensure_chat
 
 ## Execution map
 
-This table is the hand-off from plan to implementation/testing. Keep `Status` as `planned` until Coverage Status after implementation.
+This table is the hand-off from plan to implementation/testing.
 
-| Scenario | Level     | Expected tool                | Target command / method                                  | Fixture / data                                                       | Signals                                                                | Status  |
-| -------- | --------- | ---------------------------- | -------------------------------------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------- | ------- |
-| S1       | Rust unit | `cargo test -p api`          | `subscribe_does_not_fold_transcript_for_existence`       | temp agent-data dir, chat with many jsonl turns, leftover live chunk | `fold_chat_dir_calls` unchanged across subscribe; `{ last_event_seq }` | planned |
-| S2       | Rust unit | `cargo test -p core-service` | `ensure_chat_unknown_is_not_found`                       | random UUID, empty store                                             | `Err`; no `live.jsonl` created for that id                             | planned |
-| S3       | Rust unit | `cargo test -p core-service` | `ensure_chat_closes_leftover_open_parts_without_folding` | detached chat, open `TextChunk` in `live.jsonl`                      | `PartFinished` in transcript; live truncated; fold count unchanged     | planned |
-| S4       | Rust unit | `cargo test -p api`          | `subscribe_closes_leftover_open_parts_without_folding`   | same leftover fixture through the handler                            | same disk signals; fold count unchanged; conn registered               | planned |
-| S5       | Rust unit | `cargo test -p api`          | existing QUALITY-018 names                               | temp dir, race pause, missing chat                                   | race + rollback still pass                                             | planned |
-| S6       | Rust unit | `cargo test -p api`          | `subscribe_stores_lean_and_full_opts`                    | two conns, lean vs default                                           | `include_tool_detail` map unchanged                                    | planned |
-| S7       | Toolchain | shell                        | `package.json` script text                               | repo root                                                            | `oxlint --max-warnings=455`                                            | planned |
+| Scenario | Level     | Expected tool                | Target command / method                                  | Fixture / data                                                       | Signals                                                                | Status |
+| -------- | --------- | ---------------------------- | -------------------------------------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------- | ------ |
+| S1       | Rust unit | `cargo test -p api`          | `subscribe_does_not_fold_transcript_for_existence`       | temp agent-data dir, chat with many jsonl turns, leftover live chunk | `fold_chat_dir_calls` unchanged across subscribe; `{ last_event_seq }` | pass   |
+| S2       | Rust unit | `cargo test -p core-service` | `ensure_chat_unknown_is_not_found`                       | random UUID, empty store                                             | `Err`; no `live.jsonl` created for that id                             | pass   |
+| S3       | Rust unit | `cargo test -p core-service` | `ensure_chat_closes_leftover_open_parts_without_folding` | detached chat, open `TextChunk` in `live.jsonl`                      | `PartFinished` in transcript; live truncated; fold count unchanged     | pass   |
+| S4       | Rust unit | `cargo test -p api`          | `subscribe_closes_leftover_open_parts_without_folding`   | same leftover fixture through the handler                            | same disk signals; fold count unchanged; conn registered               | pass   |
+| S5       | Rust unit | `cargo test -p api`          | existing QUALITY-018 names                               | temp dir, race pause, missing chat                                   | race + rollback still pass                                             | pass   |
+| S6       | Rust unit | `cargo test -p api`          | `subscribe_stores_lean_and_full_opts`                    | two conns, lean vs default                                           | `include_tool_detail` map unchanged                                    | pass   |
+| S7       | Toolchain | shell                        | `package.json` script text                               | repo root                                                            | `oxlint --max-warnings=455`                                            | pass   |
 
 ## Scenarios
 
@@ -97,12 +97,12 @@ Subscribe must not fold the transcript for existence. Do not raise the mobile 30
 
 ## Regression checklist
 
-- [ ] `get()` still folds and still closes leftovers when detached (`lifecycle_load_without_runtime_closes_leftover_open_parts`).
-- [ ] Subscribe does not call `get_snapshot` / `fold_chat_dir`.
-- [ ] Live-runtime leftover skip: `ensure_chat` must not truncate `live.jsonl` while `runtimes[id].alive` (same branch as `get()`).
-- [ ] QUALITY-018 race test still uses a temp agent-data directory.
-- [ ] `package.json` lint script is still `--max-warnings=455`.
-- [ ] No client timeout constant change.
+- [x] `get()` still folds and still closes leftovers when detached (`lifecycle_load_without_runtime_closes_leftover_open_parts`).
+- [x] Subscribe does not call `get_snapshot` / `fold_chat_dir`.
+- [x] Live-runtime leftover skip: `ensure_chat` must not truncate `live.jsonl` while `runtimes[id].alive` (same branch as `get()`).
+- [x] QUALITY-018 race test still uses a temp agent-data directory.
+- [x] `package.json` lint script is still `--max-warnings=455`.
+- [x] No client timeout constant change.
 
 ## Exploratory agent-browser checks
 
@@ -110,13 +110,13 @@ Omitted. No screen, copy, or route change. The bug is a discarded server fold.
 
 ## Acceptance criteria
 
-- [ ] S1–S4 pass at the declared level.
-- [ ] S5 existing QUALITY-018 tests pass.
-- [ ] S6 QUALITY-031 lean opts test passes.
-- [ ] S7 oxlint cap is 455.
-- [ ] `cargo test -p api` and `cargo test -p core-service ensure_chat` (plus the leftover get test) pass.
-- [ ] `cargo clippy -p api --all-targets --all-features -- -D warnings` and `cargo clippy -p core-service --all-targets --all-features -- -D warnings` pass, or scoped clippy on touched packages is recorded.
-- [ ] No new REST route. No timeout constant change.
+- [x] S1–S4 pass at the declared level.
+- [x] S5 existing QUALITY-018 tests pass.
+- [x] S6 QUALITY-031 lean opts test passes.
+- [x] S7 oxlint cap is 455.
+- [x] `cargo test -p api` and `cargo test -p core-service ensure_chat` (plus the leftover get test) pass.
+- [x] `cargo clippy -p api --all-targets --all-features -- -D warnings` and `cargo clippy -p core-service --all-targets --all-features -- -D warnings` pass, or scoped clippy on touched packages is recorded.
+- [x] No new REST route. No timeout constant change.
 
 ## Manual verification steps
 
@@ -131,4 +131,14 @@ None. Automated server tests cover the fold and leftover paths.
 
 ## Coverage Status
 
-> Filled after implementation by `atmos-specs-test-run`. Include exact automated tests, commands, and remaining gaps.
+- S1 — pass. `cargo test -p api subscribe_does_not_fold_transcript_for_existence`. `fold_chat_dir_calls` unchanged; subscribe returns `last_event_seq`.
+- S2 — pass. `cargo test -p core-service --lib ensure_chat_unknown_is_not_found`. `ServiceError::NotFound`; no chat dir created.
+- S3 — pass. `cargo test -p core-service --lib ensure_chat_closes_leftover_open_parts_without_folding`. `PartFinished` written, `live.jsonl` truncated, fold count unchanged, second call is idempotent.
+- S4 — pass. `cargo test -p api subscribe_closes_leftover_open_parts_without_folding`. Same disk settle through the handler; conn registered.
+- S5 — pass. `cargo test -p api agent_chat` (16 tests), including QUALITY-018 race/rollback/unsubscribe/disconnect names.
+- S6 — pass. `subscribe_stores_lean_and_full_opts` in the same `agent_chat` run.
+- S7 — pass. `package.json` `lint` is `oxlint --max-warnings=455`.
+- Regression: `lifecycle_load_without_runtime_closes_leftover_open_parts` still passes.
+- `cargo clippy -p api --all-targets --all-features -- -D warnings` passed.
+- `cargo clippy -p core-service --all-targets --all-features -- -D warnings` passed.
+- Agent-browser: not run. No UI surface.
