@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Host, List, ListItem, Picker, Switch } from "@expo/ui";
 import { useMobileTheme } from "@/theme/theme-store";
+import { nativeSwitchSeedColor } from "./native-switch-tint";
 
 export { NativeIcon, selectNativeIcon } from "./native-icon";
 export type { NativeIconName } from "./native-icon";
@@ -93,7 +94,7 @@ export function NativeSwitch({
     <Host
       colorScheme={theme.colorScheme}
       matchContents
-      seedColor={theme.colors.label}
+      seedColor={nativeSwitchSeedColor(theme.colors)}
       style={{ backgroundColor: "transparent" }}
     >
       <Switch disabled={disabled} label={label} onValueChange={onValueChange} value={value} />

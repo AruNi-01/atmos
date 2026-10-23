@@ -11,11 +11,6 @@ use std::path::PathBuf;
 
 const DATA_DIR: &str = "token-usage";
 
-/// Tests in this crate mutate `ATMOS_TOKEN_USAGE_DIR`. One lock covers every
-/// module; separate mutexes still race inside a single test process.
-#[cfg(test)]
-pub(crate) static TEST_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
-
 /// Canonical data directory. Callers should create it if needed.
 pub(crate) fn data_dir() -> Option<PathBuf> {
     if let Ok(dir) = std::env::var("ATMOS_TOKEN_USAGE_DIR") {
@@ -84,13 +79,18 @@ fn copy_dir_recursive(src: &std::path::Path, dst: &std::path::Path) -> std::io::
     Ok(())
 }
 
+/// `paths` and `cursor_sync` tests both write `ATMOS_TOKEN_USAGE_DIR`.
+/// One lock covers both modules; separate mutexes still race in one test process.
+#[cfg(test)]
+pub(crate) static TOKEN_USAGE_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn data_dir_honors_override() {
-        let _guard = super::TEST_ENV_LOCK.lock().unwrap();
+        let _guard = TOKEN_USAGE_ENV_LOCK.lock().unwrap();
         let prev = std::env::var_os("ATMOS_TOKEN_USAGE_DIR");
         let dir = std::env::temp_dir().join(format!(
             "atmos-token-usage-override-{}-{}",

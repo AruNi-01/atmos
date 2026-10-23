@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image as RNImage, Pressable, StyleSheet, Text, View, type ScrollView } from "react-native";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Host } from "@expo/ui";
 import { MenuView } from "@expo/ui/community/menu";
 import { Image } from "@expo/ui/swift-ui";
@@ -12,21 +11,22 @@ import Animated, {
   FadeInDown,
   FadeOut,
   FadeOutDown,
-  LinearTransition,
   useReducedMotion,
   useSharedValue,
 } from "react-native-reanimated";
 import type { SFSymbol } from "sf-symbols-typescript";
 import type { DailyTokenUsageResponse } from "@atmos/api-types/ws/dto/token-usage";
-import { wsActions } from "@/api/ws-actions";
 import { AnimatedMetric } from "@/features/token-usage/animated-metric";
 import {
+  HEATMAP_PLOT_HEIGHT,
   ScrollableChart,
   UsageGrowthChart,
   UsageHeatmap,
   UsageStackedChart,
 } from "@/features/token-usage/charts";
 import { formatCurrencyDetailed, formatMetric, formatPercent } from "@/features/token-usage/format";
+import { ALL_COMPUTERS_VALUE } from "@/features/token-usage/lib/unique-computers";
+import { showUsageConnectNotice } from "@/features/token-usage/lib/usage-scope";
 import { METRIC_TWEEN_MS } from "@/features/token-usage/tween-series";
 import {
   buildHeatmap,
@@ -55,11 +55,10 @@ import {
 } from "@/features/token-usage/capture-usage-image";
 import { ShareSheet } from "@/features/token-usage/ShareSheet";
 import { StatArt, type StatArtKind } from "@/features/token-usage/stat-art";
+import { useTokenUsageOverview } from "@/features/token-usage/use-token-usage-overview";
 import { UsageModelIcon } from "@/features/token-usage/UsageModelIcon";
 import { useMeterWidth } from "@/features/usage/use-meter-width";
 import { UsageScroll } from "@/features/usage/usage-scroll";
-import { useMobileWs } from "@/providers/MobileWsProvider";
-import { useSessionStore } from "@/stores/session-store";
 import { useMobileTheme } from "@/theme/theme-store";
 import { AtmosLogo } from "@/ui/AtmosLogo";
 import {
@@ -67,6 +66,7 @@ import {
   BrainCircuitIcon,
   CoinsIcon,
   DollarSignIcon,
+  LaptopIcon,
   ShareIcon,
 } from "@/ui/icons/lucide-native";
 import { InlineError } from "@/ui/layout/app-screen";
@@ -82,7 +82,6 @@ const MIX_LABEL = {
   reasoning: "Reasoning",
 } as const;
 const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
-const EASE_IN_OUT = Easing.bezier(0.77, 0, 0.175, 1);
 
 const METRIC_SYMBOL = { tokens: "centsign.circle", cost: "dollarsign" } as const satisfies Record<
   UsageMetric,
@@ -98,11 +97,25 @@ export function TokenUsageScreen() {
   const safeTop = useSafeAreaInsets().top;
   const safeTopRef = useRef(safeTop);
   safeTopRef.current = safeTop;
-  const queryClient = useQueryClient();
-  const { client, state } = useMobileWs();
-  const wsUrl = useSessionStore((store) => store.activeClientSession?.ws_url ?? null);
-  const connected = state === "open" && client != null;
-  const queryKey = ["token-usage-overview", wsUrl] as const;
+  const {
+    connected,
+    connectionState,
+    devices,
+    errorMessage,
+    isAll,
+    isCurrentScope,
+    isFetching,
+    isPending,
+    missedWarnings,
+    overview,
+    publishOverview,
+    refreshing,
+    reload,
+    selectedKey,
+    setUsageSelection,
+    showSelect,
+    wsUrl,
+  } = useTokenUsageOverview();
   const [metric, setMetric] = useState<UsageMetric>("tokens");
   const [dimension, setDimension] = useState<UsageDimension>("agent");
   const [resolution, setResolution] = useState<Resolution>("month");
@@ -152,10 +165,11 @@ export function TokenUsageScreen() {
     if (uri) requestAnimationFrame(() => releaseUsageImage(uri));
   }, []);
   const reducedMotion = useReducedMotion();
-  const heatmapLayout = useMemo(
-    () => LinearTransition.duration(reducedMotion ? 1 : 240).easing(EASE_IN_OUT),
-    [reducedMotion],
-  );
+  const [usageScopeKey, setUsageScopeKey] = useState(selectedKey);
+  if (usageScopeKey !== selectedKey) {
+    setUsageScopeKey(selectedKey);
+    setSelectedDate(null);
+  }
   const detailEnter = useMemo(
     () =>
       reducedMotion
@@ -170,19 +184,6 @@ export function TokenUsageScreen() {
     [reducedMotion],
   );
 
-  const overviewQuery = useQuery({
-    queryKey,
-    enabled: connected,
-    queryFn: () => {
-      if (!client) throw new Error("Atmos mobile WebSocket is not connected");
-      return wsActions.tokenUsageOverview(client, { refresh: false, try_cookies: false });
-    },
-  });
-  const refresh = useMutation({
-    mutationFn: () => wsActions.tokenUsageOverview(client!, { refresh: true, try_cookies: false }),
-    onSuccess: (overview) => queryClient.setQueryData(queryKey, overview),
-  });
-  const overview = overviewQuery.data ?? null;
   const days = useMemo(() => sortDays(overview?.by_day ?? []), [overview?.by_day]);
   const years = useMemo(
     () => yearList(overview?.available_years ?? [], days),
@@ -234,17 +235,15 @@ export function TokenUsageScreen() {
     metric === "cost"
       ? (overview?.summary.total_cost_usd ?? 0)
       : (overview?.summary.total_tokens ?? 0);
-  const reload = useCallback(() => {
-    if (connected) refresh.mutate();
-  }, [connected, refresh]);
   const loadingPage =
+    isCurrentScope &&
     overview == null &&
-    overviewQuery.isPending &&
-    (overviewQuery.isFetching ||
+    isPending &&
+    (isFetching ||
       connected ||
-      state === "connecting" ||
-      state === "reconnecting" ||
-      (state === "idle" && wsUrl != null));
+      connectionState === "connecting" ||
+      connectionState === "reconnecting" ||
+      (connectionState === "idle" && wsUrl != null));
 
   // Keep this identity stable while a share capture is open.
   // A navigation-option change while the sheet is presented dismisses it and restarts the loader.
@@ -260,6 +259,30 @@ export function TokenUsageScreen() {
                 type: "custom" as const,
                 element: (
                   <View style={styles.headerIcons}>
+                    {showSelect ? (
+                      <HeaderChoice
+                        accessibilityLabel="Computer"
+                        actions={[
+                          {
+                            id: ALL_COMPUTERS_VALUE,
+                            image: "desktopcomputer",
+                            state: isAll ? "on" : "off",
+                            title: "All",
+                          },
+                          ...devices.map((device) => ({
+                            id: device.key,
+                            image: "desktopcomputer" as const,
+                            state: (!isAll && selectedKey === device.key ? "on" : "off") as
+                              | "on"
+                              | "off",
+                            title: device.label,
+                          })),
+                        ]}
+                        onAction={setUsageSelection}
+                      >
+                        <SymbolMark name="desktopcomputer" />
+                      </HeaderChoice>
+                    ) : null}
                     <HeaderChoice
                       accessibilityLabel="Usage metric"
                       actions={[
@@ -317,6 +340,28 @@ export function TokenUsageScreen() {
         : {
             headerLeft: () => (
               <View style={styles.headerIcons}>
+                {showSelect ? (
+                  <HeaderChoice
+                    accessibilityLabel="Computer"
+                    actions={[
+                      {
+                        id: ALL_COMPUTERS_VALUE,
+                        state: isAll ? "on" : "off",
+                        title: "All",
+                      },
+                      ...devices.map((device) => ({
+                        id: device.key,
+                        state: (!isAll && selectedKey === device.key ? "on" : "off") as
+                          | "on"
+                          | "off",
+                        title: device.label,
+                      })),
+                    ]}
+                    onAction={setUsageSelection}
+                  >
+                    <LaptopIcon color={theme.colors.label} size={16} />
+                  </HeaderChoice>
+                ) : null}
                 <HeaderChoice
                   accessibilityLabel="Usage metric"
                   actions={[
@@ -354,7 +399,18 @@ export function TokenUsageScreen() {
             ),
           }),
     }),
-    [dimension, loadingPage, metric, openShare, theme.colors],
+    [
+      devices,
+      dimension,
+      isAll,
+      loadingPage,
+      metric,
+      openShare,
+      selectedKey,
+      setUsageSelection,
+      showSelect,
+      theme.colors,
+    ],
   );
 
   return (
@@ -367,18 +423,21 @@ export function TokenUsageScreen() {
           <UsageScroll
             contentRef={usageContentRef}
             onRefresh={reload}
-            refreshing={refresh.isPending || overviewQuery.isRefetching}
+            refreshing={refreshing}
             scrollRef={usageScrollRef}
             shift={captureShift}
           >
-            {!connected ? (
+            {showUsageConnectNotice(isCurrentScope, connected) ? (
               <Text style={{ color: theme.colors.secondaryLabel }}>
                 Connect to a Computer to see token usage.
               </Text>
             ) : null}
-            <InlineError
-              message={overviewQuery.error instanceof Error ? overviewQuery.error.message : null}
-            />
+            <InlineError message={errorMessage} />
+            {missedWarnings.length > 0 ? (
+              <Text style={{ color: theme.colors.secondaryLabel, fontSize: 13 }}>
+                {missedWarnings.join("\n")}
+              </Text>
+            ) : null}
             {!overview ? (
               <Text style={{ color: theme.colors.tertiaryLabel, fontSize: 12 }}>
                 Local session history
@@ -516,9 +575,8 @@ export function TokenUsageScreen() {
                 />
               ) : null}
             </View>
-            <Animated.View
+            <View
               collapsable={false}
-              layout={heatmapLayout}
               style={[
                 styles.heatmapCard,
                 { backgroundColor: heatmapSurface, borderColor: theme.colors.separator },
@@ -527,6 +585,7 @@ export function TokenUsageScreen() {
               <View style={styles.heatmapClip}>
                 <View
                   style={{
+                    minHeight: HEATMAP_PLOT_HEIGHT,
                     paddingBottom: openDetail ? 8 : 14,
                     paddingHorizontal: 14,
                     paddingTop: 14,
@@ -551,7 +610,7 @@ export function TokenUsageScreen() {
                   </Animated.View>
                 ) : null}
               </View>
-            </Animated.View>
+            </View>
             <NativeSegmentedControl
               onValueChange={setResolution}
               options={[
@@ -569,6 +628,7 @@ export function TokenUsageScreen() {
                   height={220}
                   labelColor={theme.colors.secondaryLabel}
                   labels={series.map((point) => point.label)}
+                  resetKey={usageScopeKey}
                   values={series.map((point) => point.value)}
                   width={width}
                 />
@@ -583,10 +643,12 @@ export function TokenUsageScreen() {
                   formatValue={(value) => formatMetric(value, metric)}
                   height={220}
                   ids={bars.keys}
+                  isDark={theme.isDark}
                   labelColor={theme.colors.secondaryLabel}
                   labels={bars.bars.map((bar) => bar.label)}
                   names={bars.labels}
                   providers={modelProviders}
+                  resetKey={usageScopeKey}
                   series={bars.bars.map((bar) => bar.segments)}
                   width={width}
                 />
@@ -631,7 +693,7 @@ export function TokenUsageScreen() {
         capture={captureUsage}
         onDismiss={closeShare}
         open={shareOpen}
-        overview={overview}
+        overview={publishOverview}
         totalCost={overview?.summary.total_cost_usd ?? null}
         totalTokens={overview?.summary.total_tokens ?? 0}
       />
@@ -788,11 +850,9 @@ function StatCard({
       ]}
     >
       <Text style={{ color: theme.colors.tertiaryLabel, fontSize: 13 }}>{label}</Text>
-      <AnimatedMetric
-        format={(next) => formatMetric(next, metric)}
-        style={[styles.statValue, { color: theme.colors.label }]}
-        value={value}
-      />
+      <Text style={[styles.statValue, { color: theme.colors.label }]}>
+        {formatMetric(value, metric)}
+      </Text>
       <View pointerEvents="none" style={styles.art}>
         <StatArt color={theme.isDark ? "rgba(255,255,255,0.28)" : "rgba(0,0,0,0.16)"} kind={art} />
       </View>
@@ -959,6 +1019,13 @@ const styles = StyleSheet.create({
     padding: 14,
     width: "48%",
   },
-  statValue: { fontSize: 26, fontVariant: ["tabular-nums"], fontWeight: "700", marginTop: 10 },
+  statValue: {
+    fontSize: 26,
+    fontVariant: ["tabular-nums"],
+    fontWeight: "700",
+    lineHeight: 34,
+    marginTop: 10,
+    paddingBottom: 2,
+  },
   track: { borderRadius: 999, height: 8, overflow: "hidden" },
 });

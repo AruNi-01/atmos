@@ -28,7 +28,8 @@ import {
 import { Row, Separator } from "@/ui/layout/row";
 import { nativeLargeTitleOptions } from "@/ui/navigation/native-screen-options";
 import { ListSkeleton } from "@/ui/primitives/list-skeleton";
-import { SessionSwipeRow } from "@/ui/primitives/session-swipe-row";
+import { SessionSwipeRow, useOpenSwipeRows } from "@/ui/primitives/session-swipe-row";
+import { hiddenSwipeSeparatorIndexes } from "@/ui/primitives/swipe-row-press";
 import { SessionDeletePicker } from "@/features/sessions/session-delete-picker";
 import { useSessionRowActions } from "@/features/sessions/use-session-row-actions";
 import type { SessionDeleteChoice } from "@/features/sessions/session-row-actions";
@@ -65,6 +66,7 @@ export function WorkspaceEntryScreen({ workspaceId }: { workspaceId: string }) {
   const rowActions = useSessionRowActions();
   const [deleteRow, setDeleteRow] = useState<WorkspaceActivityRow | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const { openIds, setOpen } = useOpenSwipeRows();
   const [actionError, setActionError] = useState<string | null>(null);
   const sessionSnapshots = reveal.ready ? sessions.sessions : [];
   const archivedIds = new Set(rowActions.archivedIds);
@@ -88,6 +90,13 @@ export function WorkspaceEntryScreen({ workspaceId }: { workspaceId: string }) {
   const visibleRows = listWindow(orderedRows, reveal.shown);
   const sourceHasNext = chats.hasNextPage || sessions.hasNextPage;
   const pageFailed = chats.isFetchNextPageError || sessions.isFetchNextPageError;
+  const hiddenSeparators = new Set(
+    hiddenSwipeSeparatorIndexes(
+      orderedRows.flatMap((row, index) =>
+        openIds.includes(`${row.kind}:${row.id}`) ? [index] : [],
+      ),
+    ),
+  );
   const loading = !reveal.ready || chats.loading || sessions.isLoading || terminals.isLoading;
   const loadingMore = reveal.ready && (chats.isFetchingNextPage || sessions.isFetchingNextPage);
   const loadMoreSessions = () => {
@@ -199,7 +208,7 @@ export function WorkspaceEntryScreen({ workspaceId }: { workspaceId: string }) {
         }}
       />
       <AppScreen fillWhenShort={fillWhenShort} onEndReached={loadMoreSessions}>
-        <Section>
+        <Section clip={false}>
           {visibleRows.length === 0 && (loading || fillWhenShort) ? (
             <ListSkeleton />
           ) : visibleRows.length === 0 ? (
@@ -228,9 +237,8 @@ export function WorkspaceEntryScreen({ workspaceId }: { workspaceId: string }) {
               );
               return (
                 <View key={`${row.kind}:${row.id}`}>
-                  {index > 0 ? <Separator /> : null}
+                  {index > 0 && !hiddenSeparators.has(index) ? <Separator /> : null}
                   <SessionSwipeRow
-                    backgroundColor={theme.colors.cardElevated}
                     onArchive={
                       row.kind === "chat"
                         ? () => {
@@ -247,6 +255,7 @@ export function WorkspaceEntryScreen({ workspaceId }: { workspaceId: string }) {
                     }
                     onDelete={row.kind === "chat" ? () => setDeleteRow(row) : undefined}
                     onPin={() => rowActions.togglePin(pinId)}
+                    onRevealedChange={(open) => setOpen(`${row.kind}:${row.id}`, open)}
                     onPress={() => openRow(row)}
                     pinLabel={rowActions.pinnedIds.includes(pinId) ? "Unpin" : "Pin"}
                   >

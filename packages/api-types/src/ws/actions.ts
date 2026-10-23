@@ -56,6 +56,7 @@ export const WS_ACTIONS = [
   "quota_add_provider_api_key",
   "quota_delete_provider_api_key",
   "quota_set_auto_refresh",
+  "quota_set_provider_order",
   "token_usage_overview_get",
   "token_usage_set_browser_cookie_consent",
   "permission_access_list",

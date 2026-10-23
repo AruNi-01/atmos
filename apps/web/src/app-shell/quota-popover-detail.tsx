@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ChevronDown } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { formatQuotaBillingPeriod, sortQuotaProvidersForSwitchList } from "@atmos/shared";
 
 import { cn } from "@workspace/ui";
 
@@ -26,6 +27,7 @@ import {
   metricGroupLabel,
   providerCreditsLabel,
   providerIdentity,
+  providerIdentityRows,
   quotaMetrics,
   sectionHeaderValue,
   visibleSectionRows,
@@ -155,19 +157,7 @@ export function AggregateDetail({
   switchingProviderId: string | null;
 }) {
   const t = useTranslations("appShell.usagePopover");
-  const providerOrderIndex = useMemo(
-    () => new Map(providerOrder.map((id, index) => [id, index])),
-    [providerOrder],
-  );
-
-  const sortedProviders = [...providers].sort((left, right) => {
-    if (left.enabled !== right.enabled) return left.enabled ? -1 : 1;
-    if (left.switch_enabled !== right.switch_enabled) return left.switch_enabled ? -1 : 1;
-    const leftOrder = providerOrderIndex.get(left.id) ?? Number.MAX_SAFE_INTEGER;
-    const rightOrder = providerOrderIndex.get(right.id) ?? Number.MAX_SAFE_INTEGER;
-    if (leftOrder !== rightOrder) return leftOrder - rightOrder;
-    return left.label.localeCompare(right.label);
-  });
+  const sortedProviders = sortQuotaProvidersForSwitchList(providers, providerOrder);
   const allSwitchEnabled =
     providers.length > 0 && providers.every((provider) => provider.switch_enabled);
 
@@ -492,10 +482,7 @@ export function ProviderDetail({
   isSwitching: boolean;
 }) {
   const t = useTranslations("appShell.usagePopover");
-  const { accountLabel, planLabel, periodLabel } = providerIdentity(
-    provider,
-    t("detail.notDetected"),
-  );
+  const identityRows = providerIdentityRows(provider, t("detail.notDetected"));
   const metrics = quotaMetrics(provider);
   const extraDetailSections = extraSections(provider);
   const providerRegion = inferProviderRegion(provider);
@@ -524,14 +511,19 @@ export function ProviderDetail({
                 ariaLabel={t("detail.providerRefreshSwitch", { provider: provider.label })}
               />
             </div>
-            {provider.id === "zed" && periodLabel ? (
-              <div className="mt-1 text-xs text-foreground/90">{periodLabel}</div>
-            ) : null}
             <UsagePortalLink providerId={provider.id} region={providerRegion} className="mt-1" />
           </div>
           <div className="text-right">
-            <div className="text-xs text-foreground">{accountLabel}</div>
-            {planLabel ? <div className="mt-1 text-xs text-foreground/90">{planLabel}</div> : null}
+            {identityRows.map((row, index) => (
+              <div
+                key={`${index}:${row}`}
+                className={
+                  index === 0 ? "text-xs text-foreground" : "mt-1 text-xs text-foreground/90"
+                }
+              >
+                {row}
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -634,9 +626,10 @@ function ExtraDetailSections({
             {visibleSectionRows(provider, section).map((row) => {
               const rowPercent = extractPercent(row.value);
               const rowResetText = extractResetText(row.value);
-              const displayValue = rowResetText
+              const rawDisplay = rowResetText
                 ? row.value.replace(/\s*·\s*resets in[^·]*/i, "").trim()
                 : row.value;
+              const displayValue = formatQuotaBillingPeriod(rawDisplay) ?? rawDisplay;
               return (
                 <div key={`${section.title}:${row.label}`}>
                   <div

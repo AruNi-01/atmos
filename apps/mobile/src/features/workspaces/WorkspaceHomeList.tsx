@@ -49,7 +49,8 @@ import { ChevronDownIcon } from "@/ui/icons/lucide-native";
 import { EmptyState, Section } from "@/ui/layout/app-screen";
 import { ListSkeleton } from "@/ui/primitives/list-skeleton";
 import { ExpoDrawer } from "@/ui/primitives/expo-drawer";
-import { SessionSwipeRow } from "@/ui/primitives/session-swipe-row";
+import { SessionSwipeRow, useOpenSwipeRows } from "@/ui/primitives/session-swipe-row";
+import { hiddenSwipeSeparatorIndexes } from "@/ui/primitives/swipe-row-press";
 import { Row, Separator } from "@/ui/layout/row";
 
 const SECTION_TITLE_SIZE = 17;
@@ -279,7 +280,6 @@ export function WorkspaceHomeList({
         setActionError(error instanceof Error ? error.message : "Could not pin this workspace.");
       });
     },
-    surfaceColor: theme.colors.cardElevated,
   };
 
   if (isLoading && entries.length === 0) {
@@ -462,7 +462,6 @@ function WorkspaceGroup({
   open,
   subtitleFor,
   subtitleNumberOfLines,
-  surfaceColor,
   title,
 }: {
   count?: number;
@@ -475,11 +474,16 @@ function WorkspaceGroup({
   open: boolean;
   subtitleFor?: (item: WorkspaceHomeEntry) => string | undefined;
   subtitleNumberOfLines?: number;
-  surfaceColor: string;
   title: string;
 }) {
   const theme = useMobileTheme();
   const reducedMotion = useReducedMotion() === true;
+  const { openIds, setOpen } = useOpenSwipeRows();
+  const hiddenSeparators = new Set(
+    hiddenSwipeSeparatorIndexes(
+      items.flatMap((item, index) => (openIds.includes(`${item.kind}:${item.id}`) ? [index] : [])),
+    ),
+  );
   const rotation = useRef(new Animated.Value(open ? 1 : 0)).current;
 
   useEffect(() => {
@@ -548,7 +552,7 @@ function WorkspaceGroup({
       </Pressable>
       <CollapsibleRows open={open}>
         <View style={{ paddingTop: spacing.sectionLabelGap }}>
-          <Section>
+          <Section clip={false}>
             {items.map((item, index) => {
               const swipeable = item.kind === "workspace";
               const row = (
@@ -562,11 +566,11 @@ function WorkspaceGroup({
               );
               return (
                 <View key={`${item.kind}:${item.id}`}>
-                  {index > 0 ? <Separator /> : null}
+                  {index > 0 && !hiddenSeparators.has(index) ? <Separator /> : null}
                   {swipeable ? (
                     <SessionSwipeRow
-                      backgroundColor={surfaceColor}
                       onArchive={() => onArchive(item)}
+                      onRevealedChange={(open) => setOpen(`${item.kind}:${item.id}`, open)}
                       onDelete={() => onDelete(item)}
                       onPin={() => onTogglePin(item)}
                       onPress={() => onOpen(item)}

@@ -5,8 +5,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 
-use crate::models::{BrowserCookieAccess, BrowserCookieConsent, TokenUsageQuery};
 use crate::TokenUsageError;
+use crate::models::{BrowserCookieAccess, BrowserCookieConsent, TokenUsageQuery};
 
 const CURSOR_CSV_ENDPOINT: &str =
     "https://cursor.com/api/dashboard/export-usage-events-csv?strategy=tokens";
@@ -433,7 +433,7 @@ mod tests {
     use std::path::Path;
 
     fn with_usage_dir<T>(f: impl FnOnce(&Path) -> T) -> T {
-        let _guard = crate::paths::TEST_ENV_LOCK.lock().expect("env lock");
+        let _guard = crate::paths::TOKEN_USAGE_ENV_LOCK.lock().expect("env lock");
         let prev_usage = env::var_os("ATMOS_TOKEN_USAGE_DIR");
         let prev_access = env::var_os("ATMOS_PERMISSION_ACCESS_DIR");
         let dir = std::env::temp_dir().join(format!(

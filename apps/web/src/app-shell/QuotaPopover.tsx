@@ -39,7 +39,13 @@ import {
   restrictToParentElement,
 } from "@workspace/ui";
 
+import { getComputerQueryScope } from "@/api/query/query-scope";
 import { quotaUsageApi, type QuotaAggregateResponse } from "@/api/ws-api";
+import {
+  beginQuotaProviderOrderWrite,
+  finishQuotaProviderOrderWrite,
+} from "@/features/quota-usage/lib/quota-query-events";
+import { getAtmosWebQueryClient } from "@/providers/app/query-client";
 import {
   useQuotaOverviewCache,
   useQuotaOverviewQuery,
@@ -50,7 +56,10 @@ import { useQuotaProviderOrder } from "@/shared/stores/use-ui-pref-hooks";
 import {
   formatNextAutoRefreshHint,
   formatTimestamp,
+  nextSharedQuotaProviderOrder,
+  quotaProviderOrderForDisplay,
   reorderQuotaProvidersKeepingEnabledFirst,
+  sameProviderOrder,
   sortQuotaProvidersBySwitchAndOrder,
 } from "./quota-popover-utils";
 import { AggregateDetail, ProviderDetail } from "./quota-popover-detail";
@@ -123,7 +132,7 @@ export function QuotaPopover({
   const open = embedded ? true : externalOpen !== undefined ? externalOpen : internalOpen;
   const setOpen = externalOnOpenChange !== undefined ? externalOnOpenChange : setInternalOpen;
   const usageQuery = useQuotaOverviewQuery({ enabled: dataEnabled && (open || embedded) });
-  const { setOverview: writeOverviewCache } = useQuotaOverviewCache();
+  const { getOverview, setOverview: writeOverviewCache } = useQuotaOverviewCache();
   const overview = usageQuery.data ?? null;
   const [selectedProviderId, setSelectedProviderId] = useState<string>(ALL_PROVIDER_ID);
   const [error, setError] = useState<string | null>(null);
@@ -145,7 +154,10 @@ export function QuotaPopover({
     canScrollLeft: false,
     canScrollRight: false,
   });
-  const [providerOrder, setProviderOrder] = useQuotaProviderOrder();
+  const [localProviderOrder, setLocalProviderOrder] = useQuotaProviderOrder();
+  const providerOrder = quotaProviderOrderForDisplay(overview?.provider_order, localProviderOrder);
+  const providerOrderWrite = useRef(0);
+  const failedProviderOrder = useRef<string | null>(null);
   const [switchingFooterCarouselProviderId, setSwitchingFooterCarouselProviderId] = useState<
     string | null
   >(null);
@@ -322,20 +334,56 @@ export function QuotaPopover({
     [overview?.providers],
   );
 
-  useEffect(() => {
-    const ids = (overview?.providers ?? []).map((provider) => provider.id);
-    if (ids.length === 0) return;
-
-    setProviderOrder((current) => {
-      const filtered = current.filter((id) => ids.includes(id));
-      const additions = ids.filter((id) => !filtered.includes(id));
-      const next = [...filtered, ...additions];
-      if (next.length === current.length && next.every((id, index) => id === current[index])) {
-        return current;
+  const commitProviderOrder = useCallback(
+    (next: string[]) => {
+      const cached = getOverview() ?? overview;
+      const previousServer = cached?.provider_order ?? [];
+      if (cached && sameProviderOrder(previousServer, next)) {
+        setLocalProviderOrder((current) => (sameProviderOrder(current, next) ? current : next));
+        return;
       }
-      return next;
+      failedProviderOrder.current = null;
+      setLocalProviderOrder(next);
+      if (cached) {
+        writeOverviewCache({ ...cached, provider_order: next });
+      }
+      if (!dataEnabled) return;
+      const scope = getComputerQueryScope();
+      const seq = ++providerOrderWrite.current;
+      beginQuotaProviderOrderWrite(scope);
+      void quotaUsageApi
+        .setProviderOrder(next)
+        .then(
+          (updated) => {
+            if (providerOrderWrite.current !== seq) return;
+            writeOverviewCache(updated);
+          },
+          () => {
+            if (providerOrderWrite.current !== seq) return;
+            failedProviderOrder.current = JSON.stringify(next);
+            const latest = getOverview();
+            if (latest && sameProviderOrder(latest.provider_order ?? [], next)) {
+              writeOverviewCache({ ...latest, provider_order: previousServer });
+            }
+          },
+        )
+        .finally(() => {
+          finishQuotaProviderOrderWrite(getAtmosWebQueryClient(), scope);
+        });
+    },
+    [dataEnabled, getOverview, overview, setLocalProviderOrder, writeOverviewCache],
+  );
+
+  useEffect(() => {
+    if (!dataEnabled || !overview) return;
+    const next = nextSharedQuotaProviderOrder({
+      serverOrder: overview.provider_order ?? [],
+      localOrder: localProviderOrder,
+      providerIds: overview.providers.map((provider) => provider.id),
     });
-  }, [overview?.providers, setProviderOrder]);
+    if (!next || failedProviderOrder.current === JSON.stringify(next)) return;
+    commitProviderOrder(next);
+  }, [commitProviderOrder, dataEnabled, localProviderOrder, overview]);
 
   const handleProviderSwitchDragEnd = useCallback(
     (event: DragEndEvent) => {
@@ -356,13 +404,10 @@ export function QuotaPopover({
         switchEnabledIds,
       );
 
-      setProviderOrder((current) =>
-        next.length === current.length && next.every((id, index) => id === current[index])
-          ? current
-          : next,
-      );
+      if (sameProviderOrder(next, providerOrder)) return;
+      commitProviderOrder(next);
     },
-    [overview?.providers, providerOrder, setProviderOrder],
+    [commitProviderOrder, overview?.providers, providerOrder],
   );
 
   const updateProviderScrollState = useCallback(() => {

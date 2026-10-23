@@ -183,6 +183,11 @@ pub struct QuotaAutoRefreshRequest {
     pub interval_minutes: Option<u64>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QuotaProviderOrderRequest {
+    pub provider_order: Vec<String>,
+}
+
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct TokenUsageOverviewRequest {
     #[serde(default)]
@@ -338,6 +343,8 @@ pub enum WsAction {
     QuotaDeleteProviderApiKey,
     /// 更新 ALL usage 的自动刷新周期
     QuotaSetAutoRefresh,
+    /// Saved provider switch-list order, shared by web and mobile
+    QuotaSetProviderOrder,
     /// 获取本地 token usage 概览
     TokenUsageOverviewGet,
     /// Persist Token Usage browser-cookie / Keychain consent

@@ -110,6 +110,7 @@ Spec: [specs/APP/APP-077_mobile-terminal-main-path](../../specs/APP/APP-077_mobi
 - Expose commit history, PR panels, notes/TODO/review panels, AI commit generation, discard, or chunk-level patch controls in the M1 mobile Git surface.
 - Log device credentials, `client_token`, register tokens, or Relay/server secrets.
 - Re-declare `WsAction` or a pending-map kernel. Use `@atmos/api-types` + `@atmos/api-client`.
+- Open `AtmosUrlSessionSocket` with `URLSessionConfiguration.default`. Debug `expo-dev-launcher` intercepts that factory and swallows the 101 upgrade. Spec: [QUALITY-027](../../specs/APP/QUALITY-027_ios-url-session-socket-inspector/TECH.md).
 
 ### ALWAYS
 
@@ -118,6 +119,7 @@ Spec: [specs/APP/APP-077_mobile-terminal-main-path](../../specs/APP/APP-077_mobi
 - For navigation/header/title work, follow [agents/references/mobile/native-navigation.md](../../agents/references/mobile/native-navigation.md).
 - Smoke iOS and Android native builds through the `just mobile-ios*` / `just mobile-android` recipes before claiming platform readiness. The iOS recipes keep Debug/Release prebuilt RN cores from sharing one output tree.
 - Keep Relay URL overrides and token switching out of this dogfood cut (APP-077); restore later via a slim settings sheet if needed.
+- Token usage Computer scope follows [APP-082](../../specs/APP/APP-082_mobile-token-usage/TECH.md). The connected Computer uses the open `/ws` `token_usage_overview_get`. Another Computer or All opens a short-lived Relay client session (`clientKind: "mobile"`) and sends that same action. Do not add a usage REST API.
 
 ---
 

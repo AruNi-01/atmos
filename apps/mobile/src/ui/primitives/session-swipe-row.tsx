@@ -3,6 +3,7 @@ import { Pressable, View, type AccessibilityActionEvent } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Reanimated, {
   Easing,
+  useAnimatedReaction,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -13,15 +14,14 @@ import { useMobileTheme } from "@/theme/theme-store";
 import { ArchiveIcon, PinIcon, TrashIcon } from "@/ui/icons/lucide-native";
 import {
   applySwipeRowTouch,
+  SWIPE_ROW_BUTTON_EDGE,
   swipeRowCardFrame,
   swipeRowGestureConfig,
-  swipeRowWellColor,
 } from "@/ui/primitives/swipe-row-press";
 import type { SessionSwipeRowProps } from "./session-swipe-row.types";
 
 const ACTION_BUTTON = 44;
-const ACTION_GAP = 8;
-const ACTION_PAD = 12;
+const ACTION_GAP = 12;
 const SNAP_MS = 180;
 
 type SwipeRowHandlers = {
@@ -46,7 +46,9 @@ function dispatchSwipePanFinalize(id: string, velocityX: number, success: boolea
 
 function actionWidth(count: number) {
   if (count <= 0) return 0;
-  return ACTION_PAD + count * ACTION_BUTTON + (count - 1) * ACTION_GAP + ACTION_PAD;
+  return (
+    SWIPE_ROW_BUTTON_EDGE + count * ACTION_BUTTON + (count - 1) * ACTION_GAP + SWIPE_ROW_BUTTON_EDGE
+  );
 }
 
 function SwipeIconButton({
@@ -81,13 +83,13 @@ function SwipeIconButton({
 
 export function SessionSwipeRow({
   archiveLabel = "Archive",
-  backgroundColor,
   children,
   deleteLabel = "Delete",
   onArchive,
   onDelete,
   onPin,
   onPress,
+  onRevealedChange,
   pinLabel,
 }: SessionSwipeRowProps) {
   const theme = useMobileTheme();
@@ -99,8 +101,7 @@ export function SessionSwipeRow({
   const dragStart = useSharedValue(0);
   const leadingW = useSharedValue(leadingWidth);
   const trailingW = useSharedValue(trailingWidth);
-  const wellColor = useSharedValue(theme.colors.background);
-  const cardColor = useSharedValue(backgroundColor);
+  const openColor = useSharedValue(theme.colors.secondaryBackground);
   const revealedRef = useRef(false);
   const panActiveRef = useRef(false);
   const suppressNavigateRef = useRef(false);
@@ -110,22 +111,20 @@ export function SessionSwipeRow({
   const onPinRef = useRef(onPin);
   const onArchiveRef = useRef(onArchive);
   const onDeleteRef = useRef(onDelete);
+  const onRevealedChangeRef = useRef(onRevealedChange);
   const [revealed, setRevealed] = useState(false);
 
   useEffect(() => {
     leadingW.set(leadingWidth);
     trailingW.set(trailingWidth);
-    wellColor.set(theme.colors.background);
-    cardColor.set(backgroundColor);
+    openColor.set(theme.colors.secondaryBackground);
   }, [
-    backgroundColor,
-    cardColor,
     leadingW,
     leadingWidth,
-    theme.colors.background,
+    openColor,
+    theme.colors.secondaryBackground,
     trailingW,
     trailingWidth,
-    wellColor,
   ]);
 
   const commitRevealed = useCallback((open: boolean) => {
@@ -212,15 +211,40 @@ export function SessionSwipeRow({
     onPinRef.current = onPin;
     onArchiveRef.current = onArchive;
     onDeleteRef.current = onDelete;
+    onRevealedChangeRef.current = onRevealedChange;
     rowHandlers.set(rowId, { onPanFinalize, onPanStart, onTap });
     return () => {
       rowHandlers.delete(rowId);
     };
-  }, [onArchive, onDelete, onPanFinalize, onPanStart, onPin, onPress, onTap, rowId]);
+  }, [
+    onArchive,
+    onDelete,
+    onPanFinalize,
+    onPanStart,
+    onPin,
+    onPress,
+    onRevealedChange,
+    onTap,
+    rowId,
+  ]);
+
+  const reportRevealed = useCallback((open: boolean) => {
+    onRevealedChangeRef.current?.(open);
+  }, []);
+
+  useAnimatedReaction(
+    () => Math.abs(offset.get()) > 0.5,
+    (open, previous) => {
+      if (previous == null || open === previous) return;
+      scheduleOnRN(reportRevealed, open);
+    },
+    [offset, reportRevealed],
+  );
 
   useEffect(
     () => () => {
       if (suppressTimer.current) clearTimeout(suppressTimer.current);
+      onRevealedChangeRef.current?.(false);
     },
     [],
   );
@@ -252,14 +276,16 @@ export function SessionSwipeRow({
     return Gesture.Exclusive(pan, tap);
   }, [dragStart, leadingW, offset, rowId, trailingW]);
 
-  const wellStyle = useAnimatedStyle(() => ({
-    backgroundColor: swipeRowWellColor(offset.get(), wellColor.get()),
-  }));
   const cardStyle = useAnimatedStyle(() => {
     const frame = swipeRowCardFrame(offset.get());
+    const moving = Math.abs(offset.get()) > 0.5;
     return {
-      backgroundColor: cardColor.get(),
-      borderRadius: frame.radius,
+      backgroundColor: moving ? openColor.get() : "transparent",
+      borderBottomLeftRadius: frame.radiusBottomLeft,
+      borderBottomRightRadius: frame.radiusBottomRight,
+      borderTopLeftRadius: frame.radiusTopLeft,
+      borderTopRightRadius: frame.radiusTopRight,
+      borderWidth: frame.borderWidth,
       marginBottom: frame.marginBottom,
       marginLeft: frame.marginLeft,
       marginRight: frame.marginRight,
@@ -277,35 +303,20 @@ export function SessionSwipeRow({
     action();
   };
 
+  const iconColor = theme.colors.ctaLabel;
+
   return (
-    <Reanimated.View style={[{ overflow: "hidden" }, wellStyle]}>
+    <View pointerEvents="box-none" style={{ overflow: "visible" }}>
       <View
-        accessibilityElementsHidden={!revealed}
-        importantForAccessibility={revealed ? "auto" : "no-hide-descendants"}
-        pointerEvents={revealed ? "box-none" : "none"}
+        pointerEvents="box-none"
         style={{ bottom: 0, left: 0, position: "absolute", right: 0, top: 0 }}
       >
         <View
-          style={{
-            alignItems: "center",
-            bottom: 0,
-            flexDirection: "row",
-            gap: ACTION_GAP,
-            justifyContent: "center",
-            left: 0,
-            position: "absolute",
-            top: 0,
-            width: leadingWidth,
-          }}
+          accessibilityElementsHidden={!revealed}
+          importantForAccessibility={revealed ? "auto" : "no-hide-descendants"}
+          pointerEvents={revealed ? "box-none" : "none"}
+          style={{ bottom: 0, left: 0, position: "absolute", right: 0, top: 0 }}
         >
-          <SwipeIconButton
-            color="#2563eb"
-            icon={<PinIcon color="#ffffff" size={20} />}
-            label={pinLabel}
-            onPress={() => runAction(onPinRef.current)}
-          />
-        </View>
-        {trailingWidth > 0 ? (
           <View
             style={{
               alignItems: "center",
@@ -313,30 +324,54 @@ export function SessionSwipeRow({
               flexDirection: "row",
               gap: ACTION_GAP,
               justifyContent: "center",
+              left: 0,
+              paddingHorizontal: SWIPE_ROW_BUTTON_EDGE,
               position: "absolute",
-              right: 0,
               top: 0,
-              width: trailingWidth,
+              width: leadingWidth,
             }}
           >
-            {onArchive ? (
-              <SwipeIconButton
-                color="#d97706"
-                icon={<ArchiveIcon color="#ffffff" size={20} />}
-                label={archiveLabel}
-                onPress={() => runAction(onArchiveRef.current)}
-              />
-            ) : null}
-            {onDelete ? (
-              <SwipeIconButton
-                color="#dc2626"
-                icon={<TrashIcon color="#ffffff" size={20} />}
-                label={deleteLabel}
-                onPress={() => runAction(onDeleteRef.current)}
-              />
-            ) : null}
+            <SwipeIconButton
+              color={theme.colors.swipePin}
+              icon={<PinIcon color={iconColor} size={20} />}
+              label={pinLabel}
+              onPress={() => runAction(onPinRef.current)}
+            />
           </View>
-        ) : null}
+          {trailingWidth > 0 ? (
+            <View
+              style={{
+                alignItems: "center",
+                bottom: 0,
+                flexDirection: "row",
+                gap: ACTION_GAP,
+                justifyContent: "center",
+                paddingHorizontal: SWIPE_ROW_BUTTON_EDGE,
+                position: "absolute",
+                right: 0,
+                top: 0,
+                width: trailingWidth,
+              }}
+            >
+              {onArchive ? (
+                <SwipeIconButton
+                  color={theme.colors.swipeArchive}
+                  icon={<ArchiveIcon color={iconColor} size={20} />}
+                  label={archiveLabel}
+                  onPress={() => runAction(onArchiveRef.current)}
+                />
+              ) : null}
+              {onDelete ? (
+                <SwipeIconButton
+                  color={theme.colors.swipeDelete}
+                  icon={<TrashIcon color={iconColor} size={20} />}
+                  label={deleteLabel}
+                  onPress={() => runAction(onDeleteRef.current)}
+                />
+              ) : null}
+            </View>
+          ) : null}
+        </View>
       </View>
       <GestureDetector gesture={gesture}>
         <Reanimated.View
@@ -351,8 +386,19 @@ export function SessionSwipeRow({
           {children}
         </Reanimated.View>
       </GestureDetector>
-    </Reanimated.View>
+    </View>
   );
+}
+
+export function useOpenSwipeRows() {
+  const [openIds, setOpenIds] = useState<readonly string[]>([]);
+  const setOpen = useCallback((id: string, open: boolean) => {
+    setOpenIds((current) => {
+      const without = current.filter((item) => item !== id);
+      return open ? [...without, id] : without;
+    });
+  }, []);
+  return { openIds, setOpen };
 }
 
 export type { SessionSwipeRowProps } from "./session-swipe-row.types";
