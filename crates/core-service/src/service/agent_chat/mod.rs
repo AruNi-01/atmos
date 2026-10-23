@@ -8,6 +8,7 @@ mod queue;
 pub mod service;
 pub mod store;
 pub mod terminal_prefs;
+pub mod transcript_view;
 pub mod types;
 
 #[cfg(test)]
@@ -31,6 +32,11 @@ pub use store::AgentChatStore;
 pub use terminal_prefs::{
     apply_terminal_agent_prefs_patch, load_terminal_agent_prefs, terminal_agent_prefs_path,
     TerminalAgentFavoriteModel, TerminalAgentLastPick, TerminalAgentPrefs, TerminalAgentPrefsPatch,
+};
+pub use transcript_view::{
+    clamp_message_limit, clamp_tool_get_ids, collect_tool_parts, mark_tool_details_omitted,
+    page_messages, strip_event_tool_details, strip_message_tool_details,
+    AGENT_CHAT_MESSAGE_PAGE_DEFAULT, AGENT_CHAT_MESSAGE_PAGE_MAX, AGENT_CHAT_TOOL_GET_MAX,
 };
 pub use types::{
     AgentChatEvent, AgentChatIndexEntry, AgentChatMeta, AgentChatOrigin, AgentChatPayload,

@@ -20,17 +20,20 @@ pub use service::agent_status::{
 
 pub use service::agent_chat::{
     agent_chat_prefs_path, apply_terminal_agent_prefs_patch, builtin_options_probe_plans,
-    default_agent_data_dir, default_chats_dir, load_agent_chat_prefs, load_new_chat_configs,
-    load_terminal_agent_prefs, new_chat_configs_path, options_probe_dir, options_probe_plan_for,
-    parse_followup_policy, save_agent_chat_prefs, save_favorite_models, save_last_registry_id,
-    snapshot_from_create_fields, terminal_agent_prefs_path, terminal_options_from,
+    clamp_message_limit, clamp_tool_get_ids, collect_tool_parts, default_agent_data_dir,
+    default_chats_dir, load_agent_chat_prefs, load_new_chat_configs, load_terminal_agent_prefs,
+    mark_tool_details_omitted, new_chat_configs_path, options_probe_dir, options_probe_plan_for,
+    page_messages, parse_followup_policy, save_agent_chat_prefs, save_favorite_models,
+    save_last_registry_id, snapshot_from_create_fields, strip_event_tool_details,
+    strip_message_tool_details, terminal_agent_prefs_path, terminal_options_from,
     upsert_agent_new_chat_config, AgentChatEvent, AgentChatFavoriteModel, AgentChatIndexEntry,
     AgentChatMeta, AgentChatOrigin, AgentChatPayload, AgentChatPrefs, AgentChatService,
     AgentChatSnapshot, AgentChatStore, AgentServiceOptionsResolver, CreateAgentChatRequest,
     DefaultAgentProviderFactory, FollowupPolicy, MessagePart, NewChatConfigsFile,
     OptionsPrefetchWorker, OptionsUpdated, QueueItem, QueueItemStatus, RuntimeStatus,
     TerminalAgentFavoriteModel, TerminalAgentLastPick, TerminalAgentPrefs, TerminalAgentPrefsPatch,
-    TurnStatus, PREFETCH_POLL,
+    TurnStatus, AGENT_CHAT_MESSAGE_PAGE_DEFAULT, AGENT_CHAT_MESSAGE_PAGE_MAX,
+    AGENT_CHAT_TOOL_GET_MAX, PREFETCH_POLL,
 };
 pub use service::automation::{
     ensure_builtin_terminal_agents_upgraded, terminal_agent_command_names,

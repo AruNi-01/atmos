@@ -4,8 +4,10 @@ use std::sync::Arc;
 use super::*;
 use core_service::utils::path_boundary::path_or_existing_parent_within_root;
 use core_service::{
-    default_agent_data_dir, options_probe_plan_for, AgentChatService, CreateAgentChatRequest,
-    QueueItemStatus,
+    clamp_message_limit, collect_tool_parts, default_agent_data_dir, mark_tool_details_omitted,
+    options_probe_plan_for, page_messages, strip_event_tool_details, strip_message_tool_details,
+    AgentChatEvent, AgentChatService, CreateAgentChatRequest, QueueItemStatus,
+    AGENT_CHAT_MESSAGE_PAGE_DEFAULT,
 };
 use serde_json::{json, Value};
 
@@ -111,10 +113,9 @@ impl WsMessageService {
         Ok(json!({ "items": items }))
     }
 
-    pub(super) async fn handle_agent_chat_get(&self, req: AgentChatIdRequest) -> Result<Value> {
+    pub(super) async fn handle_agent_chat_get(&self, req: AgentChatGetRequest) -> Result<Value> {
         let snapshot = self.agent_chat().get(&req.chat_id).await?;
-        agent_chat_snapshot_json(&snapshot)
-            .map_err(|e| ServiceError::Processing(format!("serialize snapshot: {e}")))
+        agent_chat_get_json(snapshot, &req)
     }
 
     pub(super) async fn handle_agent_chat_messages(
@@ -122,13 +123,7 @@ impl WsMessageService {
         req: AgentChatMessagesRequest,
     ) -> Result<Value> {
         let snapshot = self.agent_chat().get(&req.chat_id).await?;
-        let mut messages = snapshot.messages;
-        if let Some(limit) = req.limit {
-            let keep = (limit as usize).max(1);
-            let start = messages.len().saturating_sub(keep);
-            messages = messages.split_off(start);
-        }
-        Ok(json!({ "messages": messages }))
+        agent_chat_messages_json(snapshot, &req)
     }
 
     pub(super) async fn handle_agent_chat_rename(
@@ -167,11 +162,17 @@ impl WsMessageService {
     }
 
     /// Returns whether this call inserted `conn_id`. `false` means it was already subscribed.
-    async fn register_agent_chat_sub(&self, chat_id: &str, conn_id: &str) -> bool {
+    async fn register_agent_chat_sub(
+        &self,
+        chat_id: &str,
+        conn_id: &str,
+        opts: super::AgentChatSubOpts,
+    ) -> bool {
         let mut subs = self.agent_chat_subs.write().await;
-        subs.entry(chat_id.to_string())
-            .or_default()
-            .insert(conn_id.to_string())
+        let conns = subs.entry(chat_id.to_string()).or_default();
+        let inserted = !conns.contains_key(conn_id);
+        conns.insert(conn_id.to_string(), opts);
+        inserted
     }
 
     async fn unregister_agent_chat_sub(&self, chat_id: &str, conn_id: &str) {
@@ -195,7 +196,10 @@ impl WsMessageService {
         // EventGate dedupes on event_id. This handler does not filter that overlap.
         // Roll back only a conn this call inserted. A repeat subscribe that fails
         // must leave the earlier registration in place.
-        let inserted = self.register_agent_chat_sub(&req.chat_id, conn_id).await;
+        let opts = super::AgentChatSubOpts::from_flag(req.include_tool_detail);
+        let inserted = self
+            .register_agent_chat_sub(&req.chat_id, conn_id, opts)
+            .await;
         if let Err(error) = self.agent_chat().get(&req.chat_id).await {
             if inserted {
                 self.unregister_agent_chat_sub(&req.chat_id, conn_id).await;
@@ -208,7 +212,7 @@ impl WsMessageService {
         subscribe_race_pause::pause(conn_id).await;
         if let Some(manager) = self.ws_manager.get() {
             for event in missed {
-                if let Ok(payload) = serde_json::to_value(&event) {
+                if let Some(payload) = agent_chat_event_payload(&event, opts.include_tool_detail) {
                     let message = crate::api::ws::message::WsMessage::notification(
                         crate::api::ws::message::WsEvent::AgentChatEvent,
                         payload,
@@ -227,6 +231,15 @@ impl WsMessageService {
             }
         };
         Ok(json!({ "last_event_seq": last_event_seq }))
+    }
+
+    pub(super) async fn handle_agent_chat_tool_get(
+        &self,
+        req: AgentChatToolGetRequest,
+    ) -> Result<Value> {
+        let snapshot = self.agent_chat().get(&req.chat_id).await?;
+        let parts = collect_tool_parts(&snapshot.messages, &req.tool_call_ids);
+        Ok(json!({ "parts": parts }))
     }
 
     pub(super) async fn handle_agent_chat_backfill(
@@ -456,6 +469,81 @@ fn bound_cwd(requested: Option<PathBuf>, root: PathBuf) -> Result<String> {
     ))
 }
 
+fn lean_tools(flag: Option<bool>) -> bool {
+    flag == Some(false)
+}
+
+fn agent_chat_get_json(
+    mut snapshot: core_service::AgentChatSnapshot,
+    req: &AgentChatGetRequest,
+) -> Result<Value> {
+    let lean = lean_tools(req.include_tool_detail);
+    let mut has_more = false;
+    if let Some(limit) = req.message_limit {
+        let (messages, more) = page_messages(&snapshot.messages, clamp_message_limit(limit), None);
+        snapshot.messages = messages;
+        has_more = more;
+    }
+    if lean {
+        strip_message_tool_details(&mut snapshot.messages);
+    }
+    let mut value = agent_chat_snapshot_json(&snapshot)
+        .map_err(|e| ServiceError::Processing(format!("serialize snapshot: {e}")))?;
+    if lean {
+        mark_tool_details_omitted(&mut value);
+    }
+    if has_more {
+        value["has_more_messages"] = json!(true);
+    }
+    Ok(value)
+}
+
+fn agent_chat_messages_json(
+    snapshot: core_service::AgentChatSnapshot,
+    req: &AgentChatMessagesRequest,
+) -> Result<Value> {
+    let lean = lean_tools(req.include_tool_detail);
+    let paged = req.limit.is_some() || req.before_message_id.is_some();
+    let mut messages = snapshot.messages;
+    let has_more = if paged {
+        let limit = req
+            .limit
+            .map(clamp_message_limit)
+            .unwrap_or(AGENT_CHAT_MESSAGE_PAGE_DEFAULT);
+        let (page, more) = page_messages(&messages, limit, req.before_message_id.as_deref());
+        messages = page;
+        more
+    } else {
+        false
+    };
+    if lean {
+        strip_message_tool_details(&mut messages);
+    }
+    let mut value = if paged {
+        json!({ "messages": messages, "has_more": has_more })
+    } else {
+        json!({ "messages": messages })
+    };
+    if lean {
+        mark_tool_details_omitted(&mut value);
+    }
+    Ok(value)
+}
+
+pub(super) fn agent_chat_event_payload(
+    event: &AgentChatEvent,
+    include_tool_detail: bool,
+) -> Option<Value> {
+    if include_tool_detail {
+        return serde_json::to_value(event).ok();
+    }
+    let mut lean = event.clone();
+    strip_event_tool_details(&mut lean);
+    let mut value = serde_json::to_value(&lean).ok()?;
+    mark_tool_details_omitted(&mut value);
+    Some(value)
+}
+
 #[cfg(test)]
 mod subscribe_race_pause {
     use std::sync::Mutex;
@@ -556,7 +644,10 @@ mod tests {
 
     use super::super::WsMessageService;
     use super::subscribe_race_pause;
-    use crate::api::ws::message::{AgentChatIdRequest, AgentChatSubscribeRequest};
+    use crate::api::ws::message::{
+        AgentChatGetRequest, AgentChatIdRequest, AgentChatMessagesRequest,
+        AgentChatSubscribeRequest, AgentChatToolGetRequest,
+    };
     use crate::api::ws::{ClientType, WsManager, WsMessageHandler};
 
     const SEED_MARKER: &str = "subscribe-race-seed";
@@ -641,6 +732,7 @@ mod tests {
                     AgentChatSubscribeRequest {
                         chat_id: chat_id.clone(),
                         after_sequence: Some(0),
+                        include_tool_detail: None,
                     },
                 )
                 .await
@@ -651,7 +743,7 @@ mod tests {
         assert!(
             !subs
                 .get(&chat_id)
-                .is_some_and(|conns| conns.contains(conn_id)),
+                .is_some_and(|conns| conns.contains_key(conn_id)),
             "failed subscribe must not leave the connection registered"
         );
     }
@@ -691,6 +783,7 @@ mod tests {
                 AgentChatSubscribeRequest {
                     chat_id: chat_id.clone(),
                     after_sequence: Some(0),
+                    include_tool_detail: None,
                 },
             )
             .await
@@ -704,6 +797,7 @@ mod tests {
                     AgentChatSubscribeRequest {
                         chat_id: chat_id.clone(),
                         after_sequence: Some(0),
+                        include_tool_detail: None,
                     },
                 )
                 .await
@@ -714,7 +808,7 @@ mod tests {
         let subs = service.agent_chat_subs.read().await;
         assert!(
             subs.get(&chat_id)
-                .is_some_and(|conns| conns.contains(conn_id)),
+                .is_some_and(|conns| conns.contains_key(conn_id)),
             "a failed repeat subscribe must keep the earlier registration"
         );
     }
@@ -736,6 +830,7 @@ mod tests {
                     AgentChatSubscribeRequest {
                         chat_id: chat_id.clone(),
                         after_sequence: Some(0),
+                        include_tool_detail: None,
                     },
                 )
                 .await
@@ -807,6 +902,7 @@ mod tests {
                 AgentChatSubscribeRequest {
                     chat_id: chat_id.clone(),
                     after_sequence: Some(seed_seq),
+                    include_tool_detail: None,
                 },
             )
             .await
@@ -823,6 +919,7 @@ mod tests {
                     AgentChatSubscribeRequest {
                         chat_id: chat_for_join,
                         after_sequence: Some(seed_seq),
+                        include_tool_detail: None,
                     },
                 )
                 .await
@@ -839,7 +936,7 @@ mod tests {
         let registered_while_paused = {
             let subs = service.agent_chat_subs.read().await;
             subs.get(&chat_id)
-                .is_some_and(|conns| conns.contains(&joiner))
+                .is_some_and(|conns| conns.contains_key(&joiner))
         };
         service
             .agent_chat()
@@ -905,6 +1002,7 @@ mod tests {
                 AgentChatSubscribeRequest {
                     chat_id: chat_id.to_string(),
                     after_sequence: Some(0),
+                    include_tool_detail: None,
                 },
             )
             .await
@@ -912,7 +1010,10 @@ mod tests {
     }
 
     fn assert_no_empty_sets(
-        subs: &std::collections::HashMap<String, std::collections::HashSet<String>>,
+        subs: &std::collections::HashMap<
+            String,
+            std::collections::HashMap<String, super::super::AgentChatSubOpts>,
+        >,
     ) {
         assert!(
             subs.values().all(|conns| !conns.is_empty()),
@@ -961,7 +1062,7 @@ mod tests {
         );
         assert!(
             subs.get(&shared)
-                .is_some_and(|conns| conns.len() == 1 && conns.contains("conn-b")),
+                .is_some_and(|conns| conns.len() == 1 && conns.contains_key("conn-b")),
             "a remaining subscriber must stay registered"
         );
     }
@@ -991,10 +1092,228 @@ mod tests {
         assert!(
             subs.get(&shared).is_some_and(|conns| {
                 conns.len() == 1
-                    && conns.contains("conn-staying")
-                    && !conns.contains("conn-leaving")
+                    && conns.contains_key("conn-staying")
+                    && !conns.contains_key("conn-leaving")
             }),
             "disconnect must drop only the closed connection"
         );
+    }
+
+    fn append_user_turns(chat_dir: &std::path::Path, count: usize) {
+        let path = chat_dir.join("transcript.jsonl");
+        let mut body = std::fs::read_to_string(&path).unwrap_or_default();
+        for n in 1..=count {
+            let turn = format!("t{n}");
+            let mid = format!("m{n}");
+            let ts = "2026-01-01T00:00:00Z";
+            body.push_str(&format!(
+                r#"{{"event_id":"e-start-{n}","turn_id":"{turn}","timestamp":"{ts}","event":{{"type":"turn_started"}}}}
+{{"event_id":"e-user-{n}","turn_id":"{turn}","timestamp":"{ts}","event":{{"type":"user_message","message_id":"{mid}","kind":"normal","text":"msg {n}","attachments":[]}}}}
+{{"event_id":"e-done-{n}","turn_id":"{turn}","timestamp":"{ts}","event":{{"type":"turn_completed","status":"completed"}}}}
+"#
+            ));
+        }
+        std::fs::write(&path, body).expect("write transcript");
+    }
+
+    fn append_tool_turn(chat_dir: &std::path::Path) {
+        let path = chat_dir.join("transcript.jsonl");
+        let mut body = std::fs::read_to_string(&path).unwrap_or_default();
+        body.push_str(
+            r#"{"event_id":"e-start-tool","turn_id":"t-tool","timestamp":"2026-01-01T00:00:00Z","event":{"type":"turn_started"}}
+{"event_id":"e-user-tool","turn_id":"t-tool","timestamp":"2026-01-01T00:00:00Z","event":{"type":"user_message","message_id":"m-tool-user","kind":"normal","text":"edit","attachments":[]}}
+{"event_id":"e-tool","turn_id":"t-tool","timestamp":"2026-01-01T00:00:00Z","event":{"type":"tool_call","ordinal":0,"tool":{"tool_call_id":"edit-1","status":"completed","name":"Edit","title":"src/a.ts","kind":"edit","params":{"type":"edit","path":"src/a.ts"},"result":{"type":"diff","path":"src/a.ts","old_content":"a\nb\n","new_content":"a\nb\nc\n"}}}}
+{"event_id":"e-done-tool","turn_id":"t-tool","timestamp":"2026-01-01T00:00:00Z","event":{"type":"turn_completed","status":"completed"}}
+"#,
+        );
+        std::fs::write(&path, body).expect("write tool transcript");
+    }
+
+    #[tokio::test]
+    async fn get_pages_last_twenty_and_strips_tools() {
+        let root = TempRoot(
+            std::env::temp_dir().join(format!("atmos-chat-page-{}", uuid::Uuid::new_v4())),
+        );
+        std::fs::create_dir_all(&root.0).expect("temp root");
+        let service = service_at(&root.0).await;
+        let chat_id = create_chat(&service, &root.0);
+        let dir = service.agent_chat().store().dir_for(&chat_id);
+        append_user_turns(&dir, 24);
+        append_tool_turn(&dir);
+
+        let value = service
+            .handle_agent_chat_get(AgentChatGetRequest {
+                chat_id: chat_id.clone(),
+                message_limit: Some(20),
+                include_tool_detail: Some(false),
+            })
+            .await
+            .expect("lean get");
+        let messages = value["messages"].as_array().expect("messages");
+        assert_eq!(messages.len(), 20);
+        assert_eq!(value["has_more_messages"], true);
+        let tool_part = messages
+            .iter()
+            .rev()
+            .find_map(|message| {
+                message["parts"]
+                    .as_array()
+                    .and_then(|parts| parts.iter().find(|part| part["type"] == "tool_call"))
+            })
+            .expect("tool part");
+        assert_eq!(tool_part["detail_omitted"], true);
+        assert!(tool_part["result"]["old_content"].is_null());
+        assert!(tool_part["result"]["new_content"].is_null());
+        assert_eq!(tool_part["result"]["type"], "diff_stats");
+    }
+
+    #[tokio::test]
+    async fn messages_before_id_loads_older_page() {
+        let root = TempRoot(
+            std::env::temp_dir().join(format!("atmos-chat-before-{}", uuid::Uuid::new_v4())),
+        );
+        std::fs::create_dir_all(&root.0).expect("temp root");
+        let service = service_at(&root.0).await;
+        let chat_id = create_chat(&service, &root.0);
+        append_user_turns(&service.agent_chat().store().dir_for(&chat_id), 25);
+
+        let first = service
+            .handle_agent_chat_messages(AgentChatMessagesRequest {
+                chat_id: chat_id.clone(),
+                limit: Some(20),
+                before_message_id: None,
+                include_tool_detail: Some(false),
+            })
+            .await
+            .expect("tail");
+        assert_eq!(first["messages"].as_array().expect("messages").len(), 20);
+        assert_eq!(first["has_more"], true);
+        let oldest = first["messages"][0]["id"].as_str().expect("id").to_string();
+
+        let older = service
+            .handle_agent_chat_messages(AgentChatMessagesRequest {
+                chat_id: chat_id.clone(),
+                limit: Some(20),
+                before_message_id: Some(oldest),
+                include_tool_detail: Some(false),
+            })
+            .await
+            .expect("older");
+        let ids: Vec<_> = older["messages"]
+            .as_array()
+            .expect("older messages")
+            .iter()
+            .map(|message| message["id"].as_str().unwrap())
+            .collect();
+        assert_eq!(ids, ["m1", "m2", "m3", "m4", "m5"]);
+        assert_eq!(older["has_more"], false);
+
+        let missing = service
+            .handle_agent_chat_messages(AgentChatMessagesRequest {
+                chat_id,
+                limit: Some(20),
+                before_message_id: Some("missing".into()),
+                include_tool_detail: Some(false),
+            })
+            .await
+            .expect("missing cursor");
+        assert!(missing["messages"].as_array().expect("empty").is_empty());
+        assert_eq!(missing["has_more"], false);
+    }
+
+    #[tokio::test]
+    async fn tool_get_returns_full_diff() {
+        let root = TempRoot(
+            std::env::temp_dir().join(format!("atmos-chat-tool-get-{}", uuid::Uuid::new_v4())),
+        );
+        std::fs::create_dir_all(&root.0).expect("temp root");
+        let service = service_at(&root.0).await;
+        let chat_id = create_chat(&service, &root.0);
+        append_tool_turn(&service.agent_chat().store().dir_for(&chat_id));
+
+        let value = service
+            .handle_agent_chat_tool_get(AgentChatToolGetRequest {
+                chat_id,
+                tool_call_ids: vec!["missing".into(), "edit-1".into()],
+            })
+            .await
+            .expect("tool get");
+        let parts = value["parts"].as_array().expect("parts");
+        assert_eq!(parts.len(), 1);
+        assert_eq!(parts[0]["tool_call_id"], "edit-1");
+        assert_eq!(parts[0]["result"]["type"], "diff");
+        assert_eq!(parts[0]["result"]["new_content"], "a\nb\nc\n");
+        assert!(parts[0].get("detail_omitted").is_none());
+    }
+
+    #[tokio::test]
+    async fn subscribe_stores_lean_and_full_opts() {
+        let root = TempRoot(
+            std::env::temp_dir().join(format!("atmos-chat-sub-opts-{}", uuid::Uuid::new_v4())),
+        );
+        std::fs::create_dir_all(&root.0).expect("temp root");
+        let service = service_at(&root.0).await;
+        let chat_id = create_chat(&service, &root.0);
+        service
+            .handle_agent_chat_subscribe(
+                "conn-full",
+                AgentChatSubscribeRequest {
+                    chat_id: chat_id.clone(),
+                    after_sequence: Some(0),
+                    include_tool_detail: None,
+                },
+            )
+            .await
+            .expect("full subscribe");
+        service
+            .handle_agent_chat_subscribe(
+                "conn-lean",
+                AgentChatSubscribeRequest {
+                    chat_id: chat_id.clone(),
+                    after_sequence: Some(0),
+                    include_tool_detail: Some(false),
+                },
+            )
+            .await
+            .expect("lean subscribe");
+        let subs = service.agent_chat_subs.read().await;
+        let conns = subs.get(&chat_id).expect("chat");
+        assert!(conns.get("conn-full").expect("full").include_tool_detail);
+        assert!(!conns.get("conn-lean").expect("lean").include_tool_detail);
+    }
+
+    #[tokio::test]
+    async fn get_without_flags_keeps_full_snapshot() {
+        let root = TempRoot(
+            std::env::temp_dir().join(format!("atmos-chat-full-get-{}", uuid::Uuid::new_v4())),
+        );
+        std::fs::create_dir_all(&root.0).expect("temp root");
+        let service = service_at(&root.0).await;
+        let chat_id = create_chat(&service, &root.0);
+        append_tool_turn(&service.agent_chat().store().dir_for(&chat_id));
+
+        let value = service
+            .handle_agent_chat_get(AgentChatGetRequest {
+                chat_id,
+                message_limit: None,
+                include_tool_detail: None,
+            })
+            .await
+            .expect("full get");
+        assert!(value.get("has_more_messages").is_none());
+        let tool_part = value["messages"]
+            .as_array()
+            .expect("messages")
+            .iter()
+            .rev()
+            .find_map(|message| {
+                message["parts"]
+                    .as_array()
+                    .and_then(|parts| parts.iter().find(|part| part["type"] == "tool_call"))
+            })
+            .expect("tool part");
+        assert!(tool_part.get("detail_omitted").is_none());
+        assert_eq!(tool_part["result"]["type"], "diff");
+        assert_eq!(tool_part["result"]["new_content"], "a\nb\nc\n");
     }
 }

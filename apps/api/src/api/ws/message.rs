@@ -604,6 +604,7 @@ pub enum WsAction {
     AgentChatDelete,
     AgentChatSubscribe,
     AgentChatBackfill,
+    AgentChatToolGet,
     AgentChatUnsubscribe,
     AgentChatSend,
     AgentChatSteer,

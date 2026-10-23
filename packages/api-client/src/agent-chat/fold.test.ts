@@ -197,4 +197,30 @@ describe("agent-chat tool fold", () => {
     );
     expect(merged.name).toBe("");
   });
+
+  test("lean incoming does not wipe an expanded full body", () => {
+    const full: Parameters<typeof mergeToolCallState>[0] = {
+      tool_call_id: "t1",
+      status: "running",
+      name: "Edit",
+      params: { type: "edit", path: "a.ts" },
+      result: { type: "diff", path: "a.ts", old_content: "a", new_content: "b" },
+    };
+    const merged = mergeToolCallState(full, {
+      tool_call_id: "t1",
+      status: "completed",
+      name: "Edit",
+      params: { type: "edit", path: "a.ts" },
+      result: { type: "diff_stats", path: "a.ts", additions: 1, deletions: 1 },
+      detail_omitted: true,
+    });
+    expect(merged.status).toBe("completed");
+    expect(merged.detail_omitted).not.toBe(true);
+    expect(merged.result).toEqual({
+      type: "diff",
+      path: "a.ts",
+      old_content: "a",
+      new_content: "b",
+    });
+  });
 });

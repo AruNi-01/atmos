@@ -63,10 +63,23 @@ pub struct AgentChatIdRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentChatGetRequest {
+    pub chat_id: String,
+    #[serde(default)]
+    pub message_limit: Option<u32>,
+    #[serde(default)]
+    pub include_tool_detail: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentChatMessagesRequest {
     pub chat_id: String,
     #[serde(default)]
     pub limit: Option<u32>,
+    #[serde(default)]
+    pub before_message_id: Option<String>,
+    #[serde(default)]
+    pub include_tool_detail: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -80,6 +93,15 @@ pub struct AgentChatSubscribeRequest {
     pub chat_id: String,
     #[serde(default)]
     pub after_sequence: Option<u64>,
+    #[serde(default)]
+    pub include_tool_detail: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentChatToolGetRequest {
+    pub chat_id: String,
+    #[serde(default)]
+    pub tool_call_ids: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

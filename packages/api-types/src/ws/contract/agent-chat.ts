@@ -5,14 +5,17 @@ import type {
   AgentChatPrefs,
   AgentChatPrefsSetRequest,
   AgentChatCreateRequest,
+  AgentChatGetRequest,
   AgentChatIdRequest,
   AgentChatIndexEntry,
   AgentChatListRequest,
   AgentChatListResponse,
   AgentChatMessagesRequest,
+  AgentChatMessagesResponse,
   AgentChatMeta,
   AgentChatSnapshot,
-  AgentMessage,
+  AgentChatToolGetRequest,
+  AgentChatToolGetResponse,
   AgentChatPermissionRespondRequest,
   AgentChatSessionOpRespondRequest,
   AgentChatQueueAddRequest,
@@ -40,12 +43,12 @@ export type AgentChatContract = {
     output: AgentChatListResponse;
   };
   agent_chat_get: {
-    input: AgentChatIdRequest;
+    input: AgentChatGetRequest;
     output: AgentChatSnapshot;
   };
   agent_chat_messages: {
     input: AgentChatMessagesRequest;
-    output: { messages: AgentMessage[] };
+    output: AgentChatMessagesResponse;
   };
   agent_chat_rename: {
     input: AgentChatRenameRequest;
@@ -63,6 +66,10 @@ export type AgentChatContract = {
   agent_chat_backfill: {
     input: AgentChatBackfillRequest;
     output: AgentChatBackfillResponse;
+  };
+  agent_chat_tool_get: {
+    input: AgentChatToolGetRequest;
+    output: AgentChatToolGetResponse;
   };
   agent_chat_unsubscribe: { input: AgentChatIdRequest; output: WsOk };
   agent_chat_send: {

@@ -35,7 +35,7 @@ mod workspace_gitignore;
 mod workspace_notifications;
 mod workspace_setup;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -94,7 +94,20 @@ pub struct WsMessageService {
     agent_chat_service: Arc<AgentChatService>,
     host_session_service: Arc<HostSessionService>,
     options_worker: Arc<OptionsPrefetchWorker>,
-    agent_chat_subs: Arc<RwLock<HashMap<String, HashSet<String>>>>,
+    agent_chat_subs: Arc<RwLock<HashMap<String, HashMap<String, AgentChatSubOpts>>>>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct AgentChatSubOpts {
+    pub(super) include_tool_detail: bool,
+}
+
+impl AgentChatSubOpts {
+    fn from_flag(flag: Option<bool>) -> Self {
+        Self {
+            include_tool_detail: flag.unwrap_or(true),
+        }
+    }
 }
 
 impl WsMessageService {
@@ -353,9 +366,13 @@ impl WsMessageService {
                             let map = subs.read().await;
                             map.get(&event.chat_id).cloned().unwrap_or_default()
                         };
-                        if let Ok(payload) = serde_json::to_value(&event) {
-                            let message = WsMessage::notification(WsEvent::AgentChatEvent, payload);
-                            for conn_id in conns {
+                        for (conn_id, opts) in conns {
+                            if let Some(payload) = agent_chat::agent_chat_event_payload(
+                                &event,
+                                opts.include_tool_detail,
+                            ) {
+                                let message =
+                                    WsMessage::notification(WsEvent::AgentChatEvent, payload);
                                 let _ = manager_events.send_to(&conn_id, &message).await;
                             }
                         }
@@ -372,10 +389,15 @@ impl WsMessageService {
                             let after = last_seq.get(&chat_id).copied().unwrap_or(0);
                             for event in agent_chat.events_after(&chat_id, after) {
                                 last_seq.insert(chat_id.clone(), event.revision);
-                                if let Ok(payload) = serde_json::to_value(&event) {
-                                    let message =
-                                        WsMessage::notification(WsEvent::AgentChatEvent, payload);
-                                    for conn_id in &conns {
+                                for (conn_id, opts) in &conns {
+                                    if let Some(payload) = agent_chat::agent_chat_event_payload(
+                                        &event,
+                                        opts.include_tool_detail,
+                                    ) {
+                                        let message = WsMessage::notification(
+                                            WsEvent::AgentChatEvent,
+                                            payload,
+                                        );
                                         let _ = manager_events.send_to(conn_id, &message).await;
                                     }
                                 }
@@ -1043,6 +1065,10 @@ impl WsMessageService {
             }
             WsAction::AgentChatBackfill => {
                 self.handle_agent_chat_backfill(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AgentChatToolGet => {
+                self.handle_agent_chat_tool_get(parse_request(request.data)?)
                     .await
             }
             WsAction::AgentChatUnsubscribe => {
