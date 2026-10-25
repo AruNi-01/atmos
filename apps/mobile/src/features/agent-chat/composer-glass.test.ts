@@ -126,6 +126,7 @@ describe("card lane glass chrome", () => {
       expect(text).not.toContain("glassTint");
       expect(text).not.toContain("controlGlassTint");
       expect(text).not.toContain("glassFallback");
+      expect(text).toContain('overflow: "visible"');
     }
     expect(pills).toContain("pill.selected ? theme.colors.label : theme.colors.secondaryLabel");
   });

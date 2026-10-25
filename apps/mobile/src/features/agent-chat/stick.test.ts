@@ -92,18 +92,16 @@ describe("scroll pill rules", () => {
     expect(scrollPillAccessibilityLabel(0)).toBe("Bottom");
   });
 
-  test("the pill uses web text-xs leading-none and a size-4 chevron", () => {
+  test("the visible pill is a square glass chevron and does not show the count", () => {
     const pill = readFileSync(join(here, "scroll-pill.tsx"), "utf8");
-    const web = readFileSync(
-      join(here, "../../../../web/src/features/agent/components/AgentChatScrollToBottom.tsx"),
-      "utf8",
-    );
-    expect(web).toContain("text-xs leading-none font-medium");
-    expect(web).toContain('className="size-4"');
-    expect(pill).toContain("fontSize: 12");
-    expect(pill).toContain('fontWeight: "500"');
-    expect(pill).toContain("lineHeight: 12");
     expect(pill).toContain("size={16}");
+    expect(pill).toContain("width: COMPOSER_GLASS_CONTROL_SIZE");
+    expect(pill).toContain("COMPOSER_GLASS_CONTROL_RADIUS");
+    expect(pill).toContain("scrollPillAccessibilityLabel(count)");
+    expect(pill).not.toContain("NumberFlow");
+    expect(pill).not.toContain("scrollBelowUnit");
+    expect(pill).not.toContain("fontSize:");
+    expect(pill).not.toContain("<Text");
   });
 
   test("the pill and the row follow message count, stick, and cards", () => {

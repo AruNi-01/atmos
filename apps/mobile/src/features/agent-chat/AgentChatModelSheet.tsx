@@ -17,7 +17,6 @@ import {
   foregroundStyle,
   frame,
   glassEffect,
-  ignoreSafeArea,
   padding,
   textFieldStyle,
   textInputAutocapitalization,
@@ -95,28 +94,23 @@ function Measured({ children, id }: { children: ReactNode; id: string }) {
 function MeasuredScroll({
   children,
   keys,
+  minHeight = 0,
   showsIndicators = true,
 }: {
   children: ReactNode;
   keys: readonly string[];
+  /** Used until every child has reported a height. */
+  minHeight?: number;
   showsIndicators?: boolean;
 }) {
   const theme = useMobileTheme();
   const allKeys = useMemo(() => [...keys, "__end"], [keys]);
   const { complete, onLayout, total } = useStackedHeight(allKeys);
-  const height = complete ? Math.max(total, 1) : Math.max(total, allKeys.length * 64);
+  const height = complete ? Math.max(total, 1) : Math.max(total, allKeys.length * 64, minHeight);
   return (
     <MeasureContext.Provider value={onLayout}>
-      <Host
-        colorScheme={theme.colorScheme}
-        ignoreSafeArea="all"
-        matchContents={false}
-        style={{ flex: 1, minHeight: 0 }}
-      >
-        <ScrollView
-          modifiers={[ignoreSafeArea({ edges: "all" })]}
-          showsIndicators={showsIndicators}
-        >
+      <Host colorScheme={theme.colorScheme} matchContents={false} style={{ flex: 1, minHeight: 0 }}>
+        <ScrollView showsIndicators={showsIndicators}>
           <Group
             modifiers={[
               frame({ alignment: "topLeading", height, maxWidth: Infinity }),
@@ -139,6 +133,15 @@ function MeasuredScroll({
 }
 
 const RAIL_ICON = 22;
+const RAIL_SLOT = 44;
+const RAIL_INSET = 4;
+const RAIL_TRACK = RAIL_SLOT + RAIL_INSET * 2;
+/** Search capsule. Fixed so the glass host has a box for the inner inset. */
+const SEARCH_FIELD_HEIGHT = 52;
+/** Effort chip cap. Label ellipsizes inside this; the chevron stays put. */
+const EFFORT_MAX_WIDTH = 148;
+const EFFORT_CHEVRON = 14;
+const EFFORT_LABEL_MAX = EFFORT_MAX_WIDTH - 16 - 2 - EFFORT_CHEVRON;
 
 type RailTab = {
   icon: ReactNode;
@@ -286,11 +289,7 @@ export function AgentChatModelSheet(props: {
                     favoriteEntry.model === props.picker.modelId
                   : row.option.id === props.picker.modelId;
                 const favorited = isFavoriteModel(props.favorites, agentId, row.option.id);
-                const showEffort =
-                  selected &&
-                  (props.picker.thinking.length > 1 ||
-                    props.picker.fastAvailable ||
-                    props.picker.context.length > 1);
+                const showEffort = selected;
                 return (
                   <Measured id={key} key={key}>
                     <View
@@ -299,8 +298,10 @@ export function AgentChatModelSheet(props: {
                         backgroundColor: selected ? theme.colors.mutedPressed : "transparent",
                         borderRadius: 12,
                         flexDirection: "row",
+                        flexWrap: "nowrap",
                         gap: 4,
                         marginHorizontal: ROW_INSET,
+                        minWidth: 0,
                         paddingHorizontal: 8,
                       }}
                     >
@@ -313,9 +314,23 @@ export function AgentChatModelSheet(props: {
                               : { modelId: row.option.id },
                           );
                         }}
-                        style={{ flex: 1, paddingVertical: 10 }}
+                        style={{
+                          flexBasis: 0,
+                          flexGrow: 1,
+                          flexShrink: 1,
+                          maxWidth: showEffort ? "58%" : "100%",
+                          minWidth: 0,
+                          paddingVertical: 10,
+                        }}
                       >
-                        <Text style={{ color: theme.colors.label, fontSize: 16 }}>
+                        <Text
+                          ellipsizeMode="tail"
+                          numberOfLines={1}
+                          style={{
+                            color: theme.colors.label,
+                            fontSize: 16,
+                          }}
+                        >
                           {row.option.label}
                           {row.option.multiplier ? `  ${row.option.multiplier}` : ""}
                         </Text>
@@ -334,6 +349,7 @@ export function AgentChatModelSheet(props: {
                             label: row.option.label,
                           })
                         }
+                        style={{ flexShrink: 0 }}
                       >
                         <StarIcon
                           color={theme.colors.secondaryLabel}
@@ -343,7 +359,9 @@ export function AgentChatModelSheet(props: {
                         />
                       </Pressable>
                       {selected ? (
-                        <CheckIcon color={theme.colors.label} size={18} strokeWidth={2.4} />
+                        <View style={{ flexShrink: 0 }}>
+                          <CheckIcon color={theme.colors.label} size={18} strokeWidth={2.4} />
+                        </View>
                       ) : null}
                     </View>
                   </Measured>
@@ -362,50 +380,94 @@ function modelRowKey(row: GroupedModelRow, index: number): string {
   return `model:${row.option.id}:${index}`;
 }
 
+const RAIL_LENS_INSET = 4;
+const RAIL_LENS_WIDTH = RAIL_TRACK - RAIL_LENS_INSET * 2;
+const RAIL_LENS_HEIGHT = RAIL_SLOT - 8;
+
 function AgentRail({ tabs }: { tabs: RailTab[] }) {
   const theme = useMobileTheme();
+  const selectedIndex = tabs.findIndex((tab) => tab.selected);
+  const lens = useRef(new Animated.Value(Math.max(0, selectedIndex))).current;
+
+  useEffect(() => {
+    if (selectedIndex < 0) return;
+    Animated.spring(lens, {
+      friction: 9,
+      tension: 140,
+      toValue: selectedIndex,
+      useNativeDriver: true,
+    }).start();
+  }, [lens, selectedIndex]);
+
   return (
     <View style={{ alignSelf: "stretch", width: 60 }}>
-      <MeasuredScroll keys={tabs.map((tab) => tab.id)} showsIndicators={false}>
-        <View style={{ alignItems: "center", paddingTop: 8 }}>
-          {tabs.map((tab) => (
-            <Measured id={tab.id} key={tab.id}>
-              <Pressable
-                accessibilityLabel={tab.label}
-                accessibilityRole="button"
-                accessibilityState={{ selected: tab.selected }}
-                onPress={tab.onPress}
-                style={{ marginBottom: 10 }}
-              >
-                <GlassPanel
-                  glassEffectStyle={tab.selected ? "regular" : "clear"}
-                  interactive
-                  shadow={false}
-                  style={{
+      <MeasuredScroll
+        keys={["rail"]}
+        minHeight={tabs.length * RAIL_SLOT + RAIL_INSET * 2 + SCROLL_END}
+        showsIndicators={false}
+      >
+        <Measured id="rail">
+          <View style={{ borderRadius: radii.pill, overflow: "hidden", width: RAIL_TRACK }}>
+            <GlassPanel
+              shadow={false}
+              style={{
+                borderRadius: radii.pill,
+                bottom: 0,
+                left: 0,
+                position: "absolute",
+                right: 0,
+                top: 0,
+              }}
+            />
+            {selectedIndex >= 0 ? (
+              <Animated.View
+                pointerEvents="none"
+                style={{
+                  backgroundColor: theme.isDark ? "rgba(255,255,255,0.16)" : "rgba(17,17,18,0.08)",
+                  borderCurve: "continuous",
+                  borderRadius: 14,
+                  height: RAIL_LENS_HEIGHT,
+                  left: RAIL_LENS_INSET,
+                  position: "absolute",
+                  top: RAIL_INSET + (RAIL_SLOT - RAIL_LENS_HEIGHT) / 2,
+                  transform: [{ translateY: Animated.multiply(lens, RAIL_SLOT) }],
+                  width: RAIL_LENS_WIDTH,
+                }}
+              />
+            ) : null}
+            <View style={{ padding: RAIL_INSET }}>
+              {tabs.map((tab) => (
+                <Pressable
+                  accessibilityLabel={tab.label}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: tab.selected }}
+                  key={tab.id}
+                  onPress={tab.onPress}
+                  style={({ pressed }) => ({
                     alignItems: "center",
-                    borderRadius: radii.pill,
-                    height: 44,
+                    height: RAIL_SLOT,
                     justifyContent: "center",
-                    width: 44,
-                  }}
-                  tintColor={tab.selected ? theme.colors.glassTint : undefined}
+                    opacity: pressed ? 0.65 : 1,
+                    width: RAIL_SLOT,
+                  })}
                 >
                   <View
                     style={{
                       alignItems: "center",
                       height: RAIL_ICON,
                       justifyContent: "center",
+                      opacity: tab.selected ? 1 : 0.55,
                       overflow: "hidden",
                       width: RAIL_ICON,
                     }}
                   >
                     {tab.icon}
                   </View>
-                </GlassPanel>
-              </Pressable>
-            </Measured>
-          ))}
-        </View>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        </Measured>
       </MeasuredScroll>
     </View>
   );
@@ -435,13 +497,24 @@ function AndroidModelSearchField({
   return (
     <GlassPanel
       shadow={false}
-      style={{ borderRadius: radii.pill, height: 44, justifyContent: "center" }}
+      style={{
+        borderRadius: radii.pill,
+        justifyContent: "center",
+        minHeight: SEARCH_FIELD_HEIGHT,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+      }}
     >
       <TextInput
         onChangeText={onChangeText}
         placeholder={copy.searchModels}
         placeholderTextColor={theme.colors.secondaryLabel}
-        style={{ color: theme.colors.label, fontSize: 16, paddingHorizontal: 16 }}
+        style={{
+          color: theme.colors.label,
+          fontSize: 16,
+          margin: 0,
+          padding: 0,
+        }}
         value={value}
       />
     </GlassPanel>
@@ -465,17 +538,21 @@ function IosModelSearchField({
     <Host
       colorScheme={theme.colorScheme}
       matchContents={false}
-      style={{ height: 44, width: "100%" }}
+      style={{ height: SEARCH_FIELD_HEIGHT, width: "100%" }}
     >
       <HStack
         alignment="center"
         modifiers={[
+          padding({ horizontal: 16, vertical: 10 }),
           glassEffect({
             glass: { interactive: true, variant: "regular" },
             shape: "capsule",
           }),
-          padding({ horizontal: 14 }),
-          frame({ alignment: "leading", height: 44, maxWidth: Infinity }),
+          frame({
+            alignment: "center",
+            height: SEARCH_FIELD_HEIGHT,
+            maxWidth: Infinity,
+          }),
         ]}
         spacing={8}
       >
@@ -509,41 +586,52 @@ function EffortPickerButton({
   const theme = useMobileTheme();
   const label = picker.effortLabel || copy.effort;
   return (
-    <IosPopover background="glass" direction="any">
-      <IosPopover.Trigger>
-        <View
-          style={{
-            alignItems: "center",
-            backgroundColor: theme.isDark ? "rgba(255,255,255,0.10)" : "rgba(17,17,18,0.08)",
-            borderRadius: 12,
-            flexDirection: "row",
-            flexShrink: 0,
-            gap: 2,
-            height: 28,
-            maxWidth: 148,
-            paddingHorizontal: 8,
-          }}
-        >
-          <Text
-            numberOfLines={1}
+    <View style={{ flexGrow: 0, flexShrink: 1, maxWidth: EFFORT_MAX_WIDTH, minWidth: 72 }}>
+      <IosPopover background="glass" direction="any">
+        <IosPopover.Trigger>
+          <View
             style={{
-              color: theme.colors.secondaryLabel,
-              flexShrink: 1,
-              fontSize: 13,
-              lineHeight: 16,
+              alignItems: "center",
+              backgroundColor: theme.isDark ? "rgba(255,255,255,0.10)" : "rgba(17,17,18,0.08)",
+              borderRadius: 12,
+              flexDirection: "row",
+              gap: 2,
+              height: 28,
+              maxWidth: EFFORT_MAX_WIDTH,
+              minWidth: 0,
+              paddingHorizontal: 8,
             }}
           >
-            {label}
-          </Text>
-          <ChevronRightIcon color={theme.colors.secondaryLabel} size={14} strokeWidth={2.2} />
-        </View>
-      </IosPopover.Trigger>
-      <IosPopover.Content style={{ width: 280 }}>
-        <View style={{ gap: 12, paddingHorizontal: 14, paddingVertical: 12 }}>
-          <EffortControls onPatch={onPatch} picker={picker} />
-        </View>
-      </IosPopover.Content>
-    </IosPopover>
+            <Text
+              ellipsizeMode="tail"
+              numberOfLines={1}
+              style={{
+                color: theme.colors.secondaryLabel,
+                flexShrink: 1,
+                fontSize: 13,
+                lineHeight: 16,
+                maxWidth: EFFORT_LABEL_MAX,
+                minWidth: 0,
+              }}
+            >
+              {label}
+            </Text>
+            <View style={{ flexShrink: 0 }}>
+              <ChevronRightIcon
+                color={theme.colors.secondaryLabel}
+                size={EFFORT_CHEVRON}
+                strokeWidth={2.2}
+              />
+            </View>
+          </View>
+        </IosPopover.Trigger>
+        <IosPopover.Content style={{ width: 280 }}>
+          <View style={{ gap: 12, paddingHorizontal: 14, paddingVertical: 12 }}>
+            <EffortControls onPatch={onPatch} picker={picker} />
+          </View>
+        </IosPopover.Content>
+      </IosPopover>
+    </View>
   );
 }
 

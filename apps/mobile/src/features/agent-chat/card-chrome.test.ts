@@ -42,10 +42,11 @@ describe("composer card chrome alignment", () => {
 
   test("pill row uses one 18pt content inset and does not pad the row twice", () => {
     const pills = source("composer-pill-row.tsx");
-    expect(pills).toContain("paddingHorizontal: 18");
-    expect(pills).toContain("scrollerContentWithScroll");
     expect(pills).toContain("paddingLeft: PILL_SCROLL_FADE_PX");
-    expect(pills).toContain("PILL_SCROLL_FADE_PX");
+    expect(pills).toContain("paddingRight: PILL_SCROLL_FADE_PX");
+    expect(pills).not.toContain("rowWithScroll");
+    expect(pills).not.toContain("scrollerContentWithScroll");
+    expect(pills).not.toContain("paddingHorizontal: 18");
     expect(pills).not.toMatch(/row:\s*\{[^}]*paddingHorizontal:\s*18/s);
     expect(PILL_SCROLL_FADE_PX).toBe(18);
   });

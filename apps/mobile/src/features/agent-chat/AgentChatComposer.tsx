@@ -64,6 +64,7 @@ const glassButton = {
   borderRadius: COMPOSER_GLASS_CONTROL_RADIUS,
   height: BUTTON_SIZE,
   justifyContent: "center" as const,
+  overflow: "visible" as const,
   width: BUTTON_SIZE,
 };
 
@@ -365,6 +366,7 @@ export function AgentChatComposer(props: {
           flexShrink: 0,
           height: BUTTON_SIZE,
           justifyContent: "center",
+          overflow: "visible",
         }}
       >
         <Pressable
@@ -459,6 +461,7 @@ export function AgentChatComposer(props: {
                   flexDirection: "row",
                   gap: 6,
                   height: 32,
+                  overflow: "visible",
                   paddingLeft: 10,
                   paddingRight: 6,
                 }}
@@ -521,122 +524,127 @@ export function AgentChatComposer(props: {
           </View>
         </ScrollView>
       ) : null}
-      <GlassPanel
-        {...COMPOSER_GLASS_WELL}
-        style={{
-          borderRadius: COMPOSER_GLASS_DOCK_RADIUS,
-          width: "100%",
-        }}
-      >
-        <View
-          onLayout={(event) => {
-            const next = Math.round(event.nativeEvent.layout.width);
-            setDockWidth((current) => (current === next ? current : next));
+      <View>
+        <GlassPanel
+          {...COMPOSER_GLASS_WELL}
+          style={{
+            borderRadius: COMPOSER_GLASS_DOCK_RADIUS,
+            width: "100%",
           }}
         >
-          {compactInnerWidth > 0 && props.text.length > 0 ? (
-            <Text
-              accessibilityElementsHidden
-              accessible={false}
-              importantForAccessibility="no-hide-descendants"
-              onTextLayout={(event) => {
-                const measuredLines = event.nativeEvent.lines.length;
-                const next = composerDockCompactLineCount({
-                  measuredLines,
-                  text: props.text,
-                });
-                setMeasuredLines((current) => (current === next ? current : next));
-              }}
-              pointerEvents="none"
-              style={{
-                fontSize: 16,
-                left: 0,
-                lineHeight: LINE_HEIGHT,
-                opacity: 0,
-                position: "absolute",
-                top: 0,
-                width: compactInnerWidth,
-              }}
-            >
-              {props.text}
+          <View
+            onLayout={(event) => {
+              const next = Math.round(event.nativeEvent.layout.width);
+              setDockWidth((current) => (current === next ? current : next));
+            }}
+          >
+            {compactInnerWidth > 0 && props.text.length > 0 ? (
+              <Text
+                accessibilityElementsHidden
+                accessible={false}
+                importantForAccessibility="no-hide-descendants"
+                onTextLayout={(event) => {
+                  const measuredLines = event.nativeEvent.lines.length;
+                  const next = composerDockCompactLineCount({
+                    measuredLines,
+                    text: props.text,
+                  });
+                  setMeasuredLines((current) => (current === next ? current : next));
+                }}
+                pointerEvents="none"
+                style={{
+                  fontSize: 16,
+                  left: 0,
+                  lineHeight: LINE_HEIGHT,
+                  opacity: 0,
+                  position: "absolute",
+                  top: 0,
+                  width: compactInnerWidth,
+                }}
+              >
+                {props.text}
+              </Text>
+            ) : null}
+            <Animated.View style={dockStyle}>
+              <Animated.View style={inputPadStyle}>
+                <View>
+                  <TextInput
+                    multiline
+                    onBlur={() => setFocused(false)}
+                    onChangeText={onDraftChange}
+                    ref={inputRef}
+                    testID="agent-chat-composer-input"
+                    onContentSizeChange={(event) => {
+                      if (props.text.length === 0) {
+                        resetEmptyDraftMeasures();
+                        return;
+                      }
+                      const next = Math.ceil(event.nativeEvent.contentSize.height);
+                      setMeasuredHeight((current) =>
+                        Math.abs(current - next) < 2 ? current : next,
+                      );
+                    }}
+                    onFocus={() => setFocused(true)}
+                    placeholder={props.placeholder}
+                    placeholderTextColor={expanded ? theme.colors.secondaryLabel : "transparent"}
+                    scrollEnabled={fieldHeight >= LINE_HEIGHT * MAX_LINES}
+                    style={{
+                      backgroundColor: "transparent",
+                      color: theme.colors.label,
+                      fontSize: 16,
+                      lineHeight: LINE_HEIGHT,
+                      margin: 0,
+                      maxHeight: LINE_HEIGHT * MAX_LINES,
+                      minHeight: fieldHeight,
+                      padding: 0,
+                      textAlignVertical: expanded ? "top" : "center",
+                      width: "100%",
+                    }}
+                    underlineColorAndroid="transparent"
+                    value={props.text}
+                  />
+                  {!expanded && props.text.length === 0 ? (
+                    <Text
+                      accessibilityElementsHidden
+                      accessible={false}
+                      ellipsizeMode="tail"
+                      importantForAccessibility="no-hide-descendants"
+                      numberOfLines={1}
+                      pointerEvents="none"
+                      style={{
+                        color: theme.colors.secondaryLabel,
+                        fontSize: 16,
+                        left: 0,
+                        lineHeight: LINE_HEIGHT,
+                        position: "absolute",
+                        right: 0,
+                        top: 0,
+                      }}
+                    >
+                      {props.placeholder}
+                    </Text>
+                  ) : null}
+                </View>
+              </Animated.View>
+            </Animated.View>
+          </View>
+        </GlassPanel>
+        {/* Sibling of the dock, not a child of its glass. Nested glass draws nothing. */}
+        <View pointerEvents="box-none" style={toolbarStyle}>
+          {renderPlus()}
+          {expanded && showModel ? renderModel() : null}
+          {expanded && showNoAgent ? (
+            <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12, lineHeight: 16 }}>
+              {copy.noAgent}
             </Text>
           ) : null}
-          <Animated.View style={dockStyle}>
-            <Animated.View style={inputPadStyle}>
-              <View>
-                <TextInput
-                  multiline
-                  onBlur={() => setFocused(false)}
-                  onChangeText={onDraftChange}
-                  ref={inputRef}
-                  testID="agent-chat-composer-input"
-                  onContentSizeChange={(event) => {
-                    if (props.text.length === 0) {
-                      resetEmptyDraftMeasures();
-                      return;
-                    }
-                    const next = Math.ceil(event.nativeEvent.contentSize.height);
-                    setMeasuredHeight((current) => (Math.abs(current - next) < 2 ? current : next));
-                  }}
-                  onFocus={() => setFocused(true)}
-                  placeholder={props.placeholder}
-                  placeholderTextColor={expanded ? theme.colors.secondaryLabel : "transparent"}
-                  scrollEnabled={fieldHeight >= LINE_HEIGHT * MAX_LINES}
-                  style={{
-                    backgroundColor: "transparent",
-                    color: theme.colors.label,
-                    fontSize: 16,
-                    lineHeight: LINE_HEIGHT,
-                    margin: 0,
-                    maxHeight: LINE_HEIGHT * MAX_LINES,
-                    minHeight: fieldHeight,
-                    padding: 0,
-                    textAlignVertical: expanded ? "top" : "center",
-                    width: "100%",
-                  }}
-                  underlineColorAndroid="transparent"
-                  value={props.text}
-                />
-                {!expanded && props.text.length === 0 ? (
-                  <Text
-                    accessibilityElementsHidden
-                    accessible={false}
-                    ellipsizeMode="tail"
-                    importantForAccessibility="no-hide-descendants"
-                    numberOfLines={1}
-                    pointerEvents="none"
-                    style={{
-                      color: theme.colors.secondaryLabel,
-                      fontSize: 16,
-                      left: 0,
-                      lineHeight: LINE_HEIGHT,
-                      position: "absolute",
-                      right: 0,
-                      top: 0,
-                    }}
-                  >
-                    {props.placeholder}
-                  </Text>
-                ) : null}
-              </View>
-            </Animated.View>
-            <View pointerEvents="box-none" style={toolbarStyle}>
-              {renderPlus()}
-              {expanded && showModel ? renderModel() : null}
-              {expanded && showNoAgent ? (
-                <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12, lineHeight: 16 }}>
-                  {copy.noAgent}
-                </Text>
-              ) : null}
-              <View pointerEvents="none" style={{ flex: 1 }} />
-              {expanded ? renderContext() : null}
-              {expanded && showQueue ? renderFollowUp(props.queueLabel, props.onQueue) : null}
-              {expanded && showSteer ? renderFollowUp(props.steerLabel, props.onSteer) : null}
-              {renderSend()}
-            </View>
-          </Animated.View>
+          <View pointerEvents="none" style={{ flex: 1 }} />
+          {expanded ? renderContext() : null}
+          {expanded && showQueue ? renderFollowUp(props.queueLabel, props.onQueue) : null}
+          {expanded && showSteer ? renderFollowUp(props.steerLabel, props.onSteer) : null}
+          {renderSend()}
         </View>
-      </GlassPanel>
+      </View>
       <AgentChatModelSheet
         favorites={props.favorites}
         onClose={() => setModelsOpen(false)}
