@@ -34,13 +34,20 @@ export function collectProjectGroupStatusPaths(input: {
 export type WorkspaceListGitStatus = {
   branch: string | null;
   uncommitted: number;
+  additions: number;
+  deletions: number;
 };
 
 export function indexGitStatus(
   results:
     | readonly {
         path: string;
-        status: { current_branch: string | null; uncommitted_count: number } | null;
+        status: {
+          additions?: number;
+          current_branch: string | null;
+          deletions?: number;
+          uncommitted_count: number;
+        } | null;
       }[]
     | undefined,
 ): Map<string, WorkspaceListGitStatus> {
@@ -49,7 +56,9 @@ export function indexGitStatus(
   for (const result of results) {
     if (!result.status) continue;
     indexed.set(result.path, {
+      additions: result.status.additions ?? 0,
       branch: result.status.current_branch,
+      deletions: result.status.deletions ?? 0,
       uncommitted: result.status.uncommitted_count,
     });
   }

@@ -16,18 +16,9 @@ describe("workspace row subtitles", () => {
     expect(recentEntrySubtitle({ kind: "project", projectName: "Atmos" })).toBe("Project");
   });
 
-  test("project-group workspace line shows branch and a positive change count", () => {
-    expect(projectGroupWorkspaceSubtitle({ branch: "feat/list", uncommitted: 2 })).toBe(
-      "feat/list · +2",
-    );
-    expect(projectGroupWorkspaceSubtitle({ branch: "feat/list", uncommitted: 0 })).toBe(
-      "feat/list",
-    );
+  test("project-group workspace line shows the branch", () => {
     expect(projectGroupWorkspaceSubtitle({ branch: "feat/list" })).toBe("feat/list");
-    expect(projectGroupWorkspaceSubtitle({ branch: "feat/list", uncommitted: -1 })).toBe(
-      "feat/list",
-    );
-    expect(projectGroupWorkspaceSubtitle({ branch: "  ", uncommitted: 0 })).toBe("No branch");
+    expect(projectGroupWorkspaceSubtitle({ branch: "  " })).toBe("No branch");
   });
 
   test("project-group project line prefers the current branch, then the workspace count", () => {

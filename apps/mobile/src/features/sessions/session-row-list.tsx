@@ -6,9 +6,15 @@ import { type MobileThemeColors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 import { useMobileTheme } from "@/theme/theme-store";
+import { ArchiveIcon, PinIcon, TrashIcon } from "@/ui/icons/lucide-native";
+import { GitMetaLine } from "@/ui/primitives/git-change-counts";
 import { TitleSkeleton } from "@/ui/primitives/list-skeleton";
-import { SessionSwipeRow, useOpenSwipeRows } from "@/ui/primitives/session-swipe-row";
-import { hiddenSwipeSeparatorIndexes } from "@/ui/primitives/swipe-row-press";
+import { SwipeSeparator } from "@/ui/layout/row";
+import { SwipeRow, useOpenSwipeRows, type SwipeRowAction } from "@/ui/primitives/swipe-row";
+import {
+  hiddenSwipeSeparatorIndexes,
+  swipeRowClosedCorners,
+} from "@/ui/primitives/swipe-row-press";
 import { SessionDeletePicker } from "./session-delete-picker";
 import { sessionPinId, type SessionInboxRow } from "./session-inbox";
 import { type SessionDeleteChoice } from "./session-row-actions";
@@ -68,6 +74,8 @@ export function SessionRowList({
       {rows.map((row, index) => {
         const sessionId = sessionPinId(row);
         const canManageChat = row.kind === "chat" && Boolean(row.chatId);
+        const roundedTop = index === 0;
+        const roundedBottom = index === rows.length - 1;
         const openRow =
           onPress && (row.workspaceId || row.projectId || row.terminalCandidateId)
             ? () => onPress(row)
@@ -78,46 +86,54 @@ export function SessionRowList({
             omitPlace={omitPlace}
             onPress={swipeEnabled ? undefined : openRow}
             pinned={pinned.has(sessionId)}
+            roundedBottom={roundedBottom}
+            roundedTop={roundedTop}
             row={row}
           />
         );
+        const trailing: SwipeRowAction[] = [];
+        if (canManageChat && onArchiveChat) {
+          trailing.push({
+            color: palette.swipeArchive,
+            icon: <ArchiveIcon color={palette.ctaLabel} size={20} />,
+            label: "Archive",
+            onPress: () => {
+              setActionError(null);
+              void onArchiveChat(row).catch((error: unknown) => {
+                setActionError(errorText(error, "Could not archive this session."));
+              });
+            },
+          });
+        }
+        if (canManageChat && onDeleteChat) {
+          trailing.push({
+            color: palette.swipeDelete,
+            icon: <TrashIcon color={palette.ctaLabel} size={20} />,
+            label: "Delete",
+            onPress: () => setDeleteRow(row),
+          });
+        }
         return (
           <View key={row.id}>
-            {index > 0 && !hiddenSeparators.has(index) ? (
-              <View
-                style={{
-                  backgroundColor: palette.separator,
-                  height: 0.5,
-                  marginLeft: spacing.separatorInset,
-                }}
-              />
-            ) : null}
+            {index > 0 ? <SwipeSeparator hidden={hiddenSeparators.has(index)} /> : null}
             {swipeEnabled && onTogglePin ? (
-              <SessionSwipeRow
-                onRevealedChange={(open) => setOpen(row.id, open)}
-                onArchive={
-                  canManageChat && onArchiveChat
-                    ? () => {
-                        setActionError(null);
-                        void onArchiveChat(row).catch((error: unknown) => {
-                          setActionError(errorText(error, "Could not archive this session."));
-                        });
-                      }
-                    : undefined
-                }
-                onDelete={
-                  canManageChat && onDeleteChat
-                    ? () => {
-                        setDeleteRow(row);
-                      }
-                    : undefined
-                }
-                onPin={() => onTogglePin(sessionId)}
+              <SwipeRow
+                leading={[
+                  {
+                    color: palette.swipePin,
+                    icon: <PinIcon color={palette.ctaLabel} size={20} />,
+                    label: pinned.has(sessionId) ? "Unpin" : "Pin",
+                    onPress: () => onTogglePin(sessionId),
+                  },
+                ]}
                 onPress={openRow}
-                pinLabel={pinned.has(sessionId) ? "Unpin" : "Pin"}
+                onRevealedChange={(open) => setOpen(row.id, open)}
+                roundedBottom={roundedBottom}
+                roundedTop={roundedTop}
+                trailing={trailing}
               >
                 {content}
-              </SessionSwipeRow>
+              </SwipeRow>
             ) : (
               content
             )}
@@ -158,12 +174,16 @@ function SessionRow({
   omitPlace,
   onPress,
   pinned,
+  roundedBottom,
+  roundedTop,
   row,
 }: {
   colors: MobileThemeColors;
   omitPlace: boolean;
   onPress?: () => void;
   pinned: boolean;
+  roundedBottom: boolean;
+  roundedTop: boolean;
   row: SessionInboxRow;
 }) {
   const time = row.updatedAt ? formatRelativeTime(row.updatedAt, "en") : null;
@@ -211,12 +231,16 @@ function SessionRow({
           </Text>
         ) : null}
       </View>
-      {subtitle ? (
+      {subtitle || row.additions || row.deletions ? (
         <Text
           numberOfLines={2}
           style={[typography.rowSubtitle, { color: colors.secondaryLabel, paddingLeft: 28 }]}
         >
-          {subtitle}
+          <GitMetaLine
+            additions={row.additions}
+            deletions={row.deletions}
+            label={subtitle || row.branch?.trim() || "No branch"}
+          />
         </Text>
       ) : null}
     </View>
@@ -224,11 +248,15 @@ function SessionRow({
 
   if (!onPress) return content;
 
+  const corners = swipeRowClosedCorners(roundedTop, roundedBottom);
   return (
     <Pressable
       accessibilityRole="button"
+      collapsable={false}
       onPress={onPress}
-      style={({ pressed }) => (pressed ? { backgroundColor: colors.mutedPressed } : undefined)}
+      style={({ pressed }) =>
+        pressed ? { ...corners, backgroundColor: colors.mutedPressed } : corners
+      }
     >
       {content}
     </Pressable>

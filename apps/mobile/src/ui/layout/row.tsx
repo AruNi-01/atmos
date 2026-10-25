@@ -1,5 +1,11 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import Reanimated, {
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 import { useMobileTheme } from "@/theme/theme-store";
@@ -17,7 +23,7 @@ export function Row({
 }: {
   leading?: ReactNode;
   title: string;
-  subtitle?: string;
+  subtitle?: ReactNode;
   subtitleNumberOfLines?: number;
   meta?: string;
   onLongPress?: () => void;
@@ -104,6 +110,26 @@ export function Row({
     >
       {content}
     </Pressable>
+  );
+}
+
+export const SEPARATOR_THICKNESS = StyleSheet.hairlineWidth;
+
+/** Keeps its height while fading, so hiding a divider does not change the row size. */
+export function SwipeSeparator({ hidden }: { hidden: boolean }) {
+  const reducedMotion = useReducedMotion() === true;
+  const opacity = useSharedValue(hidden ? 0 : 1);
+
+  useEffect(() => {
+    opacity.set(withTiming(hidden ? 0 : 1, { duration: reducedMotion ? 0 : 240 }));
+  }, [hidden, opacity, reducedMotion]);
+
+  const style = useAnimatedStyle(() => ({ opacity: opacity.get() }));
+
+  return (
+    <Reanimated.View pointerEvents="none" style={style}>
+      <Separator />
+    </Reanimated.View>
   );
 }
 

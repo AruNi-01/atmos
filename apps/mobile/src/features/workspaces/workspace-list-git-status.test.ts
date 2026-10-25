@@ -70,11 +70,16 @@ describe("project group git status paths", () => {
     const indexed = indexGitStatus([
       {
         path: "/repos/atmos",
-        status: { current_branch: "main", uncommitted_count: 3 },
+        status: { additions: 12, current_branch: "main", deletions: 4, uncommitted_count: 3 },
       },
       { path: "/missing", status: null },
     ]);
-    expect(indexed.get("/repos/atmos")).toEqual({ branch: "main", uncommitted: 3 });
+    expect(indexed.get("/repos/atmos")).toEqual({
+      additions: 12,
+      branch: "main",
+      deletions: 4,
+      uncommitted: 3,
+    });
     expect(indexed.has("/missing")).toBe(false);
     expect(indexGitStatus(undefined).size).toBe(0);
   });

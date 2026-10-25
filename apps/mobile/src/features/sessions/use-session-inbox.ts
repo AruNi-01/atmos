@@ -5,6 +5,7 @@ import type { MobileWsClient } from "@/api/mobile-ws-client";
 import type { TerminalWorkspaceCandidate } from "@/api/types";
 import { wsActions } from "@/api/ws-actions";
 import { LIST_PAGE_SIZE } from "@/features/lists/list-page";
+import { useWorkspaceListGitStatus } from "@/features/workspaces/use-workspace-list-git-status";
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { useSessionStore } from "@/stores/session-store";
 import {
@@ -108,6 +109,16 @@ export function useSessionInbox(options: SessionInboxOptions = {}) {
     () => (active ? sessionWorkspaceSources(bootstrapQuery.data) : INACTIVE_SOURCES),
     [active, bootstrapQuery.data],
   );
+  const gitPaths = useMemo(
+    () =>
+      active
+        ? sources.active
+            .map((workspace) => workspace.localPath.trim())
+            .filter((path) => path.length > 0)
+        : [],
+    [active, sources.active],
+  );
+  const gitByPath = useWorkspaceListGitStatus(gitPaths);
   const workspaceKey = sources.active.map((workspace) => workspace.id).join("\n");
 
   const candidatesQuery = useQuery({
@@ -287,10 +298,18 @@ export function useSessionInbox(options: SessionInboxOptions = {}) {
       chatTitlesPending: !chatTitleQuery.isSuccess,
     });
     const prByWorkspace = prStateByWorkspace(sources.active, prPlan.byWorkspaceId, prQuery.data);
-    const rows = joined.map((row) => ({
-      ...row,
-      prState: row.workspaceId ? (prByWorkspace.get(row.workspaceId) ?? null) : null,
-    }));
+    const workspaceById = new Map(sources.active.map((workspace) => [workspace.id, workspace]));
+    const rows = joined.map((row) => {
+      const workspace = row.workspaceId ? workspaceById.get(row.workspaceId) : undefined;
+      const stat = workspace ? gitByPath.get(workspace.localPath.trim()) : undefined;
+      return {
+        ...row,
+        additions: stat?.additions ?? 0,
+        branch: row.branch || stat?.branch || workspace?.branch || null,
+        deletions: stat?.deletions ?? 0,
+        prState: row.workspaceId ? (prByWorkspace.get(row.workspaceId) ?? null) : null,
+      };
+    });
 
     return {
       rows,
@@ -308,6 +327,7 @@ export function useSessionInbox(options: SessionInboxOptions = {}) {
     sources,
     chatTitleQuery.data,
     chatTitleQuery.isSuccess,
+    gitByPath,
     statusQuery.counts,
     statusQuery.isLoading,
     statusQuery.sessions,

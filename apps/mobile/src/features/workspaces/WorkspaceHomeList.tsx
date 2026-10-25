@@ -45,13 +45,17 @@ import { useWorkspaceListGitStatus } from "@/features/workspaces/use-workspace-l
 import { useWorkspaceHomeStore } from "@/stores/workspace-home-store";
 import { spacing } from "@/theme/spacing";
 import { useMobileTheme } from "@/theme/theme-store";
-import { ChevronDownIcon } from "@/ui/icons/lucide-native";
+import { ArchiveIcon, ChevronDownIcon, PinIcon, TrashIcon } from "@/ui/icons/lucide-native";
 import { EmptyState, Section } from "@/ui/layout/app-screen";
+import { GitMetaLine } from "@/ui/primitives/git-change-counts";
 import { ListSkeleton } from "@/ui/primitives/list-skeleton";
 import { ExpoDrawer } from "@/ui/primitives/expo-drawer";
-import { SessionSwipeRow, useOpenSwipeRows } from "@/ui/primitives/session-swipe-row";
-import { hiddenSwipeSeparatorIndexes } from "@/ui/primitives/swipe-row-press";
-import { Row, Separator } from "@/ui/layout/row";
+import { SwipeRow, useOpenSwipeRows } from "@/ui/primitives/swipe-row";
+import {
+  hiddenSwipeSeparatorIndexes,
+  swipeRowClosedCorners,
+} from "@/ui/primitives/swipe-row-press";
+import { Row, SwipeSeparator } from "@/ui/layout/row";
 
 const SECTION_TITLE_SIZE = 17;
 const SECTION_CHEVRON_SIZE = 20;
@@ -60,6 +64,7 @@ const sectionCloseTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 type HomeBlock = PagedBlock<WorkspaceHomeEntry> & {
   count?: number;
+  diffFor?: (item: WorkspaceHomeEntry) => { additions: number; deletions: number } | undefined;
   onToggle: () => void;
   open: boolean;
   subtitleFor?: (item: WorkspaceHomeEntry) => string | undefined;
@@ -176,6 +181,14 @@ export function WorkspaceHomeList({
     [expanded, grouping, projects, sections, workspaceById],
   );
   const gitStatusByPath = useWorkspaceListGitStatus(gitStatusPaths);
+  const gitForItem = (item: WorkspaceHomeEntry) => {
+    if (grouping !== "project") return undefined;
+    const path =
+      item.kind === "project"
+        ? (projectById.get(item.id)?.main_file_path.trim() ?? "")
+        : (workspaceById.get(item.id)?.local_path.trim() ?? "");
+    return path ? gitStatusByPath.get(path) : undefined;
+  };
   const subtitleForGroup =
     (section: WorkspaceHomeSection) =>
     (item: WorkspaceHomeEntry): string | undefined => {
@@ -183,20 +196,23 @@ export function WorkspaceHomeList({
         return item.kind === "project" ? PROJECT_ROW_LABEL : undefined;
       }
       const workspaceCount = section.items.filter((entry) => entry.kind === "workspace").length;
+      const status = gitForItem(item);
       if (item.kind === "project") {
-        const path = projectById.get(item.id)?.main_file_path.trim() ?? "";
         return projectGroupProjectSubtitle({
-          currentBranch: path ? gitStatusByPath.get(path)?.branch : null,
+          currentBranch: status?.branch,
           workspaceCount,
         });
       }
       const workspace = workspaceById.get(item.id);
-      const path = workspace?.local_path.trim() ?? "";
       return projectGroupWorkspaceSubtitle({
-        branch: workspace?.branch ?? "",
-        uncommitted: path ? gitStatusByPath.get(path)?.uncommitted : undefined,
+        branch: workspace?.branch || status?.branch || "",
       });
     };
+  const diffForGroup = (item: WorkspaceHomeEntry) => {
+    const status = gitForItem(item);
+    if (!status || (status.additions <= 0 && status.deletions <= 0)) return undefined;
+    return { additions: status.additions, deletions: status.deletions };
+  };
   const blocks: HomeBlock[] = [];
   if (pinnedEntries.length > 0) {
     blocks.push({
@@ -237,6 +253,7 @@ export function WorkspaceHomeList({
       keep: true,
       closed: !open,
       open,
+      diffFor: grouping === "project" ? diffForGroup : undefined,
       subtitleFor: subtitleForGroup(section),
       subtitleNumberOfLines: 1,
       title: section.title,
@@ -320,6 +337,7 @@ export function WorkspaceHomeList({
           onToggle={block.onToggle}
           open={block.open}
           title={block.title}
+          diffFor={block.diffFor}
           subtitleFor={block.subtitleFor}
           subtitleNumberOfLines={block.subtitleNumberOfLines}
           {...rowActions}
@@ -460,11 +478,13 @@ function WorkspaceGroup({
   onToggle,
   onTogglePin,
   open,
+  diffFor,
   subtitleFor,
   subtitleNumberOfLines,
   title,
 }: {
   count?: number;
+  diffFor?: (item: WorkspaceHomeEntry) => { additions: number; deletions: number } | undefined;
   items: WorkspaceHomeEntry[];
   onArchive: (entry: WorkspaceHomeEntry) => void;
   onDelete: (entry: WorkspaceHomeEntry) => void;
@@ -555,31 +575,66 @@ function WorkspaceGroup({
           <Section clip={false}>
             {items.map((item, index) => {
               const swipeable = item.kind === "workspace";
+              const roundedTop = index === 0;
+              const roundedBottom = index === items.length - 1;
               const row = (
                 <Row
                   onPress={swipeable ? undefined : () => onOpen(item)}
                   showDisclosure={swipeable ? true : undefined}
-                  subtitle={subtitleFor?.(item)}
+                  subtitle={
+                    subtitleFor?.(item) ? (
+                      <GitMetaLine
+                        additions={diffFor?.(item)?.additions}
+                        deletions={diffFor?.(item)?.deletions}
+                        label={subtitleFor(item) ?? ""}
+                      />
+                    ) : undefined
+                  }
                   subtitleNumberOfLines={subtitleNumberOfLines}
                   title={item.title}
                 />
               );
               return (
                 <View key={`${item.kind}:${item.id}`}>
-                  {index > 0 && !hiddenSeparators.has(index) ? <Separator /> : null}
+                  {index > 0 ? <SwipeSeparator hidden={hiddenSeparators.has(index)} /> : null}
                   {swipeable ? (
-                    <SessionSwipeRow
-                      onArchive={() => onArchive(item)}
-                      onRevealedChange={(open) => setOpen(`${item.kind}:${item.id}`, open)}
-                      onDelete={() => onDelete(item)}
-                      onPin={() => onTogglePin(item)}
+                    <SwipeRow
+                      leading={[
+                        {
+                          color: theme.colors.swipePin,
+                          icon: <PinIcon color={theme.colors.ctaLabel} size={20} />,
+                          label: item.pinned ? "Unpin" : "Pin",
+                          onPress: () => onTogglePin(item),
+                        },
+                      ]}
                       onPress={() => onOpen(item)}
-                      pinLabel={item.pinned ? "Unpin" : "Pin"}
+                      onRevealedChange={(open) => setOpen(`${item.kind}:${item.id}`, open)}
+                      roundedBottom={roundedBottom}
+                      roundedTop={roundedTop}
+                      trailing={[
+                        {
+                          color: theme.colors.swipeArchive,
+                          icon: <ArchiveIcon color={theme.colors.ctaLabel} size={20} />,
+                          label: "Archive",
+                          onPress: () => onArchive(item),
+                        },
+                        {
+                          color: theme.colors.swipeDelete,
+                          icon: <TrashIcon color={theme.colors.ctaLabel} size={20} />,
+                          label: "Delete",
+                          onPress: () => onDelete(item),
+                        },
+                      ]}
                     >
                       {row}
-                    </SessionSwipeRow>
+                    </SwipeRow>
                   ) : (
-                    row
+                    <View
+                      collapsable={false}
+                      style={swipeRowClosedCorners(roundedTop, roundedBottom)}
+                    >
+                      {row}
+                    </View>
                   )}
                 </View>
               );

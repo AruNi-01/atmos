@@ -1,6 +1,6 @@
 import { Stack, useRouter, type NativeStackHeaderItem } from "expo-router";
 import type { SFSymbol } from "sf-symbols-typescript";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Alert, Pressable, Text, View, type ImageSourcePropType } from "react-native";
 import { wsActions } from "@/api/ws-actions";
@@ -17,7 +17,13 @@ import { useSessionStore } from "@/stores/session-store";
 import { useTerminalStore } from "@/stores/terminal-store";
 import { typography } from "@/theme/typography";
 import { useMobileTheme } from "@/theme/theme-store";
-import { ChevronLeftIcon, PlusIcon } from "@/ui/icons/lucide-native";
+import {
+  ArchiveIcon,
+  ChevronLeftIcon,
+  PinIcon,
+  PlusIcon,
+  TrashIcon,
+} from "@/ui/icons/lucide-native";
 import {
   AppScreen,
   EmptyState,
@@ -25,10 +31,12 @@ import {
   ListLoadMoreFooter,
   Section,
 } from "@/ui/layout/app-screen";
-import { Row, Separator } from "@/ui/layout/row";
+import { Row, SwipeSeparator } from "@/ui/layout/row";
 import { nativeLargeTitleOptions } from "@/ui/navigation/native-screen-options";
+import { GitMetaLine } from "@/ui/primitives/git-change-counts";
 import { ListSkeleton } from "@/ui/primitives/list-skeleton";
-import { SessionSwipeRow, useOpenSwipeRows } from "@/ui/primitives/session-swipe-row";
+import { useWorkspaceListGitStatus } from "@/features/workspaces/use-workspace-list-git-status";
+import { SwipeRow, useOpenSwipeRows, type SwipeRowAction } from "@/ui/primitives/swipe-row";
 import { hiddenSwipeSeparatorIndexes } from "@/ui/primitives/swipe-row-press";
 import { SessionDeletePicker } from "@/features/sessions/session-delete-picker";
 import { useSessionRowActions } from "@/features/sessions/use-session-row-actions";
@@ -63,6 +71,25 @@ export function WorkspaceEntryScreen({ workspaceId }: { workspaceId: string }) {
     contextId: workspaceId,
     limit: LIST_PAGE_SIZE,
   });
+  const bootstrap = useQuery({
+    queryKey: ["workspace-bootstrap", selectedServerId, wsState],
+    enabled: Boolean(reveal.ready && client && wsState === "open"),
+    queryFn: () => {
+      if (!client) return Promise.reject(new Error("Atmos mobile WebSocket is not connected"));
+      return wsActions.projectWorkspaceBootstrap(client);
+    },
+  });
+  const workspace = useMemo(
+    () =>
+      Object.values(bootstrap.data?.workspaces_by_project ?? {})
+        .flat()
+        .find((candidate) => candidate.guid === workspaceId),
+    [bootstrap.data, workspaceId],
+  );
+  const workspacePath = workspace?.local_path.trim() ?? "";
+  const gitStatus = useWorkspaceListGitStatus(workspacePath ? [workspacePath] : []);
+  const workspaceGit = workspacePath ? gitStatus.get(workspacePath) : undefined;
+  const workspaceBranch = workspaceGit?.branch?.trim() || workspace?.branch?.trim() || "";
   const rowActions = useSessionRowActions();
   const [deleteRow, setDeleteRow] = useState<WorkspaceActivityRow | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -215,12 +242,20 @@ export function WorkspaceEntryScreen({ workspaceId }: { workspaceId: string }) {
             <EmptyState layout="section" message="Nothing here yet." title="No sessions" />
           ) : (
             visibleRows.map((row, index) => {
+              const roundedTop = index === 0;
+              const roundedBottom = index === visibleRows.length - 1;
               const time = historyTimeLabel(row.updatedAt);
               const pinId = activityPinId(row, sessionSnapshots);
               const content = (
                 <Row
                   leading={<MobileAgentIcon agentId={row.agentId ?? ""} size={18} />}
-                  subtitle={row.subtitle}
+                  subtitle={
+                    <GitMetaLine
+                      additions={workspaceGit?.additions}
+                      deletions={workspaceGit?.deletions}
+                      label={workspaceBranch || row.subtitle || "No branch"}
+                    />
+                  }
                   title={row.title}
                 >
                   {time ? (
@@ -235,32 +270,52 @@ export function WorkspaceEntryScreen({ workspaceId }: { workspaceId: string }) {
                   ) : null}
                 </Row>
               );
+              const trailing: SwipeRowAction[] = [];
+              if (row.kind === "chat") {
+                trailing.push(
+                  {
+                    color: theme.colors.swipeArchive,
+                    icon: <ArchiveIcon color={theme.colors.ctaLabel} size={20} />,
+                    label: "Archive",
+                    onPress: () => {
+                      setActionError(null);
+                      void rowActions.archiveChat(pinId, row.id).catch((error: unknown) => {
+                        setActionError(
+                          error instanceof Error
+                            ? error.message
+                            : "Could not archive this session.",
+                        );
+                      });
+                    },
+                  },
+                  {
+                    color: theme.colors.swipeDelete,
+                    icon: <TrashIcon color={theme.colors.ctaLabel} size={20} />,
+                    label: "Delete",
+                    onPress: () => setDeleteRow(row),
+                  },
+                );
+              }
               return (
                 <View key={`${row.kind}:${row.id}`}>
-                  {index > 0 && !hiddenSeparators.has(index) ? <Separator /> : null}
-                  <SessionSwipeRow
-                    onArchive={
-                      row.kind === "chat"
-                        ? () => {
-                            setActionError(null);
-                            void rowActions.archiveChat(pinId, row.id).catch((error: unknown) => {
-                              setActionError(
-                                error instanceof Error
-                                  ? error.message
-                                  : "Could not archive this session.",
-                              );
-                            });
-                          }
-                        : undefined
-                    }
-                    onDelete={row.kind === "chat" ? () => setDeleteRow(row) : undefined}
-                    onPin={() => rowActions.togglePin(pinId)}
-                    onRevealedChange={(open) => setOpen(`${row.kind}:${row.id}`, open)}
+                  {index > 0 ? <SwipeSeparator hidden={hiddenSeparators.has(index)} /> : null}
+                  <SwipeRow
+                    leading={[
+                      {
+                        color: theme.colors.swipePin,
+                        icon: <PinIcon color={theme.colors.ctaLabel} size={20} />,
+                        label: rowActions.pinnedIds.includes(pinId) ? "Unpin" : "Pin",
+                        onPress: () => rowActions.togglePin(pinId),
+                      },
+                    ]}
                     onPress={() => openRow(row)}
-                    pinLabel={rowActions.pinnedIds.includes(pinId) ? "Unpin" : "Pin"}
+                    onRevealedChange={(open) => setOpen(`${row.kind}:${row.id}`, open)}
+                    roundedBottom={roundedBottom}
+                    roundedTop={roundedTop}
+                    trailing={trailing}
                   >
                     {content}
-                  </SessionSwipeRow>
+                  </SwipeRow>
                 </View>
               );
             })

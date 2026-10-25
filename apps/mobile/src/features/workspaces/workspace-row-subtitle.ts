@@ -8,17 +8,9 @@ export function recentEntrySubtitle(entry: {
   return entry.projectName.trim();
 }
 
-/** Branch from bootstrap, plus the web list's `+N` uncommitted count when it is positive. */
-export function projectGroupWorkspaceSubtitle(input: {
-  branch: string;
-  uncommitted?: number | null;
-}): string {
-  const branch = input.branch.trim() || "No branch";
-  const count = input.uncommitted;
-  if (typeof count === "number" && Number.isFinite(count) && count > 0) {
-    return `${branch} · +${count}`;
-  }
-  return branch;
+/** Branch from the workspace, or from `git_get_status_batch` when the model is blank. */
+export function projectGroupWorkspaceSubtitle(input: { branch: string }): string {
+  return input.branch.trim() || "No branch";
 }
 
 /**

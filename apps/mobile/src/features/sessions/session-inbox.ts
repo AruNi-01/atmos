@@ -68,6 +68,10 @@ export type SessionInboxRow = {
   projectId?: string | null;
   workspaceName: string | null;
   branch: string | null;
+  /** Staged plus unstaged line additions for this row's workspace. */
+  additions?: number;
+  /** Staged plus unstaged line deletions for this row's workspace. */
+  deletions?: number;
   prState: SessionPrState | null;
   projectScoped: boolean;
   workspaceId: string | null;
