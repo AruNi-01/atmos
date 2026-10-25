@@ -19,6 +19,10 @@ pub struct GitStatus {
     pub has_unpushed_commits: bool,
     pub uncommitted_count: u32,
     pub unpushed_count: u32,
+    /// Staged plus unstaged line additions. Untracked files are not included.
+    pub additions: u32,
+    /// Staged plus unstaged line deletions.
+    pub deletions: u32,
     pub upstream_behind_count: Option<u32>,
     pub default_branch: Option<String>,
     pub default_branch_ahead: Option<u32>,

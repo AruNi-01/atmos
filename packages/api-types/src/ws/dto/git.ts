@@ -6,6 +6,10 @@ export type GitStatusResponse = {
   has_unpushed_commits: boolean;
   uncommitted_count: number;
   unpushed_count: number;
+  /** Staged plus unstaged line additions. Absent on older servers. */
+  additions?: number;
+  /** Staged plus unstaged line deletions. Absent on older servers. */
+  deletions?: number;
   upstream_behind_count: number | null;
   default_branch: string | null;
   default_branch_ahead: number | null;

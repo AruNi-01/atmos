@@ -2,6 +2,39 @@ use std::path::Path;
 
 use crate::error::{EngineError, Result};
 
+/// `git diff --shortstat` counts, for example `3 insertions(+), 1 deletion(-)`.
+fn parse_diff_shortstat(stdout: &str) -> (u32, u32) {
+    let mut additions = 0u32;
+    let mut deletions = 0u32;
+    for part in stdout.split(',') {
+        let part = part.trim();
+        let Some(count) = part.split_whitespace().next() else {
+            continue;
+        };
+        let Ok(count) = count.parse::<u32>() else {
+            continue;
+        };
+        if part.contains("insertion") {
+            additions = count;
+        } else if part.contains("deletion") {
+            deletions = count;
+        }
+    }
+    (additions, deletions)
+}
+
+fn diff_shortstat(repo_path: &Path, cached: bool) -> (u32, u32) {
+    let args: &[&str] = if cached {
+        &["diff", "--cached", "--shortstat"]
+    } else {
+        &["diff", "--shortstat"]
+    };
+    match try_run_git(repo_path, args) {
+        Ok(Some(stdout)) => parse_diff_shortstat(&stdout),
+        _ => (0, 0),
+    }
+}
+
 use super::{run_git, try_run_git, GitEngine, GitStatus};
 
 impl GitEngine {
@@ -235,6 +268,9 @@ impl GitEngine {
             matches!(&line[..2], "DD" | "AU" | "UD" | "UA" | "DU" | "AA" | "UU")
         });
 
+        let (unstaged_additions, unstaged_deletions) = diff_shortstat(repo_path, false);
+        let (staged_additions, staged_deletions) = diff_shortstat(repo_path, true);
+
         let (has_unpushed_commits, unpushed_count) =
             match try_run_git(repo_path, &["rev-list", "@{u}..HEAD", "--count"])? {
                 Some(count_str) => {
@@ -281,6 +317,8 @@ impl GitEngine {
             has_unpushed_commits,
             uncommitted_count,
             unpushed_count,
+            additions: unstaged_additions.saturating_add(staged_additions),
+            deletions: unstaged_deletions.saturating_add(staged_deletions),
             upstream_behind_count,
             default_branch,
             default_branch_ahead,
@@ -386,5 +424,27 @@ impl GitEngine {
         let branch = self.get_current_branch(repo_path)?;
         let remote_ref = format!("origin/{}", branch);
         Ok(try_run_git(repo_path, &["rev-parse", "--verify", &remote_ref])?.is_some())
+    }
+}
+
+#[cfg(test)]
+mod shortstat_tests {
+    use super::parse_diff_shortstat;
+
+    #[test]
+    fn reads_insertions_and_deletions() {
+        assert_eq!(
+            parse_diff_shortstat(" 1 file changed, 3 insertions(+), 1 deletion(-)\n"),
+            (3, 1)
+        );
+        assert_eq!(
+            parse_diff_shortstat(" 2 files changed, 4 insertions(+)\n"),
+            (4, 0)
+        );
+        assert_eq!(
+            parse_diff_shortstat(" 1 file changed, 2 deletions(-)\n"),
+            (0, 2)
+        );
+        assert_eq!(parse_diff_shortstat(""), (0, 0));
     }
 }

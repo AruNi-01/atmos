@@ -79,6 +79,8 @@ impl WsMessageService {
             has_unpushed_commits: status.has_unpushed_commits,
             uncommitted_count: status.uncommitted_count,
             unpushed_count: status.unpushed_count,
+            additions: status.additions,
+            deletions: status.deletions,
             upstream_behind_count: status.upstream_behind_count,
             default_branch: status.default_branch,
             default_branch_ahead: status.default_branch_ahead,
