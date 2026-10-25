@@ -1,7 +1,24 @@
 import { memo, useEffect, useRef, useState, type ReactNode } from "react";
-import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Image,
+  Linking,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { Button, Host } from "@expo/ui";
+import { fillMaxWidth } from "@expo/ui/jetpack-compose/modifiers";
 import { Text as SwiftUIText } from "@expo/ui/swift-ui";
+import {
+  buttonStyle,
+  controlSize,
+  fixedSize,
+  foregroundStyle,
+  frame,
+} from "@expo/ui/swift-ui/modifiers";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { hubDeleteUsagePage, hubGetUsagePage, hubPutUsagePage } from "@atmos/hub-client";
 import type { TokenUsageOverviewResponse } from "@atmos/api-types/ws/dto/token-usage";
@@ -27,23 +44,18 @@ import { radii } from "@/theme/radii";
 import { DownloadIcon } from "@/ui/icons/lucide-native";
 import { ExpoDrawer } from "@/ui/primitives/expo-drawer";
 import {
+  EXPO_UI_FRAME_INFINITY,
   expoUiButtonLabelStretchModifiers,
-  expoUiButtonStretchModifiersFor,
 } from "@/ui/primitives/expo-ui-button-modifiers";
-import {
-  expoUiButtonHostStyle,
-  expoUiDangerStyle,
-  expoUiPrimaryStyle,
-  type ExpoUiButtonLook,
-} from "@/ui/primitives/expo-ui-button-styles";
+import { expoUiButtonHostStyle } from "@/ui/primitives/expo-ui-button-styles";
 import { GlassPanel } from "@/ui/primitives/glass-panel";
 import { NativeSegmentedControl } from "@/ui/primitives/native-segmented-control";
 import { NativeSwitch } from "@/ui/primitives/native-controls";
 import { NativeTextInput } from "@/ui/primitives/native-text-input";
 
 const SITE = "https://atmos.land";
-/** Opens at the system full sheet. A drag can rest at half. Keep this identity stable. */
-const SHARE_SHEET_DETENTS = ["large", "medium"] as const;
+/** Full sheet only. A half detent would let a drag rest mid-screen. */
+const SHARE_SHEET_DETENTS = ["large"] as const;
 /** The system sheet spring has to finish before a screenshot. A layout pass during that spring drops the sheet and it bounces back. */
 const SHEET_SETTLE_MS = 640;
 
@@ -153,6 +165,7 @@ export const ShareSheet = memo(function ShareSheet({
     <ExpoDrawer
       detents={SHARE_SHEET_DETENTS}
       isPresented={open}
+      liftForKeyboard={false}
       matchContents={false}
       onDismiss={onDismiss}
     >
@@ -172,19 +185,27 @@ export const ShareSheet = memo(function ShareSheet({
               style={[
                 styles.preview,
                 preview ? null : styles.previewSlot,
-                { backgroundColor: theme.colors.cardSubtle, borderColor: theme.colors.separator },
+                {
+                  backgroundColor: preview ? theme.colors.background : theme.colors.cardSubtle,
+                  borderColor: theme.colors.separator,
+                },
               ]}
             >
               {preview ? (
                 <ScrollView
+                  contentContainerStyle={{ backgroundColor: theme.colors.background }}
                   nestedScrollEnabled
                   showsVerticalScrollIndicator={false}
-                  style={styles.previewScroll}
+                  style={[styles.previewScroll, { backgroundColor: theme.colors.background }]}
                 >
                   <Image
                     resizeMode="contain"
                     source={{ uri: preview.uri }}
-                    style={{ aspectRatio: preview.aspect, width: "100%" }}
+                    style={{
+                      aspectRatio: preview.aspect,
+                      backgroundColor: theme.colors.background,
+                      width: "100%",
+                    }}
                   />
                 </ScrollView>
               ) : captureError ? (
@@ -377,91 +398,128 @@ function PublishPane({
       : "Publishing…"
     : publishPrimaryLabel(live);
 
-  const primaryLook = expoUiPrimaryStyle(theme.colors, primaryDisabled);
-  const turnOffLook = expoUiDangerStyle(theme.colors, busy);
-
-  return (
-    <View style={[styles.pane, styles.publishPane]}>
-      <Text style={[styles.fieldLabel, { color: theme.colors.label }]}>Handle</Text>
-      <PrefixedField
-        accessibilityLabel="Handle"
-        editable={!claimed && !fieldsLocked}
-        onChangeText={(value) => setDraft({ handle: value })}
-        placeholder="builder"
-        prefix="atmos.land/tok/@"
-        value={handle}
-      />
-      {url ? (
-        <Pressable
-          accessibilityLabel="Open published page"
-          onPress={() => void Linking.openURL(url)}
-        >
-          <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12 }}>
-            {url.replace("https://", "")}
-          </Text>
-        </Pressable>
-      ) : null}
-      <Text style={[styles.fieldLabel, { color: theme.colors.label }]}>Links</Text>
-      <PrefixedField
-        accessibilityLabel="X username"
-        editable={!fieldsLocked}
-        onChangeText={(value) => setDraft({ x: value })}
-        placeholder="username"
-        prefix="x.com/"
-        value={x}
-      />
-      <PrefixedField
-        accessibilityLabel="GitHub username"
-        editable={!fieldsLocked}
-        onChangeText={(value) => setDraft({ github: value })}
-        placeholder="username"
-        prefix="github.com/"
-        value={github}
-      />
-      <View style={styles.publicRow}>
-        <Text style={{ color: theme.colors.label, flex: 1, fontSize: 15, fontWeight: "600" }}>
-          Public
-        </Text>
-        <NativeSwitch
-          disabled={fieldsLocked}
-          onValueChange={(checked) => setDraft({ visibility: checked ? "public" : "unlisted" })}
-          value={visibility === "public"}
-        />
-      </View>
-      {(error ?? pageLoadError(pageQuery.error, pageQuery.isError)) ? (
-        <Text style={{ color: theme.colors.red, fontSize: 13 }}>
-          {error ?? pageLoadError(pageQuery.error, pageQuery.isError)}
-        </Text>
-      ) : null}
-      <View style={styles.publishActions}>
+  const actions = (
+    <View style={styles.publishActions}>
+      <View style={styles.publishButtonSlot}>
         <StretchPublishButton
-          disabled={primaryDisabled}
           label={primaryLabel}
-          look={primaryLook}
+          labelColor={primaryDisabled ? theme.colors.tertiaryLabel : theme.colors.label}
           onPress={primaryDisabled ? undefined : () => publish.mutate()}
         />
-        {live ? (
+      </View>
+      {live ? (
+        <View style={styles.publishButtonSlot}>
           <StretchPublishButton
-            disabled={busy}
             label={turnOff.isPending ? "Turning off…" : "Turn off"}
-            look={turnOffLook}
+            labelColor={busy ? theme.colors.tertiaryLabel : theme.colors.red}
             onPress={busy ? undefined : () => turnOff.mutate()}
           />
+        </View>
+      ) : null}
+    </View>
+  );
+
+  return (
+    <View style={styles.publishPane}>
+      <ScrollView
+        automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
+        contentContainerStyle={styles.publishForm}
+        keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled
+        style={styles.publishScroll}
+      >
+        <Text style={[styles.fieldLabel, { color: theme.colors.label }]}>Handle</Text>
+        <PrefixedField
+          accessibilityLabel="Handle"
+          editable={!claimed && !fieldsLocked}
+          onChangeText={(value) => setDraft({ handle: value })}
+          placeholder="builder"
+          prefix="atmos.land/tok/@"
+          value={handle}
+        />
+        {url ? (
+          <Pressable
+            accessibilityLabel="Open published page"
+            onPress={() => void Linking.openURL(url)}
+          >
+            <Text style={{ color: theme.colors.secondaryLabel, fontSize: 12 }}>
+              {url.replace("https://", "")}
+            </Text>
+          </Pressable>
         ) : null}
-      </View>
+        <Text style={[styles.fieldLabel, { color: theme.colors.label }]}>Links</Text>
+        <PrefixedField
+          accessibilityLabel="X username"
+          editable={!fieldsLocked}
+          onChangeText={(value) => setDraft({ x: value })}
+          placeholder="username"
+          prefix="x.com/"
+          value={x}
+        />
+        <PrefixedField
+          accessibilityLabel="GitHub username"
+          editable={!fieldsLocked}
+          onChangeText={(value) => setDraft({ github: value })}
+          placeholder="username"
+          prefix="github.com/"
+          value={github}
+        />
+        <View style={styles.publicRow}>
+          <Text style={{ color: theme.colors.label, flex: 1, fontSize: 15, fontWeight: "600" }}>
+            Public
+          </Text>
+          <View style={styles.publicSwitch}>
+            <NativeSwitch
+              disabled={fieldsLocked}
+              onValueChange={(checked) => setDraft({ visibility: checked ? "public" : "unlisted" })}
+              value={visibility === "public"}
+            />
+          </View>
+        </View>
+        {actions}
+        {(error ?? pageLoadError(pageQuery.error, pageQuery.isError)) ? (
+          <Text style={{ color: theme.colors.red, fontSize: 13 }}>
+            {error ?? pageLoadError(pageQuery.error, pageQuery.isError)}
+          </Text>
+        ) : null}
+      </ScrollView>
     </View>
   );
 }
 
+/**
+ * Full-width glass actions. No border shape: the sheet is the frame, and a
+ * border clips the glass press scale on both sides. Android stays a plain
+ * full-width button.
+ */
+function publishActionModifiers() {
+  return Platform.select({
+    ios: [
+      frame({
+        alignment: "center",
+        maxWidth: EXPO_UI_FRAME_INFINITY,
+        minHeight: 52,
+      }),
+      controlSize("large"),
+      fixedSize({ horizontal: false }),
+      buttonStyle("glass"),
+    ],
+    android: [fillMaxWidth()],
+    default: undefined,
+  });
+}
+
+function publishLabelModifiers(color: string) {
+  return [...(expoUiButtonLabelStretchModifiers ?? []), foregroundStyle(color)];
+}
+
 function StretchPublishButton({
-  disabled,
   label,
-  look,
+  labelColor,
   onPress,
 }: {
-  disabled: boolean;
   label: string;
-  look: ExpoUiButtonLook;
+  labelColor: string;
   onPress?: () => void;
 }) {
   const theme = useMobileTheme();
@@ -470,26 +528,14 @@ function StretchPublishButton({
     <Host
       colorScheme={theme.colorScheme}
       matchContents={{ vertical: true }}
-      seedColor={look.seedColor}
-      style={expoUiButtonHostStyle}
+      style={[expoUiButtonHostStyle, styles.publishButtonHost]}
     >
       {labelStretch ? (
-        <Button
-          disabled={disabled}
-          modifiers={expoUiButtonStretchModifiersFor(look.variant)}
-          onPress={onPress}
-          variant={look.variant}
-        >
-          <SwiftUIText modifiers={labelStretch}>{label}</SwiftUIText>
+        <Button modifiers={publishActionModifiers()} onPress={onPress}>
+          <SwiftUIText modifiers={publishLabelModifiers(labelColor)}>{label}</SwiftUIText>
         </Button>
       ) : (
-        <Button
-          disabled={disabled}
-          label={label}
-          modifiers={expoUiButtonStretchModifiersFor(look.variant)}
-          onPress={onPress}
-          variant={look.variant}
-        />
+        <Button label={label} modifiers={publishActionModifiers()} onPress={onPress} />
       )}
     </Host>
   );
@@ -544,14 +590,23 @@ const styles = StyleSheet.create({
   },
   prefixInput: { flex: 1, minWidth: 0 },
   prefixField: { paddingHorizontal: 8, paddingVertical: 8 },
-  publicRow: { alignItems: "center", flexDirection: "row", minHeight: 44 },
-  publishPane: { marginTop: 12 },
+  publicRow: { alignItems: "center", flexDirection: "row", minHeight: 44, paddingRight: 6 },
+  /** Keeps the switch capsule off the scroll view's right clip. */
+  publicSwitch: { flexShrink: 0, overflow: "visible" },
+  publishPane: { flexGrow: 1, flexShrink: 1, minHeight: 0, width: "100%" },
+  publishScroll: { flexGrow: 1, flexShrink: 1, minHeight: 0 },
+  publishForm: { gap: 10 },
   publishActions: {
+    flexShrink: 0,
     gap: 10,
     marginTop: 4,
+    overflow: "visible",
+    paddingHorizontal: 8,
     width: "100%",
   },
-  sheet: { alignSelf: "stretch", flexShrink: 0, width: "100%" },
+  publishButtonHost: { overflow: "visible" },
+  publishButtonSlot: { flexShrink: 0, minHeight: 52, overflow: "visible", width: "100%" },
+  sheet: { alignSelf: "stretch", flex: 1, gap: 12, minHeight: 0, width: "100%" },
   tabs: { alignSelf: "stretch", flexShrink: 0, width: "100%" },
   preview: {
     borderCurve: "continuous",

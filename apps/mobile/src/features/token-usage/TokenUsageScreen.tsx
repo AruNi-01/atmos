@@ -70,6 +70,7 @@ import {
   ShareIcon,
 } from "@/ui/icons/lucide-native";
 import { InlineError } from "@/ui/layout/app-screen";
+import { navigationBarTint } from "@/ui/navigation/home-header-items";
 import { nativeLargeTitleOptions } from "@/ui/navigation/native-screen-options";
 import { MenuPicker } from "@/ui/primitives/menu-picker";
 import { NativeSegmentedControl } from "@/ui/primitives/native-segmented-control";
@@ -251,7 +252,7 @@ export function TokenUsageScreen() {
     () => ({
       ...nativeLargeTitleOptions("Token usage", theme.colors),
       headerShown: !loadingPage,
-      headerTintColor: theme.colors.label,
+      headerTintColor: navigationBarTint(theme.colors.label),
       ...(process.env.EXPO_OS === "ios"
         ? {
             unstable_headerLeftItems: () => [
@@ -754,7 +755,7 @@ function headerIcon(
     label: "",
     onPress,
     sharesBackground: true,
-    tintColor,
+    tintColor: navigationBarTint(tintColor),
     type: "button",
     variant: "plain",
   };

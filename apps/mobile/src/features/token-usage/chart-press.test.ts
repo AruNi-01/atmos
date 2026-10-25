@@ -17,17 +17,20 @@ import {
 const charts = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "charts.tsx"), "utf8");
 
 describe("chart press policy", () => {
-  test("stacked tap opens and persists; growth stays hold-to-preview", () => {
-    expect(chartOpensOnTap(STACKED_CHART_TIP)).toBe(true);
-    expect(chartTipPersistsOnRelease(STACKED_CHART_TIP)).toBe(true);
+  test("stacked and growth both stay hold-to-preview", () => {
+    expect(STACKED_CHART_TIP).toBe("hold");
+    expect(chartOpensOnTap(STACKED_CHART_TIP)).toBe(false);
+    expect(chartTipPersistsOnRelease(STACKED_CHART_TIP)).toBe(false);
     expect(chartOpensOnTap(GROWTH_CHART_TIP)).toBe(false);
     expect(chartTipPersistsOnRelease(GROWTH_CHART_TIP)).toBe(false);
   });
 
-  test("stacked source includes a tap gesture and persist-on-release", () => {
-    expect(charts).toContain("Gesture.Tap()");
+  test("stacked source uses hold and clears the tip on release", () => {
     expect(charts).toContain("open: STACKED_CHART_TIP");
-    expect(charts).toContain("Gesture.Exclusive(pan, tap)");
+    expect(charts).toContain("activateAfterLongPress(CHART_HOLD_MS)");
+    expect(charts).toContain("if (!chartTipPersistsOnRelease(open)) handlers.current.onRelease()");
+    const stacked = charts.slice(charts.indexOf("export function UsageStackedChart"));
+    expect(stacked).toContain("onRelease: () => setTip(null)");
     const growth = charts.slice(
       charts.indexOf("export function UsageGrowthChart"),
       charts.indexOf("export function UsageStackedChart"),
@@ -64,6 +67,20 @@ describe("chart press policy", () => {
     expect(pinchBegin).not.toContain("if (holding.current)");
   });
 
+  test("the growth and stacked plots bounce horizontally like the heatmap", () => {
+    const viewport = charts.slice(
+      charts.indexOf("function ChartViewport"),
+      charts.indexOf("function chartTheme"),
+    );
+    expect(viewport).toContain("alwaysBounceHorizontal");
+    expect(viewport).toContain("bounces");
+    expect(viewport).not.toContain("bounces={false}");
+    expect(viewport).toContain('overScrollMode="always"');
+    expect(charts).toContain("settledScrollOffset");
+    const heatmap = charts.slice(charts.indexOf("export function UsageHeatmap"));
+    expect(heatmap).not.toContain("bounces={false}");
+  });
+
   test("the y-axis overlay stops above the x-label band and slices are not cropped at the plot origin", () => {
     expect(charts).toContain("overlayPlotHeight(height, CHART_X_LABEL_BAND)");
     expect(charts).toContain("columnIndicatorHostX");
@@ -85,6 +102,9 @@ describe("chart press policy", () => {
     expect(growth).toContain("growthLabelAlign");
     expect(growth).toContain("growthPointX");
     expect(growth).toContain("GROWTH_PLOT_LEFT");
+    expect(growth).toContain(
+      'series={[{ color: "transparent", label: "Usage", strokeWidth: 0, yKey: "value" }]}',
+    );
     expect(growth).not.toContain('edgeLabelPolicy="shift"');
     expect(growth).not.toContain("showYAxisLabels");
     expect(charts).toContain("CHART_X_LABEL_BAND");
@@ -94,6 +114,7 @@ describe("chart press policy", () => {
     const stacked = charts.slice(charts.indexOf("export function UsageStackedChart"));
     expect(stacked).toContain('axisPlacement="start"');
     expect(stacked).toContain("showXAxisLabels={false}");
+    expect(stacked.split("showHorizontalGridLines={false}").length - 1).toBe(2);
     expect(stacked).toContain("barLabelX");
     expect(stacked).toContain("barBandStep");
     expect(stacked).not.toContain("barPlotLeft");

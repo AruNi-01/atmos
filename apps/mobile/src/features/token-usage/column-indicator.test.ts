@@ -1,5 +1,6 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, test } from "bun:test";
+import { CHART_X_LABEL_BAND, overlayPlotHeight } from "./chart-geometry";
 import {
   columnIndicatorColor,
   columnIndicatorHostX,
@@ -12,13 +13,20 @@ describe("column indicator", () => {
     expect(columnIndicatorColor(true)).toBe("rgba(255,255,255,0.55)");
   });
 
-  test("spans the full chart height at the selected column", () => {
-    expect(columnIndicatorLine({ height: 220, x: 48 })).toEqual({
+  test("ends on the x-axis above the label band and uses the area-chart dash", () => {
+    const chartHeight = 220;
+    const line = columnIndicatorLine({ chartHeight, x: 48 });
+    expect(line).toEqual({
+      strokeDasharray: [3, 4],
+      strokeWidth: 1,
       x1: 48,
       x2: 48,
       y1: 0,
-      y2: 220,
+      y2: overlayPlotHeight(chartHeight),
     });
+    expect(line.y2).toBe(chartHeight - CHART_X_LABEL_BAND);
+    expect(line.y2).toBeLessThan(chartHeight);
+    expect(columnIndicatorLine({ chartHeight: 10, x: 4 }).y2).toBe(0);
   });
 
   test("the host x is the bar centre, not the slot boundary between months", () => {

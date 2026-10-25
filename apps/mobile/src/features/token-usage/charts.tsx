@@ -44,6 +44,7 @@ import {
   growthSliceWidth as growthPlotSliceWidth,
   overlayPlotHeight,
   scrollEndOffset,
+  settledScrollOffset,
   visibleXLabelIndexes,
   windowedSliceFrame,
   xLabelFrame,
@@ -411,7 +412,7 @@ function useHoldScroll({
     if (chartTipPersistsOnRelease(open)) handlers.current.onRelease();
   }, [open]);
   const onScroll = useCallback(
-    (x: number) => {
+    (x: number, limit: number) => {
       if (holding.current) {
         if (Math.abs(x - holdOffset.current) > 0.5) {
           scrollRef.current?.scrollTo({ animated: false, x: holdOffset.current });
@@ -425,10 +426,12 @@ function useHoldScroll({
         return;
       }
       if (pinnedOffset.current !== null && Math.abs(x - pinnedOffset.current) > 1) return;
-      if (zoomAnchor.current && Math.abs(x - offsetRef.current) > 1) zoomAnchor.current = null;
-      offsetRef.current = x;
-      offsetSv.set(x);
-      offsetListener.current(x);
+      const settled = settledScrollOffset(x, limit);
+      if (zoomAnchor.current && Math.abs(settled - offsetRef.current) > 1)
+        zoomAnchor.current = null;
+      offsetRef.current = settled;
+      offsetSv.set(settled);
+      offsetListener.current(settled);
     },
     [offsetSv],
   );
@@ -518,8 +521,9 @@ function ChartViewport({
   const plot = (
     <GestureDetector gesture={scroll.native}>
       <ScrollView
+        alwaysBounceHorizontal
         automaticallyAdjustContentInsets={false}
-        bounces={false}
+        bounces
         contentContainerStyle={{ width: content }}
         contentInset={NO_INSET}
         contentInsetAdjustmentBehavior="never"
@@ -535,9 +539,14 @@ function ChartViewport({
           scroll.placeEnd(contentWidth, plotWidth);
         }}
         onScroll={(event) => {
-          scroll.onScroll(event.nativeEvent.contentOffset.x);
+          const native = event.nativeEvent;
+          scroll.onScroll(
+            native.contentOffset.x,
+            native.contentSize.width - native.layoutMeasurement.width,
+          );
         }}
         onScrollBeginDrag={scroll.noteDrag}
+        overScrollMode="always"
         ref={scroll.scrollRef}
         scrollEnabled={!scroll.locked && !scroll.zooming}
         scrollEventThrottle={16}
@@ -949,7 +958,7 @@ export function UsageGrowthChart({
           interaction="none"
           labelStrategy="hide"
           legend={false}
-          series={[{ color, label: "Usage", yKey: "value" }]}
+          series={[{ color: "transparent", label: "Usage", strokeWidth: 0, yKey: "value" }]}
           showDots={false}
           showHorizontalGridLines={false}
           showVerticalGridLines={false}
@@ -1219,6 +1228,7 @@ export function UsageStackedChart({
         );
       }}
       series={barSeries}
+      showHorizontalGridLines={false}
       showXAxisLabels={false}
       showYAxisLabels={false}
       testID="token-usage-stacked"
@@ -1393,13 +1403,14 @@ function ColumnTipView({
     Math.max(8, chartWidth - size.width - 8),
   );
   const top = Math.max(4, tip.y - size.height - 12);
-  const indicator = columnIndicatorLine({ height: chartHeight, x: tip.x });
+  const indicator = columnIndicatorLine({ chartHeight, x: tip.x });
   return (
     <>
       <Svg height="100%" pointerEvents="none" style={StyleSheet.absoluteFill} width="100%">
         <Line
           stroke={columnIndicatorColor(isDark)}
-          strokeWidth={1}
+          strokeDasharray={indicator.strokeDasharray}
+          strokeWidth={indicator.strokeWidth}
           x1={indicator.x1}
           x2={indicator.x2}
           y1={indicator.y1}

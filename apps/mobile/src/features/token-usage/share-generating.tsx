@@ -202,7 +202,7 @@ export function UsageShareGenerating({ dark }: { dark: boolean }) {
       accessibilityState={{ busy: true }}
       style={[styles.frame, { backgroundColor: background }]}
     >
-      <Canvas onSize={size} style={StyleSheet.absoluteFill}>
+      <Canvas opaque onSize={size} style={StyleSheet.absoluteFill}>
         <Rect
           color={background}
           height={asSkia(plotHeight)}

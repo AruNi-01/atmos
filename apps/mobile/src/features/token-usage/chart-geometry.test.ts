@@ -28,6 +28,7 @@ import {
   growthSliceWidth,
   overlayPlotHeight,
   scrollEndOffset,
+  settledScrollOffset,
   visibleXLabelIndexes,
   windowedSliceFrame,
   xLabelFrame,
@@ -86,6 +87,13 @@ describe("chart x-axis label band", () => {
     expect(scrollEndOffset(contentWidth, viewport)).toBe(contentWidth - viewport);
     expect(scrollEndOffset(viewport, viewport)).toBe(0);
     expect(scrollEndOffset(100, viewport)).toBe(0);
+  });
+
+  test("rubber-band offsets stay on the plot edge", () => {
+    expect(settledScrollOffset(-40, 120)).toBe(0);
+    expect(settledScrollOffset(48, 120)).toBe(48);
+    expect(settledScrollOffset(180, 120)).toBe(120);
+    expect(settledScrollOffset(12, 0)).toBe(0);
   });
 });
 

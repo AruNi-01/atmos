@@ -238,3 +238,13 @@ export function chartXFromGesture(eventX: number, offset: number) {
 export function scrollEndOffset(contentWidth: number, viewport: number) {
   return Math.max(0, contentWidth - viewport);
 }
+
+/**
+ * Scroll offset used to place chart slices. A rubber-band overscroll is visual
+ * only; chasing it would shift the drawn window while the plot springs back.
+ */
+export function settledScrollOffset(offset: number, limit: number) {
+  const max = Number.isFinite(limit) ? Math.max(0, limit) : 0;
+  if (!Number.isFinite(offset)) return 0;
+  return Math.min(max, Math.max(0, offset));
+}

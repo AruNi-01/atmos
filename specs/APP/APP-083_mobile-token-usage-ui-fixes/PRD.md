@@ -71,3 +71,7 @@
 
 - Phase 1 — M1–M4 Publish.
 - Phase 2 — M5–M10 heatmap, glyphs, charts, scroll.
+
+## Post-implementation update · 2026-10-25
+
+M8 is reversed. The stacked bar chart matches the area chart: press and hold shows the popover and vertical line; releasing the press clears both. A tap does not leave the popover open.

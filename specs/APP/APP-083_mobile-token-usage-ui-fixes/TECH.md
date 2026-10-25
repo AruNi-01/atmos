@@ -188,3 +188,11 @@ Unchanged. No new secrets. Do not commit screenshots that include handles or usa
 On `5a199bed` the growth chart still clipped the first month to `"n"`: chart-kit `textAnchor: "middle"` at the first point overflows left, and iOS UIView clips that overflow. Opening the bar overlay label band made `"Jan"` readable but parked it in the y-axis gutter; the first visible bar was February.
 
 Follow-up: hide chart-kit x labels and draw them from `chart-geometry.ts`. Growth uses a dummy `yAxisLabelWidth` pad so the first centred label sits fully inside the plot (iOS UIView clips overflow). If that pad is missing, `growthLabelAlign(0)` falls back to start-align. Both charts use `axisPlacement="start"`. Bar labels use `barLabelX` = bar centre for every index, including 0.
+
+## Post-implementation update · 2026-10-25 (M8 reversal)
+
+`STACKED_CHART_TIP` is `"hold"`, the same policy as the growth chart. Press and hold opens the stacked popover and vertical line; releasing the press clears both. A tap does not leave the tip open. Scope and series-value resets via `chartTipResetSignature` stay.
+
+## Post-implementation update · 2026-10-25 (M4 reversal)
+
+`NativeSwitch` no longer sets `seedColor`. React Native switches no longer set `trackColor` or `thumbColor`. `colorScheme` on the Host stays, so the system switch uses its own light or dark appearance. The green-seed helper is gone.

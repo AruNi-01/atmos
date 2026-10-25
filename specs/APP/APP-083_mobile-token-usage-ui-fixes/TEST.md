@@ -30,11 +30,11 @@ No Playwright. Token usage is Expo native, not web DOM. agent-browser does not c
 | -------- | -------- | ------------- | -------------------------------------------------------------------------------- | ------------------------------------- | ----------------------------------------------------------------------------- | ------- |
 | S1       | Bun test | `bun test`    | `cd apps/mobile && bun test src/features/token-usage/publish-sheet.test.ts`      | `ShareSheet.tsx` source               | No outer publish card; GlassPanel + pill fields; stacked stretch Host buttons | planned |
 | S2       | Bun test | `bun test`    | `cd apps/mobile && bun test src/features/token-usage/publish-form.test.ts`       | existing publish fixtures             | Primary label Publish/Update; disabled when unchanged                         | planned |
-| S3       | Bun test | `bun test`    | `cd apps/mobile && bun test src/ui/primitives/native-switch-tint.test.ts`        | theme color tokens                    | Switch seed is green, not label                                               | planned |
+| S3       | Bun test | `bun test`    | `cd apps/mobile && bun test src/ui/primitives/native-switch-tint.test.ts`        | switch hosts                          | No seed, track, or thumb override; Host still sets colorScheme                | planned |
 | S4       | Bun test | `bun test`    | `cd apps/mobile && bun test src/features/token-usage/heatmap-layout.test.ts`     | `TokenUsageScreen.tsx` / `charts.tsx` | No card LinearTransition; reserved plot height; empty heatmap keeps height    | planned |
 | S5       | Bun test | `bun test`    | `cd apps/mobile && bun test src/features/terminal/agent-glyph-tint.test.ts`      | cursor/codex/droid + colorScheme      | `glyphSurfaceKey` changes with scheme; Image uses it                          | planned |
 | S6       | Bun test | `bun test`    | `cd apps/mobile && bun test src/features/token-usage/chart-popover-mark.test.ts` | `charts.tsx` source + helper          | Popover agent mark passes series `tintColor`                                  | planned |
-| S7       | Bun test | `bun test`    | `cd apps/mobile && bun test src/features/token-usage/chart-press.test.ts`        | bar vs growth open mode               | Bar opens on tap and persists; growth still hold                              | planned |
+| S7       | Bun test | `bun test`    | `cd apps/mobile && bun test src/features/token-usage/chart-press.test.ts`        | bar vs growth open mode               | Bar and growth both hold to preview and clear on release                      | planned |
 | S8       | Bun test | `bun test`    | `cd apps/mobile && bun test src/features/token-usage/chart-geometry.test.ts`     | overlay band + first-label gutter     | Overlay leaves x-label band open; crop at plot origin still clips; no inset   | planned |
 | S9       | Bun test | `bun test`    | `cd apps/mobile && bun test src/features/token-usage/usage-scroll-reset.test.ts` | `TokenUsageScreen.tsx` source         | No `scrollTo(y:0)`; keep previous overview; reset selectedDate                | planned |
 | S10      | Manual   | iOS simulator | Token usage + Share Publish, both themes                                         | two computers, light and dark         | Visual acceptance for M1–M10                                                  | planned |
@@ -58,12 +58,12 @@ No Playwright. Token usage is Expo native, not web DOM. agent-browser does not c
 - **Then**: primary disabled / Update vs Publish labels still match `publish-form.ts`
 - **Signals**: `publish-form.test.ts`
 
-### S3 — Switch seed
+### S3 — Native switch
 
 - **Level**: Bun test
-- **Given**: light and dark color tokens
-- **When**: resolve NativeSwitch seed
-- **Then**: seed is `green`, not `label`
+- **Given**: NativeSwitch and the React Native switches
+- **When**: inspect the hosts
+- **Then**: no `seedColor`, `trackColor`, or `thumbColor`; `NativeSwitch` still sets `colorScheme` so the system control follows the page
 - **Signals**: `native-switch-tint.test.ts`
 
 ### S4 — Heatmap does not steal the stat grid
@@ -90,12 +90,12 @@ No Playwright. Token usage is Expo native, not web DOM. agent-browser does not c
 - **Then**: agent mark tint is that color, not `#ffffff`
 - **Signals**: `chart-popover-mark.test.ts`
 
-### S7 — Bar tap opens tip
+### S7 — Bar hold previews the tip
 
 - **Level**: Bun test
 - **Given**: growth vs stacked press policy
-- **When**: tap vs long-press-end
-- **Then**: stacked tap opens and persists; growth tap does not persist; stacked source includes `Gesture.Tap`; `chartTipResetSignature` changes when values or Computer `resetKey` change even if count / labels / peak match
+- **When**: press vs release
+- **Then**: stacked and growth both open on hold and clear on release; a tap does not leave the stacked tip open; `chartTipResetSignature` changes when values or Computer `resetKey` change even if count / labels / peak match
 - **Signals**: `chart-press.test.ts`
 
 ### S8 — First x-axis label band
@@ -118,7 +118,7 @@ No Playwright. Token usage is Expo native, not web DOM. agent-browser does not c
 
 - **Level**: Manual
 - **Given**: iOS simulator, light and dark, at least two computers
-- **When**: exercise Publish, Computer switch, theme switch, bar tap, x-axis, All
+- **When**: exercise Publish, Computer switch, theme switch, bar hold, x-axis, All
 - **Then**: M1–M10 hold visually
 - **Signals**: 未运行 in this environment
 
@@ -134,7 +134,7 @@ Not a hot path. Heatmap reserved height is one extra empty `View` when a year ha
 ## Regression checklist
 
 - [ ] Share tab (non-Publish) still uses glass social chips.
-- [ ] Growth chart still opens its tip on hold and clears on release.
+- [ ] Growth chart and stacked bar chart both open their tip on hold and clear on release.
 - [ ] Legend glyphs still use page theme, not `onDark`, except the popover.
 - [ ] `NativeTextInput` default `framed` remains true outside Publish.
 - [ ] oxlint `--max-warnings=455` unchanged.
@@ -157,7 +157,7 @@ Not applicable. Native Expo UI. Status: 未运行.
 1. Light mode: Token usage → change Computer / All → heatmap stays below Estimated cost and Total tokens.
 2. Share → Publish: no outer card; glass pill fields; full-width Update/Publish; Turn off below when live; Public switch readable in both themes.
 3. Dark → light: Cursor / Codex / Droid in legend and top list invert without changing Computer.
-4. Tap a bar: popover + vertical line; icons use series colors.
+4. Press and hold a bar: popover + vertical line while the finger is down; both clear on release. Icons use series colors. A tap does not leave the popover open.
 5. Line and bar x-axis: first month fully visible.
 6. Dark mode → All: large title is not under the header buttons.
 
@@ -184,3 +184,7 @@ This environment: 未运行.
 - S11 — ✅ `bunx oxlint --fix` + `bunx oxfmt` on touched paths; `cd apps/mobile && bun test src/features/token-usage src/features/terminal/agent-glyph-tint.test.ts src/ui/primitives/native-switch-tint.test.ts src/ui/primitives/expo-ui-button-modifiers.test.ts` (106 pass)
 
 Regression: `cd apps/mobile && bun test src/features/token-usage` green. iOS simulator visual acceptance remains 未运行.
+
+## Post-implementation update · 2026-10-25
+
+M8 / the original S7 asked for a tap that leaves the stacked popover open. Product follow-up: the stacked bar chart matches the area chart above it. Press and hold shows the popover and the vertical line; releasing the press clears both. `STACKED_CHART_TIP` is `"hold"`.
