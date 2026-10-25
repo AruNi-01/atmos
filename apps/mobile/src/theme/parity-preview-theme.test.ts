@@ -42,7 +42,7 @@ describe("parity preview theme override", () => {
     expect(nativeColorSchemeToApply(parityPreviewThemeOverride("light", "disk"))).toBe("light");
   });
 
-  test("settings preference never selects a native color scheme", () => {
+  test("a missing preview does not invent a native scheme", () => {
     expect(nativeColorSchemeToApply(null)).toBeNull();
   });
 
@@ -75,7 +75,8 @@ describe("parity preview theme override", () => {
     expect(preview).not.toContain("setPreference");
     expect(preview).not.toContain("useThemeStore");
     expect(preview).toContain("preview?.colorScheme !== frame.theme");
-    expect(providers).toContain("nativeColorSchemeToApply(getParityPreviewThemeOverride())");
+    expect(providers).toContain("nativeColorSchemeToApply(preview)");
+    expect(providers).toContain("nativeColorSchemeForPreference(theme.preference)");
     expect(providers).not.toContain("preference: theme.preference");
     const schemeCalls = providers.match(/Appearance\.setColorScheme/g) ?? [];
     expect(schemeCalls).toHaveLength(1);

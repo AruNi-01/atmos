@@ -55,8 +55,10 @@ export function useMobileTheme() {
       preference,
       setPreference,
       statusBarStyle: colorScheme === "dark" ? ("light" as const) : ("dark" as const),
-      systemColorScheme,
     }),
-    [colorScheme, colors, preference, setPreference, systemColorScheme],
+    // `systemColorScheme` is already folded into `colorScheme`. Keeping it as
+    // its own dependency repaints the tree when Appearance.setColorScheme
+    // echoes the choice the user just made.
+    [colorScheme, colors, preference, setPreference],
   );
 }

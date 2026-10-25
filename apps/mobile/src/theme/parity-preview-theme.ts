@@ -64,12 +64,11 @@ export function parityPreviewThemeSource(input: {
 }
 
 /**
- * `null` means skip `Appearance.setColorScheme`.
+ * Preview-only gate. `null` means this override does not pick a native scheme.
  *
- * Persisted Settings preference is JS-only (`useMobileTheme`, CSS variables,
- * `Host colorScheme`, `StatusBar`). Passing it to `Appearance.setColorScheme`
- * mid-session crashes Hermes in `localtime_r`. Query-pin and carousel also
- * return null. Disk-pin (`nativeAppearance`) may still apply once.
+ * Settings uses `nativeColorSchemeForPreference` instead. Query-pin and
+ * carousel stay JS-only so a harness can flip the page without touching
+ * UIKit. Disk-pin (`nativeAppearance`) may still apply once.
  */
 export function nativeColorSchemeToApply(
   preview: ParityPreviewThemeOverride | null,

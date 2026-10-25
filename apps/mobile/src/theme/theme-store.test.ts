@@ -1,6 +1,6 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, test } from "bun:test";
-import { resolveMobileThemePreference } from "./theme-preference";
+import { nativeColorSchemeForPreference, resolveMobileThemePreference } from "./theme-preference";
 
 describe("mobile theme preference", () => {
   test("uses explicit light or dark preference before the system scheme", () => {
@@ -15,5 +15,11 @@ describe("mobile theme preference", () => {
   test("follows the system scheme when requested", () => {
     expect(resolveMobileThemePreference("system", "dark")).toBe("dark");
     expect(resolveMobileThemePreference("system", "light")).toBe("light");
+  });
+
+  test("an explicit preference overrides native chrome, and system clears it", () => {
+    expect(nativeColorSchemeForPreference("dark")).toBe("dark");
+    expect(nativeColorSchemeForPreference("light")).toBe("light");
+    expect(nativeColorSchemeForPreference("system")).toBe("unspecified");
   });
 });

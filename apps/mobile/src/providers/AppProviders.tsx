@@ -22,6 +22,7 @@ import {
   getParityPreviewThemeOverride,
   nativeColorSchemeToApply,
 } from "@/theme/parity-preview-theme";
+import { nativeColorSchemeForPreference } from "@/theme/theme-preference";
 import { useMobileTheme } from "@/theme/theme-store";
 
 export function AppProviders({ children }: PropsWithChildren) {
@@ -82,12 +83,17 @@ export function AppProviders({ children }: PropsWithChildren) {
 
   useEffect(() => {
     if (Platform.OS === "web") return;
-    // Settings preference never reaches Appearance. Only a disk-pin preview
-    // (`nativeAppearance`) may, and `null` skips the call. See QUALITY-010.
-    const next = nativeColorSchemeToApply(getParityPreviewThemeOverride());
+    // Query-pin and carousel stay JS-only. A Settings choice, including
+    // System, updates the window style so navbar and popover follow it.
+    // Hermes 0.16 schedules this void TurboModule off the current JS turn;
+    // the old mid-session localtime_r crash was that call re-entering JS.
+    const preview = getParityPreviewThemeOverride();
+    const next = preview
+      ? nativeColorSchemeToApply(preview)
+      : nativeColorSchemeForPreference(theme.preference);
     if (next != null) Appearance.setColorScheme(next);
     void SystemUI.setBackgroundColorAsync(theme.colors.background);
-  }, [theme.colors.background, theme.colorScheme]);
+  }, [theme.colors.background, theme.preference]);
 
   useEffect(() => {
     const updateNetwork = async () => {
