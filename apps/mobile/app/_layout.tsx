@@ -82,7 +82,7 @@ export default function RootLayout() {
                 options={{
                   contentStyle: sheetContentStyle,
                   presentation: sheetPresentation,
-                  sheetCornerRadius: 32,
+                  sheetCornerRadius: -1,
                   sheetGrabberVisible: isIos,
                   sheetLargestUndimmedDetentIndex: "none",
                   ...(isIos
@@ -100,7 +100,8 @@ export default function RootLayout() {
                   contentStyle: sheetContentStyle,
                   headerShown: false,
                   presentation: sheetPresentation,
-                  sheetCornerRadius: 32,
+                  // -1 is the system corner. 0 is square and leaves a border on a full sheet.
+                  sheetCornerRadius: -1,
                   sheetGrabberVisible: isIos,
                   sheetLargestUndimmedDetentIndex: "none",
                   // Full height only. A half detent lets the sheet rest mid-screen.
@@ -123,7 +124,7 @@ export default function RootLayout() {
                   },
                   headerShown: false,
                   presentation: sheetPresentation,
-                  sheetCornerRadius: 32,
+                  sheetCornerRadius: -1,
                   sheetGrabberVisible: isIos,
                   sheetLargestUndimmedDetentIndex: "none",
                   // Single large detent — sheet fills the stack height.
@@ -142,8 +143,9 @@ export default function RootLayout() {
                   contentStyle: sheetContentStyle,
                   headerShown: false,
                   presentation: sheetPresentation,
-                  sheetCornerRadius: 32,
+                  sheetCornerRadius: -1,
                   sheetGrabberVisible: isIos,
+                  // -1 is the system corner. Omitting it becomes 0 and squares the full sheet.
                   ...(isIos
                     ? {
                         sheetAllowedDetents: [1],

@@ -1,0 +1,46 @@
+diff --git a/ios/RNSScreen.mm b/ios/RNSScreen.mm
+--- a/ios/RNSScreen.mm
++++ b/ios/RNSScreen.mm
+@@ -188,5 +188,10 @@ - (void)updateBounds
+     // height of the sheet.
+     [self applyFrameCorrectionForDescendantScrollView];
++    // Layout runs on every frame of the present animation. Reapplying the
++    // effect there snaps the background to full height ahead of the content.
++    if (_controller.sheetPresentationController != nil && _controller.transitionCoordinator == nil) {
++      [self applySolidSheetFill:_controller.sheetPresentationController];
++    }
+   }
+ }
+ 
+@@ -930,5 +935,23 @@ - (void)sheetPresentationControllerDidChangeSelectedDetentIdentifier:
+   UISheetPresentationControllerDetentIdentifier ident = sheetPresentationController.selectedDetentIdentifier;
+   [self notifySheetDetentChangeToIndex:[self detentIndexFromDetentIdentifier:ident] isStable:YES];
+ }
+ 
++// Replace the iOS 26 glass sheet (and its corner stroke) with the screen color.
++// The effect belongs on the presentation, which slides with the presented view.
++// Detent backgroundEffect is a separate plate: it appears at full height first,
++// then the content springs up inside it.
++- (void)applySolidSheetFill:(UISheetPresentationController *)sheet
++{
++  if (@available(iOS 26.1, *)) {
++    if (sheet.backgroundEffect != nil) {
++      return;
++    }
++    UIColor *fill = self.backgroundColor;
++    if (fill == nil || CGColorGetAlpha(fill.CGColor) < 0.01) {
++      return;
++    }
++    sheet.backgroundEffect = [UIColorEffect effectWithColor:fill];
++  }
++}
++
+ /**
+@@ -1034,4 +1056,7 @@ - (void)updateFormSheetPresentationStyle
+   [self setCornerRadiusForSheet:sheet to:_sheetCornerRadius animate:YES];
++  // iOS 26 sheets default to glass, which strokes the corner. A solid color
++  // effect matches SwiftUI presentationBackground and drops that stroke.
++  [self applySolidSheetFill:sheet];
+ 
+   // lud - largest undimmed detent
+   // First we try to take value from the prop or default.
