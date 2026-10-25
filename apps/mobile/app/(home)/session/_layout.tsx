@@ -4,7 +4,7 @@ import { Stack, useRouter } from "expo-router";
 import { sessionBucketTitle } from "@/features/sessions/session-inbox";
 import { useMobileTheme } from "@/theme/theme-store";
 import { SettingsIcon } from "@/ui/icons/lucide-native";
-import { settingsHeaderItem } from "@/ui/navigation/home-header-items";
+import { navigationBarTint, settingsHeaderItem } from "@/ui/navigation/home-header-items";
 import { nativeLargeTitleOptions } from "@/ui/navigation/native-screen-options";
 
 export default function SessionTabStack() {
@@ -24,7 +24,7 @@ export default function SessionTabStack() {
       contentStyle: { backgroundColor: theme.colors.background },
       headerShadowVisible: false,
       headerShown: true,
-      headerTintColor: theme.colors.label,
+      headerTintColor: navigationBarTint(theme.colors.label),
       ...(process.env.EXPO_OS === "ios"
         ? { unstable_headerRightItems: headerRightItems }
         : {

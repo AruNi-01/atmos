@@ -4,13 +4,14 @@ import { BottomSheet, RNHostView } from "@expo/ui";
 import {
   environment,
   frame,
+  ignoreSafeArea,
   presentationBackground,
   type PresentationDetent,
 } from "@expo/ui/swift-ui/modifiers";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { MobileThemeColorScheme } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
-import { drawerPalette } from "@/ui/primitives/expo-drawer-theme";
+import { drawerContentFill, drawerPalette } from "@/ui/primitives/expo-drawer-theme";
 
 type SnapPoint = "half" | "full" | { fraction: number } | { height: number };
 
@@ -36,6 +37,8 @@ export function ExpoDrawer({
   fillBackground = true,
   detents,
   isPresented,
+  /** When false, the keyboard covers the sheet instead of lifting it. */
+  liftForKeyboard = true,
   matchContents = true,
   onDismiss,
   snapPoints = ["half", "full"],
@@ -46,7 +49,10 @@ export function ExpoDrawer({
   /** Inset between the sheet edge and its content. */
   contentPaddingBottom?: number;
   contentPaddingHorizontal?: number;
-  /** Paint a rect behind the content. Leave the sheet's own rounded background visible instead. */
+  /**
+   * Paint a rect behind the content on Android.
+   * iOS leaves this clear so the system sheet fill owns the corners.
+   */
   fillBackground?: boolean;
   /**
    * iOS sheet heights. The first entry is where it opens. This replaces `snapPoints`:
@@ -55,6 +61,11 @@ export function ExpoDrawer({
    */
   detents?: readonly PresentationDetent[];
   isPresented: boolean;
+  /**
+   * Lift the sheet above the keyboard. Turn off when a form should keep its
+   * actions put and scroll the focused field into view instead.
+   */
+  liftForKeyboard?: boolean;
   /** Size the sheet to its content. Turn off to fill the detent and top-align short lists. */
   matchContents?: boolean;
   onDismiss: () => void;
@@ -70,6 +81,7 @@ export function ExpoDrawer({
         ? [
             environment("colorScheme", palette.scheme),
             presentationBackground(palette.colors.sheetBackground),
+            ...(liftForKeyboard ? [] : [ignoreSafeArea({ regions: "keyboard" })]),
             ...(matchContents
               ? []
               : [
@@ -81,7 +93,7 @@ export function ExpoDrawer({
                 ]),
           ]
         : undefined,
-    [matchContents, palette.colors.sheetBackground, palette.scheme],
+    [liftForKeyboard, matchContents, palette.colors.sheetBackground, palette.scheme],
   );
   const sheetSnapPoints = useMemo(
     () => (detents && detents.length > 0 ? detents.map(detentToSnapPoint) : snapPoints),
@@ -91,7 +103,11 @@ export function ExpoDrawer({
     <RNHostView matchContents={matchContents}>
       <View
         style={{
-          backgroundColor: fillBackground ? palette.colors.sheetBackground : "transparent",
+          backgroundColor: drawerContentFill(
+            Platform.OS,
+            fillBackground,
+            palette.colors.sheetBackground,
+          ),
           alignSelf: "stretch",
           justifyContent: "flex-start",
           paddingBottom: contentPaddingBottom ?? Math.max(insets.bottom, 24),

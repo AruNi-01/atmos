@@ -11,6 +11,7 @@ import { AuthConnectContent } from "@/features/onboarding/AuthConnectContent";
 import { useSessionStore } from "@/stores/session-store";
 import { useMobileTheme } from "@/theme/theme-store";
 import { AtmosLogo } from "@/ui/AtmosLogo";
+import { navigationBarTint } from "@/ui/navigation/home-header-items";
 import { HomeTabBarInsetContext } from "@/ui/layout/home-tab-bar-inset";
 import {
   ChartColumnBigIcon,
@@ -112,6 +113,12 @@ function glassTabBarProps(
  */
 function IosHomeTabs() {
   const theme = useMobileTheme();
+  // The app theme is JS-only. iOS 26 otherwise draws this floating bar in the
+  // system style, so a dark page gets a light gray glass pill. A static
+  // near-white tint does the same to the selection glow.
+  const tabScreenNativeProps = {
+    ios: { experimental_userInterfaceStyle: theme.colorScheme },
+  };
 
   return (
     <HomeTabBarInsetContext.Provider value={0}>
@@ -121,21 +128,22 @@ function IosHomeTabs() {
           selected: theme.colors.label,
         }}
         minimizeBehavior="never"
-        tintColor={theme.colors.label}
+        tintColor={navigationBarTint(theme.colors.label)}
+        unstable_nativeProps={{ colorScheme: theme.colorScheme }}
       >
-        <NativeTabs.Trigger name="(workspace)">
+        <NativeTabs.Trigger name="(workspace)" unstable_nativeProps={tabScreenNativeProps}>
           <NativeTabs.Trigger.Icon sf="square.grid.2x2" />
           <NativeTabs.Trigger.Label hidden>Workspace</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="session">
+        <NativeTabs.Trigger name="session" unstable_nativeProps={tabScreenNativeProps}>
           <NativeTabs.Trigger.Icon sf="bubble.left.and.bubble.right" />
           <NativeTabs.Trigger.Label hidden>Session</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="token-usage">
+        <NativeTabs.Trigger name="token-usage" unstable_nativeProps={tabScreenNativeProps}>
           <NativeTabs.Trigger.Icon sf="chart.bar" />
           <NativeTabs.Trigger.Label hidden>Tokens</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="quota-usage">
+        <NativeTabs.Trigger name="quota-usage" unstable_nativeProps={tabScreenNativeProps}>
           <NativeTabs.Trigger.Icon sf="gauge.with.dots.needle.67percent" />
           <NativeTabs.Trigger.Label hidden>Quota</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>

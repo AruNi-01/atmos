@@ -119,7 +119,7 @@ function QuotaSwitch({
   return (
     // RN Switch forces alignSelf "flex-start", which pins it to the top of the row.
     <View style={styles.switchSlot}>
-      <Switch onValueChange={onValueChange} trackColor={{ true: "#34C759" }} value={value} />
+      <Switch onValueChange={onValueChange} value={value} />
     </View>
   );
 }

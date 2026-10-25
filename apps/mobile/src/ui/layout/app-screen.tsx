@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useUiStore } from "@/stores/ui-store";
+import { radii } from "@/theme/radii";
 import { spacing } from "@/theme/spacing";
 import { useMobileTheme } from "@/theme/theme-store";
 import { useHomeTabBarInset } from "@/ui/layout/home-tab-bar-inset";
@@ -276,6 +277,13 @@ export function Section({
   label?: string;
 }>) {
   const theme = useMobileTheme();
+  const card = {
+    backgroundColor: theme.colors.cardElevated,
+    borderColor: theme.colors.glassBorder,
+    borderCurve: "continuous" as const,
+    borderRadius: radii.card,
+    borderWidth: StyleSheet.hairlineWidth,
+  };
 
   return (
     <View style={{ gap: spacing.sectionLabelGap }}>
@@ -292,19 +300,44 @@ export function Section({
           {label}
         </Text>
       ) : null}
-      <View
-        style={{
-          backgroundColor: theme.colors.cardElevated,
-          borderColor: theme.colors.glassBorder,
-          borderCurve: "continuous",
-          borderRadius: 24,
-          borderWidth: StyleSheet.hairlineWidth,
-          minHeight: 1,
-          overflow: clip ? "hidden" : "visible",
-        }}
-      >
-        {children}
-      </View>
+      {clip ? (
+        <View style={{ ...card, minHeight: 1, overflow: "hidden" }}>{children}</View>
+      ) : (
+        // Fill and stroke clip to the continuous corner. Rows stay outside them so a swipe can draw past the card.
+        <View style={{ minHeight: 1, overflow: "visible" }}>
+          <View
+            pointerEvents="none"
+            style={{
+              backgroundColor: theme.colors.cardElevated,
+              borderCurve: "continuous",
+              borderRadius: radii.card,
+              bottom: 0,
+              left: 0,
+              overflow: "hidden",
+              position: "absolute",
+              right: 0,
+              top: 0,
+            }}
+          />
+          {children}
+          <View
+            pointerEvents="none"
+            style={{
+              backgroundColor: "transparent",
+              borderColor: theme.colors.glassBorder,
+              borderCurve: "continuous",
+              borderRadius: radii.card,
+              borderWidth: StyleSheet.hairlineWidth,
+              bottom: 0,
+              left: 0,
+              overflow: "hidden",
+              position: "absolute",
+              right: 0,
+              top: 0,
+            }}
+          />
+        </View>
+      )}
     </View>
   );
 }

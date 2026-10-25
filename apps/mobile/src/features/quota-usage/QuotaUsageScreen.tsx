@@ -34,7 +34,7 @@ import { useQuotaOverview } from "@/features/quota-usage/use-quota-overview";
 import { ChevronDownIcon, SettingsIcon } from "@/ui/icons/lucide-native";
 import { ProviderGlyph } from "@/ui/icons/provider-glyph";
 import { InlineError } from "@/ui/layout/app-screen";
-import { settingsHeaderItem } from "@/ui/navigation/home-header-items";
+import { navigationBarTint, settingsHeaderItem } from "@/ui/navigation/home-header-items";
 import { nativeLargeTitleOptions } from "@/ui/navigation/native-screen-options";
 import { IosPopover } from "@/ui/primitives/ios-popover";
 
@@ -72,7 +72,7 @@ export function QuotaUsageScreen() {
       <Stack.Screen
         options={{
           ...nativeLargeTitleOptions("AI quota usage", theme.colors),
-          headerTintColor: theme.colors.label,
+          headerTintColor: navigationBarTint(theme.colors.label),
           ...(process.env.EXPO_OS === "ios"
             ? {
                 unstable_headerLeftItems: () => [

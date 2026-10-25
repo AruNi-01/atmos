@@ -1,5 +1,6 @@
 import { Stack } from "expo-router";
 import { useMobileTheme } from "@/theme/theme-store";
+import { navigationBarTint } from "@/ui/navigation/home-header-items";
 
 export default function WorkspaceTabStack() {
   const theme = useMobileTheme();
@@ -10,7 +11,7 @@ export default function WorkspaceTabStack() {
         contentStyle: { backgroundColor: theme.colors.background },
         headerShadowVisible: false,
         headerShown: true,
-        headerTintColor: theme.colors.label,
+        headerTintColor: navigationBarTint(theme.colors.label),
       }}
     />
   );

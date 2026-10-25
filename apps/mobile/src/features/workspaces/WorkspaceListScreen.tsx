@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Platform, Pressable, Text, View } from "react-native";
 import { activeComputers } from "@atmos/relay-client";
 import { Button, Host } from "@expo/ui";
+import { fillMaxWidth } from "@expo/ui/jetpack-compose/modifiers";
+import { buttonBorderShape, controlSize, frame } from "@expo/ui/swift-ui/modifiers";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
 import type { ProjectWorkspaceBootstrapResponse } from "@/api/types";
@@ -21,9 +23,16 @@ import { useMobileTheme } from "@/theme/theme-store";
 import { ListFilterIcon, SettingsIcon } from "@/ui/icons/lucide-native";
 import { AtmosLogo } from "@/ui/AtmosLogo";
 import { AppScreen, EmptyState, InlineError } from "@/ui/layout/app-screen";
-import { settingsHeaderItem, workspaceFilterHeaderItem } from "@/ui/navigation/home-header-items";
+import {
+  navigationBarTint,
+  settingsHeaderItem,
+  workspaceFilterHeaderItem,
+} from "@/ui/navigation/home-header-items";
 import { nativeLargeTitleOptions } from "@/ui/navigation/native-screen-options";
-import { expoUiButtonStretchModifiers } from "@/ui/primitives/expo-ui-button-modifiers";
+import {
+  EXPO_UI_FRAME_INFINITY,
+  expoUiButtonStretchModifiers,
+} from "@/ui/primitives/expo-ui-button-modifiers";
 import { expoUiButtonHostStyle, expoUiPrimaryStyle } from "@/ui/primitives/expo-ui-button-styles";
 
 function workspaceHeaderRightItems({
@@ -180,7 +189,7 @@ export function WorkspaceListScreen() {
         ...nativeLargeTitleOptions("Workspace", theme.colors),
         headerShown: !isLoadingHome,
         headerShadowVisible: false,
-        headerTintColor: theme.colors.label,
+        headerTintColor: navigationBarTint(theme.colors.label),
         ...(process.env.EXPO_OS === "ios"
           ? {
               unstable_headerRightItems: () =>
@@ -328,6 +337,24 @@ function SingleComputerFailure({
   );
 }
 
+/**
+ * The shared stretch frame is leading-aligned, so this control sat on the left.
+ * A negative radius is the iOS 26 container-concentric corner.
+ */
+const chooseComputerButtonModifiers = Platform.select({
+  ios: [
+    frame({
+      alignment: "center",
+      maxWidth: EXPO_UI_FRAME_INFINITY,
+      minHeight: 52,
+    }),
+    controlSize("large"),
+    buttonBorderShape("roundedRectangle", -1),
+  ],
+  android: [fillMaxWidth()],
+  default: undefined,
+});
+
 function ChooseComputerPrompt({
   message,
   onPress,
@@ -350,20 +377,21 @@ function ChooseComputerPrompt({
     >
       <View style={{ alignSelf: "stretch", gap: 20, paddingHorizontal: 8 }}>
         <EmptyState message="Choose a Computer to see workspaces." title="No Computer selected" />
-        <Host
-          colorScheme={theme.colorScheme}
-          matchContents={{ vertical: true }}
-          seedColor={button.seedColor}
-          style={expoUiButtonHostStyle}
-        >
-          <Button
-            label="Choose a Computer"
-            modifiers={expoUiButtonStretchModifiers}
-            onPress={onPress}
-            style={button.style}
-            variant={button.variant}
-          />
-        </Host>
+        <View style={{ alignItems: "center", alignSelf: "stretch" }}>
+          <Host
+            colorScheme={theme.colorScheme}
+            matchContents={{ vertical: true }}
+            seedColor={button.seedColor}
+            style={expoUiButtonHostStyle}
+          >
+            <Button
+              label="Choose a Computer"
+              modifiers={chooseComputerButtonModifiers}
+              onPress={onPress}
+              variant={button.variant}
+            />
+          </Host>
+        </View>
         <InlineError message={message} />
       </View>
     </View>

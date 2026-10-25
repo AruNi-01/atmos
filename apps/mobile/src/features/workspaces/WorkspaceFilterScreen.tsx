@@ -93,7 +93,9 @@ export function WorkspaceFilterScreen() {
       <Stack.Screen
         options={{
           ...nativeCompactTitleOptions("Filter", theme.colors),
-          headerStyle: { backgroundColor: theme.colors.sheetBackground },
+          headerShadowVisible: false,
+          headerStyle: { backgroundColor: "transparent" },
+          headerTransparent: true,
         }}
       />
       <AppScreen surface="sheet">
@@ -207,8 +209,6 @@ export function WorkspaceFilterScreen() {
               onValueChange={(isOn) => {
                 if (isOn !== filters.showAutomation) toggleAutomation();
               }}
-              thumbColor={theme.colors.labelInverse}
-              trackColor={{ false: theme.colors.controlSecondary, true: theme.colors.label }}
               value={filters.showAutomation}
             />
           </View>
