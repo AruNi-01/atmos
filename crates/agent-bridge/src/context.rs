@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::address::{is_foreign_server, is_local_wildcard, LOCAL_SERVER_ID};
+use crate::address::is_foreign_server;
 use crate::error::BridgeError;
 
 /// Structured slices only. Never transcript, CoT, or secrets.
@@ -99,19 +99,6 @@ impl ContextStore {
     /// Pull locally. If the ref names another Computer, return `ContextRefRemote`.
     pub fn pull(&self, raw_ref: &str, local_server_id: &str) -> Result<ContextBag, BridgeError> {
         let parsed = parse_context_ref(raw_ref)?;
-        if let Some(holder) = &parsed.server_id {
-            if is_foreign_server(holder, local_server_id)
-                && !is_local_wildcard(holder)
-                && holder != LOCAL_SERVER_ID
-                && holder != local_server_id
-            {
-                if self.get(&parsed.bag_id).is_none() {
-                    return Err(BridgeError::ContextRefRemote {
-                        context_ref: raw_ref.to_string(),
-                    });
-                }
-            }
-        }
         self.get(&parsed.bag_id).cloned().ok_or_else(|| {
             if parsed
                 .server_id

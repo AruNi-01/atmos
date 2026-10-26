@@ -515,9 +515,11 @@ mod tests {
     #[test]
     fn cli_source_has_no_crate_deps() {
         let src = include_str!("agent_bridge.rs");
-        assert!(!src.contains("core_service"));
-        assert!(!src.contains("agent_bridge::"));
-        assert!(src.contains("POST /api/cli/invoke"));
+        let production = src.split("#[cfg(test)]").next().expect("production");
+        assert!(!production.contains("core_service"));
+        assert!(!production.contains("agent_bridge::"));
+        assert!(production.contains("POST /api/cli/invoke"));
+        assert!(production.contains("invoke("));
     }
 
     #[test]
