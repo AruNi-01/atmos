@@ -56,7 +56,9 @@ export type AiContextChipIcon =
   | "wrench"
   | "scan"
   | "git-merge"
-  | "layout";
+  | "layout"
+  | "scroll-text"
+  | "smartphone";
 
 export type AiContextPayload = {
   kind: AiContextKind;
@@ -153,15 +155,16 @@ const KIND_DEFAULTS: Record<
   "run-log": {
     label: "Run log",
     tooltip: "Atmos Run log",
-    // Align with slash menu (ScrollText / emerald) and Run product surface.
+    // Same glyph + emerald tone as the slash-command list (scroll-text).
     tone: "emerald",
-    icon: "terminal",
+    icon: "scroll-text",
   },
   "device-preview": {
     label: "Simulator Device Use",
     tooltip: "Simulator Device Use",
+    // Same glyph + cyan tone as the slash-command list (smartphone).
     tone: "cyan",
-    icon: "layout",
+    icon: "smartphone",
   },
 };
 
