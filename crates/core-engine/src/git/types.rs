@@ -19,10 +19,12 @@ pub struct GitStatus {
     pub has_unpushed_commits: bool,
     pub uncommitted_count: u32,
     pub unpushed_count: u32,
-    /// Staged plus unstaged line additions. Untracked files are not included.
+    /// Tracked staged plus unstaged line additions versus HEAD. Untracked files are not included.
     pub additions: u32,
-    /// Staged plus unstaged line deletions.
+    /// Tracked staged plus unstaged line deletions versus HEAD. Untracked files are not included.
     pub deletions: u32,
+    /// Current branch from `rev-parse --abbrev-ref HEAD`, if it resolved.
+    pub current_branch: Option<String>,
     pub upstream_behind_count: Option<u32>,
     pub default_branch: Option<String>,
     pub default_branch_ahead: Option<u32>,

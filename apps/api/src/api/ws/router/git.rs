@@ -66,7 +66,7 @@ impl WsMessageService {
             .get_git_status(&path)
             .map_err(|e| ServiceError::Validation(format!("Failed to get git status: {}", e)))?;
 
-        let current_branch = git_engine.get_current_branch(&path).ok();
+        let current_branch = status.current_branch.clone();
 
         let remote_url = git_engine.get_remote_url(&path).unwrap_or_default();
         let github_info = core_engine::GithubEngine::parse_github_remote(&remote_url);

@@ -1,3 +1,6 @@
+use super::refs::{
+    git_status_shortstat_calls, parse_diff_shortstat, reset_git_status_shortstat_calls,
+};
 use super::{
     clear_file_blame_cache, git_ref_exists, last_file_blame_was_cache_hit,
     remote_branch_fetch_target, resolve_worktree_base_ref, show_git_blob_bytes,
@@ -414,6 +417,157 @@ fn git_status_reports_merge_conflicts() {
         .expect("git status should be available");
 
     assert!(status.has_merge_conflicts);
+
+    remove_temp_repo(root);
+}
+
+fn two_call_shortstat(repo_path: &Path) -> (u32, u32) {
+    let unstaged = parse_diff_shortstat(&git_output(repo_path, &["diff", "--shortstat"]));
+    let staged = parse_diff_shortstat(&git_output(repo_path, &["diff", "--cached", "--shortstat"]));
+    (
+        unstaged.0.saturating_add(staged.0),
+        unstaged.1.saturating_add(staged.1),
+    )
+}
+
+fn head_shortstat(repo_path: &Path) -> (u32, u32) {
+    parse_diff_shortstat(&git_output(
+        repo_path,
+        &["diff", "--shortstat", "HEAD", "--"],
+    ))
+}
+
+#[test]
+fn git_status_shortstat_skipped_when_clean() {
+    let (root, origin_path) = setup_remote_repo("shortstat-clean");
+    let repo_path = clone_repo(&root, &origin_path, "work");
+    let engine = GitEngine::new();
+
+    reset_git_status_shortstat_calls();
+    let status = engine
+        .get_git_status(&repo_path)
+        .expect("git status should be available");
+
+    assert!(!status.has_uncommitted_changes);
+    assert_eq!(status.uncommitted_count, 0);
+    assert_eq!(status.additions, 0);
+    assert_eq!(status.deletions, 0);
+    assert_eq!(git_status_shortstat_calls(), 0);
+    assert_eq!(status.current_branch.as_deref(), Some("main"));
+    assert_eq!(status.default_branch.as_deref(), Some("main"));
+
+    remove_temp_repo(root);
+}
+
+#[test]
+fn git_status_shortstat_skipped_when_untracked_only() {
+    let (root, origin_path) = setup_remote_repo("shortstat-untracked");
+    let repo_path = clone_repo(&root, &origin_path, "work");
+    write_file(&repo_path.join("scratch.txt"), "scratch\n");
+    let engine = GitEngine::new();
+
+    reset_git_status_shortstat_calls();
+    let status = engine
+        .get_git_status(&repo_path)
+        .expect("git status should be available");
+
+    assert!(status.has_uncommitted_changes);
+    assert!(status.uncommitted_count >= 1);
+    assert_eq!(status.additions, 0);
+    assert_eq!(status.deletions, 0);
+    assert_eq!(git_status_shortstat_calls(), 0);
+    assert_eq!(two_call_shortstat(&repo_path), (0, 0));
+
+    remove_temp_repo(root);
+}
+
+#[test]
+fn git_status_unstaged_only_matches_two_call_sum() {
+    let (root, origin_path) = setup_remote_repo("shortstat-unstaged");
+    let repo_path = clone_repo(&root, &origin_path, "work");
+    write_file(&repo_path.join("README.md"), "hello\nworld\n");
+    let engine = GitEngine::new();
+
+    reset_git_status_shortstat_calls();
+    let status = engine
+        .get_git_status(&repo_path)
+        .expect("git status should be available");
+
+    let expected = two_call_shortstat(&repo_path);
+    assert_eq!((status.additions, status.deletions), expected);
+    assert_eq!(expected, head_shortstat(&repo_path));
+    assert!(status.additions > 0 || status.deletions > 0);
+    assert!(status.has_uncommitted_changes);
+    assert_eq!(git_status_shortstat_calls(), 1);
+
+    remove_temp_repo(root);
+}
+
+#[test]
+fn git_status_staged_only_matches_two_call_sum() {
+    let (root, origin_path) = setup_remote_repo("shortstat-staged");
+    let repo_path = clone_repo(&root, &origin_path, "work");
+    write_file(&repo_path.join("README.md"), "hello\nworld\n");
+    git(&repo_path, &["add", "README.md"]);
+    let engine = GitEngine::new();
+
+    reset_git_status_shortstat_calls();
+    let status = engine
+        .get_git_status(&repo_path)
+        .expect("git status should be available");
+
+    let expected = two_call_shortstat(&repo_path);
+    assert_eq!((status.additions, status.deletions), expected);
+    assert_eq!(expected, head_shortstat(&repo_path));
+    assert!(status.additions > 0 || status.deletions > 0);
+    assert_eq!(git_status_shortstat_calls(), 1);
+
+    remove_temp_repo(root);
+}
+
+#[test]
+fn git_status_staged_and_unstaged_additive_matches_sum() {
+    let (root, origin_path) = setup_remote_repo("shortstat-both");
+    let repo_path = clone_repo(&root, &origin_path, "work");
+    write_file(&repo_path.join("README.md"), "hello\nworld\n");
+    git(&repo_path, &["add", "README.md"]);
+    write_file(&repo_path.join("README.md"), "hello\nworld\nfoo\n");
+    let engine = GitEngine::new();
+
+    reset_git_status_shortstat_calls();
+    let status = engine
+        .get_git_status(&repo_path)
+        .expect("git status should be available");
+
+    let expected = two_call_shortstat(&repo_path);
+    assert_eq!((status.additions, status.deletions), expected);
+    assert_eq!(expected, head_shortstat(&repo_path));
+    assert_eq!(status.additions, 2);
+    assert_eq!(git_status_shortstat_calls(), 1);
+
+    remove_temp_repo(root);
+}
+
+#[test]
+fn git_status_staged_new_file_counts_insertions() {
+    let (root, origin_path) = setup_remote_repo("shortstat-new-file");
+    let repo_path = clone_repo(&root, &origin_path, "work");
+    write_file(&repo_path.join("extra.txt"), "extra\n");
+    git(&repo_path, &["add", "extra.txt"]);
+    let engine = GitEngine::new();
+
+    reset_git_status_shortstat_calls();
+    let status = engine
+        .get_git_status(&repo_path)
+        .expect("git status should be available");
+
+    let expected = two_call_shortstat(&repo_path);
+    assert_eq!((status.additions, status.deletions), expected);
+    assert_eq!(expected, head_shortstat(&repo_path));
+    assert_eq!(status.additions, 1);
+    assert_eq!(status.deletions, 0);
+    assert!(status.has_uncommitted_changes);
+    assert_eq!(git_status_shortstat_calls(), 1);
 
     remove_temp_repo(root);
 }
