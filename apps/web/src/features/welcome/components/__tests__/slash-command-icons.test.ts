@@ -29,8 +29,12 @@ describe("composer slash command icons", () => {
       "utf8",
     );
     expect(composer).toContain("applySlashCommandChipLook");
-    expect(composer).toContain("slashCommandVisual");
-    expect(composer).toContain("slashVisualForAiContextKind");
+    expect(composer).toContain("slashCommandVisual(name)");
+    expect(composer).toContain("slashSkillVisual(absolutePath, filename)");
+    expect(composer).toContain("slashVisualForAiContextKind(parsed.kind)");
+    expect(composer).toContain("DYNAMIC_SKILLS_SLASH_COMMAND_ID");
+    expect(composer).toContain("SIDE_SLASH_COMMAND_ID");
+    expect(composer).toContain("SPAWN_SLASH_COMMAND_ID");
   });
 
   it("uses ScrollArea fades for the @ mention list", () => {

@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { cn } from "@workspace/ui";
 import {
   SLASH_COMMAND_GLYPH_NODES,
   slashCommandChipToneClass,
@@ -69,7 +68,8 @@ export function SlashCommandGlyphIcon({
 export function SlashCommandGlyph({ commandId }: { commandId: string }) {
   const visual = slashCommandVisual(commandId);
   const toneClass = slashCommandListToneClass(visual.tone);
-  return <SlashCommandGlyphIcon glyph={visual.glyph} className={cn("size-4", toneClass)} />;
+  const className = ["size-4", toneClass].filter(Boolean).join(" ");
+  return <SlashCommandGlyphIcon glyph={visual.glyph} className={className} />;
 }
 
 function appendSlashGlyphNodes(parent: SVGElement, nodes: SlashGlyphNode[]) {
@@ -119,6 +119,8 @@ export function buildSlashCommandChipIcon(glyph: SlashCommandGlyph): SVGSVGEleme
 
 export function applySlashCommandChipLook(span: HTMLSpanElement, visual: SlashCommandVisual) {
   span.dataset.slashGlyph = visual.glyph;
-  span.className = cn(span.className, slashCommandChipToneClass(visual.tone));
+  span.className = [span.className, slashCommandChipToneClass(visual.tone)]
+    .filter(Boolean)
+    .join(" ");
   span.appendChild(buildSlashCommandChipIcon(visual.glyph));
 }
