@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { VIEW_RUN_LOGS_SLASH_COMMAND_ID } from "@/features/browser/lib/run-log-context";
 import { DEVICE_PREVIEW_SLASH_COMMAND_ID } from "@/features/simulator/lib/device-preview-agent-prompt";
+import { AGENT_BRIDGE_SLASH_COMMAND_ID } from "@/features/welcome/lib/slash-agent-bridge";
 import { BROWSER_USE_SLASH_COMMAND_ID } from "@/features/welcome/lib/slash-browser-use";
 import { DESKTOP_USE_SLASH_COMMAND_ID } from "@/features/welcome/lib/slash-desktop-use";
 import {
@@ -46,6 +47,10 @@ describe("slash command visual catalog", () => {
       glyph: "message-circle-plus",
       tone: "cyan",
     });
+    expect(slashCommandVisual(AGENT_BRIDGE_SLASH_COMMAND_ID)).toEqual({
+      glyph: "waypoints",
+      tone: "sky",
+    });
   });
 
   it("falls back to zap for agent / unknown command names", () => {
@@ -63,6 +68,9 @@ describe("slash command visual catalog", () => {
     expect(slashSkillVisual("~/.atmos/skills/.system/atmos-device-preview/SKILL.md")).toEqual(
       slashCommandVisual(DEVICE_PREVIEW_SLASH_COMMAND_ID),
     );
+    expect(
+      slashSkillVisual("~/.atmos/skills/.system/atmos-agent-bridge", "atmos-agent-bridge"),
+    ).toEqual(slashCommandVisual(AGENT_BRIDGE_SLASH_COMMAND_ID));
     expect(slashSkillVisual("/tmp/other-skill", "other-skill")).toBeNull();
   });
 
@@ -87,6 +95,8 @@ describe("slash command visual catalog", () => {
     expect(slashCommandChipToneClass("violet")).toContain("text-violet-700");
     expect(slashCommandListToneClass("red")).toContain("text-red-600");
     expect(slashCommandChipToneClass("red")).toContain("text-red-700");
+    expect(slashCommandListToneClass("sky")).toContain("text-sky-600");
+    expect(slashCommandChipToneClass("sky")).toContain("text-sky-700");
   });
 
   it("keeps Browser Use / Desktop Use / ScrollText / Smartphone path identity", () => {
@@ -108,6 +118,14 @@ describe("slash command visual catalog", () => {
     const phone = SLASH_COMMAND_GLYPH_NODES.smartphone;
     expect(
       phone.some((node) => node.type === "rect" && node.width === 14 && node.height === 20),
+    ).toBe(true);
+
+    const waypoints = SLASH_COMMAND_GLYPH_NODES.waypoints;
+    expect(waypoints.some((node) => node.type === "path" && node.d === "M6 12h12")).toBe(true);
+    expect(
+      waypoints.some(
+        (node) => node.type === "circle" && node.cx === 12 && node.cy === 4 && node.r === 2,
+      ),
     ).toBe(true);
   });
 });

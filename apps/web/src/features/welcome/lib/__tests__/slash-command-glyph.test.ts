@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { Window } from "happy-dom";
+import { AGENT_BRIDGE_SLASH_COMMAND_ID } from "@/features/welcome/lib/slash-agent-bridge";
 import { BROWSER_USE_SLASH_COMMAND_ID } from "@/features/welcome/lib/slash-browser-use";
 import {
   applySlashCommandChipLook,
@@ -36,6 +37,7 @@ describe("slash command chip glyph renderer", () => {
       DYNAMIC_SKILLS_SLASH_COMMAND_ID,
       "side",
       "spawn",
+      AGENT_BRIDGE_SLASH_COMMAND_ID,
       "copy-request-id",
     ] as const;
 
@@ -57,6 +59,23 @@ describe("slash command chip glyph renderer", () => {
     const svg = buildSlashCommandChipIcon(slashCommandVisual(BROWSER_USE_SLASH_COMMAND_ID).glyph);
     const paths = [...svg.querySelectorAll("path")].map((path) => path.getAttribute("d"));
     expect(paths).toEqual(flattenPathD(SLASH_COMMAND_GLYPH_NODES["browser-use"]));
+  });
+
+  it("paints Agent Bridge chips with Lucide Waypoints circles", () => {
+    const svg = buildSlashCommandChipIcon(slashCommandVisual(AGENT_BRIDGE_SLASH_COMMAND_ID).glyph);
+    const circles = [...svg.querySelectorAll("circle")].map((circle) => ({
+      cx: circle.getAttribute("cx"),
+      cy: circle.getAttribute("cy"),
+      r: circle.getAttribute("r"),
+    }));
+    expect(circles).toEqual([
+      { cx: "12", cy: "20", r: "2" },
+      { cx: "12", cy: "4", r: "2" },
+      { cx: "20", cy: "12", r: "2" },
+      { cx: "4", cy: "12", r: "2" },
+    ]);
+    const paths = [...svg.querySelectorAll("path")].map((path) => path.getAttribute("d"));
+    expect(paths).toEqual(flattenPathD(SLASH_COMMAND_GLYPH_NODES.waypoints));
   });
 });
 

@@ -29,6 +29,9 @@ function SlashGlyphSvgNodes({ nodes }: { nodes: SlashGlyphNode[] }) {
         />
       );
     }
+    if (node.type === "circle") {
+      return <circle key={index} cx={node.cx} cy={node.cy} r={node.r} />;
+    }
     return (
       <g key={index} transform={node.transform}>
         <SlashGlyphSvgNodes nodes={node.children} />
@@ -91,6 +94,14 @@ function appendSlashGlyphNodes(parent: SVGElement, nodes: SlashGlyphNode[]) {
       if (node.rx != null) rect.setAttribute("rx", String(node.rx));
       if (node.ry != null) rect.setAttribute("ry", String(node.ry));
       parent.appendChild(rect);
+      continue;
+    }
+    if (node.type === "circle") {
+      const circle = document.createElementNS(ns, "circle");
+      circle.setAttribute("cx", String(node.cx));
+      circle.setAttribute("cy", String(node.cy));
+      circle.setAttribute("r", String(node.r));
+      parent.appendChild(circle);
       continue;
     }
     const group = document.createElementNS(ns, "g");

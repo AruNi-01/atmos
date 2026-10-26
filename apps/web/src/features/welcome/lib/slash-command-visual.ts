@@ -9,6 +9,10 @@ import {
   DEVICE_PREVIEW_SLASH_COMMAND_ID,
 } from "@/features/simulator/lib/device-preview-agent-prompt";
 import {
+  AGENT_BRIDGE_SKILL_NAME,
+  AGENT_BRIDGE_SLASH_COMMAND_ID,
+} from "@/features/welcome/lib/slash-agent-bridge";
+import {
   BROWSER_USE_SKILL_NAME,
   BROWSER_USE_SLASH_COMMAND_ID,
 } from "@/features/welcome/lib/slash-browser-use";
@@ -30,7 +34,8 @@ export type SlashCommandGlyph =
   | "smartphone"
   | "eye-off"
   | "messages-square"
-  | "message-circle-plus";
+  | "message-circle-plus"
+  | "waypoints";
 
 export type SlashCommandTone =
   | "default"
@@ -39,7 +44,8 @@ export type SlashCommandTone =
   | "emerald"
   | "cyan"
   | "red"
-  | "green";
+  | "green"
+  | "sky";
 
 export type SlashCommandVisual = {
   glyph: SlashCommandGlyph;
@@ -49,6 +55,7 @@ export type SlashCommandVisual = {
 export type SlashGlyphNode =
   | { type: "path"; d: string; opacity?: number }
   | { type: "rect"; width: number; height: number; x: number; y: number; rx?: number; ry?: number }
+  | { type: "circle"; cx: number; cy: number; r: number }
   | { type: "g"; transform: string; children: SlashGlyphNode[] };
 
 export const DEFAULT_SLASH_COMMAND_VISUAL: SlashCommandVisual = {
@@ -131,6 +138,15 @@ export const SLASH_COMMAND_GLYPH_NODES: Record<SlashCommandGlyph, SlashGlyphNode
     { type: "path", d: "M8 12h8" },
     { type: "path", d: "M12 8v8" },
   ],
+  waypoints: [
+    { type: "path", d: "m10.586 5.414-5.172 5.172" },
+    { type: "path", d: "m18.586 13.414-5.172 5.172" },
+    { type: "path", d: "M6 12h12" },
+    { type: "circle", cx: 12, cy: 20, r: 2 },
+    { type: "circle", cx: 12, cy: 4, r: 2 },
+    { type: "circle", cx: 20, cy: 12, r: 2 },
+    { type: "circle", cx: 4, cy: 12, r: 2 },
+  ],
 };
 
 const BY_COMMAND_ID: Record<string, SlashCommandVisual> = {
@@ -141,6 +157,7 @@ const BY_COMMAND_ID: Record<string, SlashCommandVisual> = {
   [DYNAMIC_SKILLS_SLASH_COMMAND_ID]: { glyph: "eye-off", tone: "red" },
   [SPAWN_SLASH_COMMAND_ID]: { glyph: "messages-square", tone: "green" },
   [SIDE_SLASH_COMMAND_ID]: { glyph: "message-circle-plus", tone: "cyan" },
+  [AGENT_BRIDGE_SLASH_COMMAND_ID]: { glyph: "waypoints", tone: "sky" },
 };
 
 export function slashCommandVisual(commandId: string): SlashCommandVisual {
@@ -162,6 +179,9 @@ export function slashSkillVisual(path: string, name?: string): SlashCommandVisua
   }
   if (hay.includes(DEVICE_PREVIEW_SKILL_NAME)) {
     return BY_COMMAND_ID[DEVICE_PREVIEW_SLASH_COMMAND_ID] ?? null;
+  }
+  if (hay.includes(AGENT_BRIDGE_SKILL_NAME)) {
+    return BY_COMMAND_ID[AGENT_BRIDGE_SLASH_COMMAND_ID] ?? null;
   }
   return null;
 }
@@ -187,6 +207,8 @@ export function slashCommandListToneClass(tone: SlashCommandTone): string {
       return "text-red-600 dark:text-red-400";
     case "green":
       return "text-green-600 dark:text-green-400";
+    case "sky":
+      return "text-sky-600 dark:text-sky-400";
     case "default":
       return "";
   }
@@ -206,6 +228,8 @@ export function slashCommandChipToneClass(tone: SlashCommandTone): string {
       return "border-red-500/35 bg-red-500/10 text-red-700 dark:text-red-300";
     case "green":
       return "border-green-500/35 bg-green-500/10 text-green-700 dark:text-green-400";
+    case "sky":
+      return "border-sky-500/35 bg-sky-500/10 text-sky-700 dark:text-sky-300";
     case "default":
       return "border-border/70 bg-muted/60 text-foreground";
   }
