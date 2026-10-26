@@ -24,6 +24,10 @@ use crate::error::Result;
 
 const WAIT_POLL: Duration = Duration::from_millis(200);
 
+// `async_trait` boxes each method into `Pin<Box<dyn Future>>` (already
+// `#[must_use]`) and also emits a second `#[must_use]`. Keep `async_trait`
+// because this trait is used as `dyn` (RPITIT is not object-safe).
+#[allow(clippy::double_must_use)]
 #[async_trait]
 pub trait BridgeChatHost: Send + Sync {
     fn list_chats(&self) -> Result<Vec<LiveSession>>;
