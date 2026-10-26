@@ -162,7 +162,7 @@ async fn dispatch_send(
         args.workspace.as_deref(),
     ) {
         Ok(v) => v,
-        Err(env) => return env,
+        Err(env) => return *env,
     };
     let mut data = Map::new();
     data.insert("to".into(), to);
@@ -212,7 +212,7 @@ async fn dispatch_reply(api: &ApiClientArgs, args: ReplyArgs) -> CliEnvelope {
         None,
     ) {
         Ok(v) => v,
-        Err(env) => return env,
+        Err(env) => return *env,
     };
     let to_one = match to {
         Value::Array(mut arr) if arr.len() == 1 => arr.remove(0),
@@ -293,19 +293,19 @@ fn collect_targets(
     to_chat: Option<&str>,
     to_server: Option<&str>,
     workspace: Option<&str>,
-) -> Result<Value, CliEnvelope> {
+) -> Result<Value, Box<CliEnvelope>> {
     let mut targets: Vec<Value> = Vec::new();
     for raw in to_json {
         match serde_json::from_str::<Value>(raw) {
             Ok(v) => targets.push(v),
             Err(err) => {
-                return Err(CliEnvelope::failure(
+                return Err(Box::new(CliEnvelope::failure(
                     "atmos agent-bridge",
                     "INVALID_BRIDGE",
                     format!("--to must be JSON AgentAddress: {err}"),
                     r#"Example: --to '{"provider_id":"claude","chat_id":"..."}'"#,
                     vec![],
-                ));
+                )));
             }
         }
     }
@@ -322,7 +322,7 @@ fn collect_targets(
         targets.push(Value::Object(addr));
     }
     if targets.is_empty() {
-        return Err(CliEnvelope::failure(
+        return Err(Box::new(CliEnvelope::failure(
             "atmos agent-bridge",
             "INVALID_BRIDGE",
             "pass --to-provider or --to JSON",
@@ -331,7 +331,7 @@ fn collect_targets(
                 "atmos agent-bridge list",
                 "List agents on the connected Computer",
             )],
-        ));
+        )));
     }
     if targets.len() == 1 {
         Ok(targets.remove(0))
