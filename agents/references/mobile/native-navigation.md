@@ -61,6 +61,8 @@ Rules for `apps/mobile` page titles, headers, navigation bars, and navigation bu
 - Use Expo Router `presentation: "formSheet"` on iOS for sheet routes. Do not layer a custom bottom sheet inside a native sheet.
 - Sheet routes should follow the same title rules as normal routes: native title via `Stack.Screen` options, no custom top title text.
 - Sheet content should use `AppScreen` unless the screen has a strong reason for a custom scroll container.
+- Give every iOS form-sheet route an opaque `contentStyle.backgroundColor` (usually `theme.colors.sheetBackground`). On iOS 26 that color is the input to `patches/react-native-screens@4.25.2.patch`, which copies it onto `UISheetPresentationController.backgroundEffect`. `contentStyle` alone cannot replace Liquid Glass. Keep the patch until upstream ships a public equivalent — see [patches/react-native-screens@4.25.2.md](../../../patches/react-native-screens@4.25.2.md).
+- `@expo/ui` `BottomSheet` / `ExpoDrawer` is a different path: it uses SwiftUI `presentationBackground`, not this patch.
 
 ## Review Checklist
 
@@ -71,5 +73,6 @@ Before finishing a mobile navigation/header change:
 - Confirm the first screen content for large-title pages is `AppScreen` or a direct `ScrollView` with automatic inset adjustment.
 - Confirm no global header background or `headerTransparent: false` was added for large-title pages.
 - Confirm there is no body-level page title, fake header, custom Back text, or duplicate sheet.
+- Confirm iOS form-sheet routes still set an opaque `contentStyle.backgroundColor` (the native screens patch copies that fill onto the sheet).
 - Confirm iOS grouped header menus use `unstable_headerRightItems` / `unstable_headerLeftItems` native bar button items, not a custom `headerRight` ControlGroup/capsule.
 - Run `bun --filter @atmos/mobile typecheck`.
