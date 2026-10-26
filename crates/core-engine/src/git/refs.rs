@@ -2,8 +2,15 @@ use std::path::Path;
 
 use crate::error::{EngineError, Result};
 
+use super::{run_git, try_run_git, GitEngine, GitStatus};
+
+#[cfg(test)]
+thread_local! {
+    static SHORTSTAT_CALLS: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
 /// `git diff --shortstat` counts, for example `3 insertions(+), 1 deletion(-)`.
-fn parse_diff_shortstat(stdout: &str) -> (u32, u32) {
+pub(super) fn parse_diff_shortstat(stdout: &str) -> (u32, u32) {
     let mut additions = 0u32;
     let mut deletions = 0u32;
     for part in stdout.split(',') {
@@ -23,19 +30,32 @@ fn parse_diff_shortstat(stdout: &str) -> (u32, u32) {
     (additions, deletions)
 }
 
-fn diff_shortstat(repo_path: &Path, cached: bool) -> (u32, u32) {
-    let args: &[&str] = if cached {
-        &["diff", "--cached", "--shortstat"]
-    } else {
-        &["diff", "--shortstat"]
-    };
-    match try_run_git(repo_path, args) {
+/// Porcelain XY that can contribute to tracked +/-. `??` / `!!` cannot.
+fn porcelain_has_tracked_diff(status_stdout: &str) -> bool {
+    status_stdout.lines().any(|line| {
+        let code = line.as_bytes();
+        code.len() >= 2 && &code[..2] != b"??" && &code[..2] != b"!!"
+    })
+}
+
+fn diff_shortstat_vs_head(repo_path: &Path) -> (u32, u32) {
+    #[cfg(test)]
+    SHORTSTAT_CALLS.with(|calls| calls.set(calls.get() + 1));
+    match try_run_git(repo_path, &["diff", "--shortstat", "HEAD", "--"]) {
         Ok(Some(stdout)) => parse_diff_shortstat(&stdout),
         _ => (0, 0),
     }
 }
 
-use super::{run_git, try_run_git, GitEngine, GitStatus};
+#[cfg(test)]
+pub(super) fn git_status_shortstat_calls() -> u64 {
+    SHORTSTAT_CALLS.with(|calls| calls.get())
+}
+
+#[cfg(test)]
+pub(super) fn reset_git_status_shortstat_calls() {
+    SHORTSTAT_CALLS.with(|calls| calls.set(0));
+}
 
 impl GitEngine {
     pub(super) fn resolve_remote_branch_ref(
@@ -268,8 +288,11 @@ impl GitEngine {
             matches!(&line[..2], "DD" | "AU" | "UD" | "UA" | "DU" | "AA" | "UU")
         });
 
-        let (unstaged_additions, unstaged_deletions) = diff_shortstat(repo_path, false);
-        let (staged_additions, staged_deletions) = diff_shortstat(repo_path, true);
+        let (additions, deletions) = if porcelain_has_tracked_diff(&status_stdout) {
+            diff_shortstat_vs_head(repo_path)
+        } else {
+            (0, 0)
+        };
 
         let (has_unpushed_commits, unpushed_count) =
             match try_run_git(repo_path, &["rev-list", "@{u}..HEAD", "--count"])? {
@@ -317,8 +340,9 @@ impl GitEngine {
             has_unpushed_commits,
             uncommitted_count,
             unpushed_count,
-            additions: unstaged_additions.saturating_add(staged_additions),
-            deletions: unstaged_deletions.saturating_add(staged_deletions),
+            additions,
+            deletions,
+            current_branch,
             upstream_behind_count,
             default_branch,
             default_branch_ahead,
@@ -429,7 +453,7 @@ impl GitEngine {
 
 #[cfg(test)]
 mod shortstat_tests {
-    use super::parse_diff_shortstat;
+    use super::{parse_diff_shortstat, porcelain_has_tracked_diff};
 
     #[test]
     fn reads_insertions_and_deletions() {
@@ -445,6 +469,26 @@ mod shortstat_tests {
             parse_diff_shortstat(" 1 file changed, 2 deletions(-)\n"),
             (0, 2)
         );
+        assert_eq!(
+            parse_diff_shortstat(" 1 file changed, 0 insertions(+), 0 deletions(-)\n"),
+            (0, 0)
+        );
         assert_eq!(parse_diff_shortstat(""), (0, 0));
+    }
+
+    #[test]
+    fn porcelain_skip_only_untracked_or_ignored() {
+        assert!(!porcelain_has_tracked_diff(""));
+        assert!(!porcelain_has_tracked_diff("?? scratch.txt\n"));
+        assert!(!porcelain_has_tracked_diff("!! ignored.bin\n"));
+        assert!(!porcelain_has_tracked_diff("?? a\n?? b\n"));
+        assert!(porcelain_has_tracked_diff(" M src/lib.rs\n"));
+        assert!(porcelain_has_tracked_diff("M  src/lib.rs\n"));
+        assert!(porcelain_has_tracked_diff("A  new.txt\n"));
+        assert!(porcelain_has_tracked_diff("MM src/lib.rs\n"));
+        assert!(porcelain_has_tracked_diff(
+            "?? scratch.txt\n M src/lib.rs\n"
+        ));
+        assert!(porcelain_has_tracked_diff("UU conflict.rs\n"));
     }
 }
