@@ -1,13 +1,14 @@
-# TECH · QUALITY-034: Git status shortstat cost
+# TECH · QUALITY-036: Git status shortstat cost
 
 > Technical Design · HOW. Cut extra `git diff --shortstat` processes in `GitEngine::get_git_status` without changing workspace-list +/- / dirty / branch display. Quality spec. No BRAINSTORM or PRD.
 
 ## Spec id
 
-`QUALITY-034` is the next free QUALITY id.
+`QUALITY-036` is the id for this work.
 
 - `origin/main` has QUALITY-001…033. QUALITY-033 is `agent-chat-subscribe-light-existence`.
-- Search for `QUALITY-034` in this repo's code and open PRs returned nothing at selection time.
+- QUALITY-034 and QUALITY-035 are reserved by another agent (lean get + `ensure_chat`). This spec does not use those ids.
+- Search for `QUALITY-036` in this repo's code and open PRs returned nothing at selection time.
 
 QUALITY specs may omit BRAINSTORM/PRD. The Musts below are the contract.
 
@@ -158,7 +159,7 @@ Unchanged. Still runs git in the expanded workspace path. No new args that accep
 
 ## Rollout plan
 
-1. This spec and the `specs/README.md` QUALITY-034 row.
+1. This spec and the `specs/README.md` QUALITY-036 row.
 2. Engine: skip + one HEAD shortstat + `current_branch` on `GitStatus`. WS mapper reuse.
 3. Rust tests for parse, porcelain skip, and `get_git_status` parity / call counts.
 4. Draft PR against `main`. Do not merge.

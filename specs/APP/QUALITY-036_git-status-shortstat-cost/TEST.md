@@ -1,6 +1,6 @@
-# TEST · QUALITY-034: Git status shortstat cost
+# TEST · QUALITY-036: Git status shortstat cost
 
-> Test Plan · verify `get_git_status` uses one HEAD shortstat or none, with the same list +/- / dirty / branch semantics. References TECH QUALITY-034. There is no PRD; M1–M5 are the Musts in TECH.
+> Test Plan · verify `get_git_status` uses one HEAD shortstat or none, with the same list +/- / dirty / branch semantics. References TECH QUALITY-036. There is no PRD; M1–M5 are the Musts in TECH.
 
 ## Test strategy
 
