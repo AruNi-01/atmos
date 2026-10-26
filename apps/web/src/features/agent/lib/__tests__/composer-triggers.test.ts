@@ -45,11 +45,13 @@ describe("agent composer triggers", () => {
     expect(source).toContain("showAtmosCommands");
     expect(source).toContain("buildBrowserUseSlashCommand");
     expect(source).toContain("buildDesktopUseSlashCommand");
+    expect(source).toContain("buildAgentBridgeSlashCommand");
     expect(source).toContain("buildViewRunLogsSlashCommand");
     expect(source).toContain("buildDevicePreviewSlashCommand");
     expect(source).toContain("dynamic-skills");
     expect(source).toContain("BROWSER_USE_SLASH_COMMAND_ID");
     expect(source).toContain("DESKTOP_USE_SLASH_COMMAND_ID");
+    expect(source).toContain("AGENT_BRIDGE_SLASH_COMMAND_ID");
     expect(source).toContain("VIEW_RUN_LOGS_SLASH_COMMAND_ID");
   });
 });

@@ -4636,6 +4636,10 @@
           "label": "Desktop Use",
           "description": "Capture and control the local desktop (screenshot, click, type)"
         },
+        "agentBridge": {
+          "label": "Agent Bridge",
+          "description": "Address other agents on this Computer (list, send, request)"
+        },
         "viewRunLogs": {
           "label": "View Run Logs",
           "description": "Attach the last started Run log. If it is the wrong tab, name the correct one or the agent will ask."
@@ -10755,6 +10759,10 @@
       "desktopUseCommand": {
         "label": "Desktop Use",
         "description": "Capture and control the local desktop (screenshot, click, type)"
+      },
+      "agentBridgeCommand": {
+        "label": "Agent Bridge",
+        "description": "Address other agents on this Computer (list, send, request)"
       },
       "viewRunLogsCommand": {
         "label": "View Run Logs",

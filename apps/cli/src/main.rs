@@ -6,6 +6,7 @@ mod server_invoke;
 
 use api_client::ApiClientArgs;
 use clap::{Parser, Subcommand};
+use commands::agent_bridge::{execute_agent_bridge, AgentBridgeCommand};
 use commands::automation::{execute_automation, AutomationCommand};
 use commands::browser_use::{execute_cmd as execute_browser_use, BrowserUseCommand};
 use commands::canvas::{execute as execute_canvas, CanvasCommand, CanvasOpts};
@@ -131,6 +132,12 @@ enum Commands {
         #[command(subcommand)]
         command: SimulatorCommand,
     },
+    /// Agent directory / bus on the connected Computer (APP-084)
+    #[command(name = "agent-bridge")]
+    AgentBridge {
+        #[command(subcommand)]
+        command: AgentBridgeCommand,
+    },
     /// Complete, inspect, or start an Atmos automation run
     Automation {
         #[command(subcommand)]
@@ -199,6 +206,7 @@ async fn run() -> i32 {
             wrap_legacy("atmos browser-use", execute_browser_use(command).await)
         }
         Some(Commands::Simulator { command }) => execute_simulator(cli.api, command).await,
+        Some(Commands::AgentBridge { command }) => execute_agent_bridge(cli.api, command).await,
         Some(Commands::Automation { command }) => execute_automation(cli.api, command).await,
         Some(Commands::Canvas { canvas, command }) => wrap_legacy(
             "atmos canvas",

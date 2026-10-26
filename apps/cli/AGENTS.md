@@ -43,13 +43,13 @@ Agent skill (usage): `skills/atmos-cli/` → system skill `atmos-cli`.
 
 ## Commands vs architecture
 
-| Surface                                                                   | Purpose                                  |
-| ------------------------------------------------------------------------- | ---------------------------------------- |
-| `atmos` / `status` / `call` / `actions`                                   | Discovery + RPC escape hatch             |
-| `project` `workspace` `group` `settings` `terminal` `run` `git` `context` | L1 product control via `/api/cli/invoke` |
-| `atmos runtime`                                                           | Ensure/stop/status local Atmos Server    |
-| `atmos computer`                                                          | Relay registration + ensure API          |
-| `atmos canvas` / `review` / `desktop-use` / `browser-use`                 | Specialized tools (envelope-wrapped)     |
+| Surface                                                                    | Purpose                                  |
+| -------------------------------------------------------------------------- | ---------------------------------------- |
+| `atmos` / `status` / `call` / `actions`                                    | Discovery + RPC escape hatch             |
+| `project` `workspace` `group` `settings` `terminal` `run` `git` `context`  | L1 product control via `/api/cli/invoke` |
+| `atmos runtime`                                                            | Ensure/stop/status local Atmos Server    |
+| `atmos computer`                                                           | Relay registration + ensure API          |
+| `atmos canvas` / `review` / `desktop-use` / `browser-use` / `agent-bridge` | Specialized tools (envelope-wrapped)     |
 
 ### Atmos Server URL resolution (`runtime-manager`)
 

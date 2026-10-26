@@ -4636,6 +4636,10 @@
           "label": "Desktop Use",
           "description": "本机桌面捕获与控制（截图、点击、输入）"
         },
+        "agentBridge": {
+          "label": "Agent Bridge",
+          "description": "给本机其他 Agent 发消息（目录、发送、请求）"
+        },
         "viewRunLogs": {
           "label": "View Run Logs",
           "description": "附加最近一次点 Run 的日志。如果 tab 不对，可以直接说明，或让 Agent 反问。"
@@ -10755,6 +10759,10 @@
       "desktopUseCommand": {
         "label": "Desktop Use",
         "description": "本机桌面捕获与控制（截图、点击、输入）"
+      },
+      "agentBridgeCommand": {
+        "label": "Agent Bridge",
+        "description": "给本机其他 Agent 发消息（目录、发送、请求）"
       },
       "viewRunLogsCommand": {
         "label": "View Run Logs",

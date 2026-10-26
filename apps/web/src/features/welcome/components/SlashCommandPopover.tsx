@@ -11,6 +11,7 @@ import {
   Puzzle,
   ScrollText,
   Smartphone,
+  Waypoints,
   Zap,
 } from "lucide-react";
 import { BrowserUseIconStatic } from "@workspace/ui/components/icons/browser-use-icon-static";
@@ -25,6 +26,7 @@ import type {
   SlashExpandedSections,
 } from "@/features/welcome/hooks/use-welcome-slash-navigation";
 import { BROWSER_USE_SLASH_COMMAND_ID } from "@/features/welcome/lib/slash-browser-use";
+import { AGENT_BRIDGE_SLASH_COMMAND_ID } from "@/features/welcome/lib/slash-agent-bridge";
 import { DESKTOP_USE_SLASH_COMMAND_ID } from "@/features/welcome/lib/slash-desktop-use";
 import {
   isPopoverConfirmKey,
@@ -100,6 +102,9 @@ function SlashCommandGlyph({ commandId }: { commandId: string }) {
   }
   if (commandId === DESKTOP_USE_SLASH_COMMAND_ID) {
     return <DesktopUseIconStatic className="size-4 text-violet-600 dark:text-violet-400" />;
+  }
+  if (commandId === AGENT_BRIDGE_SLASH_COMMAND_ID) {
+    return <Waypoints className="size-4 text-sky-600 dark:text-sky-400" />;
   }
   if (commandId === VIEW_RUN_LOGS_SLASH_COMMAND_ID) {
     return <ScrollText className="size-4 text-emerald-600 dark:text-emerald-400" />;

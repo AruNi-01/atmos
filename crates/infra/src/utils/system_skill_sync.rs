@@ -47,6 +47,8 @@ const ALL_SYSTEM_SKILL_NAMES: &[&str] = &[
     // Device Preview phone control (APP-071)
     "atmos-device-preview",
     "atmos-automation",
+    // Agent Bridge bus (APP-084)
+    "atmos-agent-bridge",
 ];
 
 #[derive(Clone, Debug, Deserialize)]
@@ -183,6 +185,7 @@ fn repo_skill_root(skill_name: &str) -> Option<&'static str> {
         "atmos-pt-design-agent" => Some("skills/atmos-pt-design-agent"),
         "atmos-device-preview" => Some("skills/atmos-device-preview"),
         "atmos-automation" => Some("skills/atmos-automation"),
+        "atmos-agent-bridge" => Some("skills/atmos-agent-bridge"),
         _ => None,
     }
 }
@@ -710,7 +713,16 @@ pub fn get_installed_skill_versions() -> std::collections::HashMap<String, Strin
 
 #[cfg(test)]
 mod tests {
-    use super::parse_skill_version_from_content;
+    use super::{parse_skill_version_from_content, repo_skill_root, ALL_SYSTEM_SKILL_NAMES};
+
+    #[test]
+    fn agent_bridge_is_registered_as_a_system_skill() {
+        assert!(ALL_SYSTEM_SKILL_NAMES.contains(&"atmos-agent-bridge"));
+        assert_eq!(
+            repo_skill_root("atmos-agent-bridge"),
+            Some("skills/atmos-agent-bridge")
+        );
+    }
 
     #[test]
     fn parses_version_from_frontmatter_with_markdown_body() {
