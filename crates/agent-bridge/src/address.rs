@@ -36,12 +36,14 @@ pub fn is_local_wildcard(server_id: &str) -> bool {
     server_id.is_empty() || server_id == LOCAL_SERVER_ID
 }
 
-/// `"local"` / empty matches the connected Computer's real id.
-pub fn server_ids_match(a: &str, b: &str) -> bool {
-    if is_local_wildcard(a) || is_local_wildcard(b) {
+/// Client-filled `to.server_id` may be empty / `"local"` meaning this Computer.
+/// The Server's own identity is never a wildcard: identity `"local"` plus an
+/// explicit other `to.server_id` is a different machine.
+pub fn server_ids_match(to_server_id: &str, local_server_id: &str) -> bool {
+    if is_local_wildcard(to_server_id) {
         return true;
     }
-    a == b
+    to_server_id == local_server_id
 }
 
 /// True when `to` names a Computer other than the connected one.
@@ -57,10 +59,18 @@ mod tests {
     fn local_wildcard_matches_real_id() {
         assert!(server_ids_match(LOCAL_SERVER_ID, "srv-abc"));
         assert!(server_ids_match("", "srv-abc"));
-        assert!(server_ids_match("srv-abc", LOCAL_SERVER_ID));
         assert!(server_ids_match("srv-abc", "srv-abc"));
         assert!(!server_ids_match("aaa", "bbb"));
         assert!(!is_foreign_server("local", "aaa"));
+        assert!(!is_foreign_server("", "aaa"));
         assert!(is_foreign_server("bbb", "aaa"));
+    }
+
+    #[test]
+    fn local_identity_does_not_wildcard_a_foreign_to() {
+        assert!(is_foreign_server("other-computer", LOCAL_SERVER_ID));
+        assert!(!server_ids_match("other-computer", LOCAL_SERVER_ID));
+        assert!(!is_foreign_server(LOCAL_SERVER_ID, LOCAL_SERVER_ID));
+        assert!(!is_foreign_server("srv-abc", "srv-abc"));
     }
 }

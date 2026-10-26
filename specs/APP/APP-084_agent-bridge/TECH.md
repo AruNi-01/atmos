@@ -42,14 +42,14 @@ Pure protocol. **No DB, no tokio runtime, no mutex inside types, no HTTP, no `cr
 | `envelope` | `BridgeMessage` kind `send` / `request` / `reply` / `ack`, ids, ttl, busy override     |
 | `busy`     | `BusyPolicy { Wait, Queue, FailFast }`, default **Queue**                              |
 | `delivery` | `plan_delivery` → `DeliverNow` / `Queue` / `FailFast` / `Wait`, `DeliveryAck`          |
-| `mailbox`  | `Mailbox` in-memory vec; enqueue / `drain_matching`; **no internal Mutex**             |
+| `mailbox`  | `Mailbox` in-memory vec; enqueue / `pop_matching` / insert-back; **no internal Mutex** |
 | `context`  | `ContextBag` slices + `ContextStore`; get-or-`None` (pull). **No push-to-peer API**    |
 | `catalog`  | Pure DTOs `CatalogEntry`, occupancy enum; merge/dedupe helpers. No I/O                 |
 | `format`   | Render inject text for Chat send                                                       |
 | `error`    | `BridgeError` codes used by L3                                                         |
 | `state`    | `BridgeState { mailbox, bags }` — two instances prove isolation (V1 pull-vs-push)      |
 
-`server_ids_match(a, b)`: equal strings match; empty / `"local"` is a wildcard for “the connected Computer”.
+`server_ids_match(to, local)`: empty / `"local"` is a wildcard **only on the client-filled `to.server_id`**. The Server's own identity is never a wildcard — identity `"local"` plus an explicit other `to.server_id` is foreign (`CROSS_MACHINE_CONNECT` / `CONTEXT_REF_REMOTE`).
 
 ### crates/core-service
 
@@ -63,8 +63,8 @@ New `service/agent_bridge/`:
   - `list_custom_agents()` → custom `name`
   - `list_agents()` terminal installs → **`registry_id`**, never `AgentId::ClaudeCode` / `claude_code`
   - `agent_chat.list(None, None, None, true, None)` live index (`provider_id`, `workspace_id`, `id` as `chat_id`)
-  - occupancy: `AgentStatusService::get_all_sessions()` keyed `chat:{chat_id}` plus `AgentChatService` live-turn busy
-- Delivery (M2–M3): crate `plan_delivery`; idle → `agent_chat.send(chat_id, formatted, vec![])`; busy+queue → mailbox; busy+fail_fast → `rejected`; busy+wait → poll occupancy until idle or `ttl_ms` (default 30_000, poll 200ms) then `delivered` or `timeout`.
+  - occupancy: `AgentStatusService::get_all_sessions()` keyed `chat:{chat_id}` mapped to `idle` / `running` / `permission_request` (never flatten busy → `running`); folded `WaitingPermission` counts as `permission_request`; live-turn busy counts as `running`
+- Delivery (M2–M3): crate `plan_delivery`; idle → inject only when occupancy is idle (do not call `agent_chat.send` on `WaitingPermission`); inject `Err` / `Rejected` re-enqueues; busy+queue → mailbox; busy+fail_fast → `rejected`; busy+wait → poll occupancy until idle or `ttl_ms` (default 30_000, poll 200ms) then `delivered` or `timeout`. Drain pops **one** matching message; failure inserts it back.
 - No `chat_id`: exactly one matching live Chat on this Computer → deliver; zero → `offline` + mailbox; many → `AMBIGUOUS_TARGET`.
 - Foreign `to.server_id` that does not `server_ids_match` local → `CROSS_MACHINE_CONNECT` (do not enqueue locally).
 - Drain queued mail on send/request/reply/status when that target is now idle. **Not** on list.

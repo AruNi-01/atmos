@@ -139,4 +139,16 @@ mod tests {
         assert_eq!(remote.code(), "CONTEXT_REF_REMOTE");
         // Store B has no push-to-peer method; isolation is the V1 contract.
     }
+
+    #[test]
+    fn remote_ref_stays_remote_when_local_identity_is_local() {
+        let store = ContextStore::new();
+        let err = store
+            .pull(
+                "other-computer/bag:aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                crate::LOCAL_SERVER_ID,
+            )
+            .unwrap_err();
+        assert_eq!(err.code(), "CONTEXT_REF_REMOTE");
+    }
 }

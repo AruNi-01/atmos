@@ -163,4 +163,16 @@ mod tests {
         assert!(matches!(plans[0], TargetResolution::Unique(_)));
         assert!(matches!(plans[1], TargetResolution::Unique(_)));
     }
+
+    #[test]
+    fn foreign_to_is_rejected_when_local_identity_is_local() {
+        let sessions = vec![sess("claude", "a")];
+        let err = resolve_live_targets(
+            &AgentAddress::new("other-computer", "claude"),
+            &sessions,
+            crate::LOCAL_SERVER_ID,
+        )
+        .unwrap_err();
+        assert_eq!(err.code(), "CROSS_MACHINE_CONNECT");
+    }
 }

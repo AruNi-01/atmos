@@ -18,9 +18,9 @@ use serde::Serialize;
 use uuid::Uuid;
 
 use super::agent::AgentService;
-use super::agent_chat::AgentChatService;
+use super::agent_chat::{AgentChatService, TurnStatus};
 use super::agent_status::{chat_status_session_id, AgentOccupancy, AgentStatusService};
-use crate::error::Result;
+use crate::error::{Result, ServiceError};
 
 const WAIT_POLL: Duration = Duration::from_millis(200);
 
@@ -31,8 +31,37 @@ const WAIT_POLL: Duration = Duration::from_millis(200);
 #[async_trait]
 pub trait BridgeChatHost: Send + Sync {
     fn list_chats(&self) -> Result<Vec<LiveSession>>;
-    async fn is_busy(&self, chat_id: &str) -> bool;
+    async fn occupancy(&self, chat_id: &str) -> Occupancy;
     async fn inject(&self, chat_id: &str, text: &str) -> Result<()>;
+}
+
+fn map_chat_occupancy(
+    status: Option<AgentOccupancy>,
+    folded_waiting_permission: bool,
+    live_turn_busy: bool,
+) -> Occupancy {
+    match status {
+        Some(AgentOccupancy::PermissionRequest) => Occupancy::PermissionRequest,
+        Some(AgentOccupancy::Running) => Occupancy::Running,
+        _ if folded_waiting_permission => Occupancy::PermissionRequest,
+        _ if live_turn_busy => Occupancy::Running,
+        _ => Occupancy::Idle,
+    }
+}
+
+fn chat_folded_waiting_permission(chat: &AgentChatService, chat_id: &str) -> bool {
+    chat.store()
+        .folded_turns(chat_id)
+        .ok()
+        .and_then(|turns| {
+            turns.into_iter().rev().find(|turn| {
+                matches!(
+                    turn.status,
+                    TurnStatus::Running | TurnStatus::WaitingPermission
+                )
+            })
+        })
+        .is_some_and(|turn| turn.status == TurnStatus::WaitingPermission)
 }
 
 pub struct AgentChatBridgeHost {
@@ -56,25 +85,25 @@ impl BridgeChatHost for AgentChatBridgeHost {
             .collect())
     }
 
-    async fn is_busy(&self, chat_id: &str) -> bool {
+    async fn occupancy(&self, chat_id: &str) -> Occupancy {
         let sid = chat_status_session_id(chat_id);
-        if let Some(session) = self
+        let status = self
             .status
             .get_all_sessions()
             .into_iter()
             .find(|s| s.session_id == sid)
-        {
-            if matches!(
-                session.state,
-                AgentOccupancy::Running | AgentOccupancy::PermissionRequest
-            ) {
-                return true;
-            }
-        }
-        self.chat.is_live_turn_busy(chat_id).await
+            .map(|s| s.state);
+        let folded_waiting_permission = chat_folded_waiting_permission(&self.chat, chat_id);
+        let live_turn_busy = self.chat.is_live_turn_busy(chat_id).await;
+        map_chat_occupancy(status, folded_waiting_permission, live_turn_busy)
     }
 
     async fn inject(&self, chat_id: &str, text: &str) -> Result<()> {
+        if self.occupancy(chat_id).await.is_busy() {
+            return Err(ServiceError::Validation(
+                "bridge inject refused: target is busy or waiting on permission".into(),
+            ));
+        }
         self.chat.send(chat_id, text, Vec::new()).await.map(|_| ())
     }
 }
@@ -289,7 +318,7 @@ impl AgentBridgeService {
             TargetResolution::Unique(live) => {
                 message.to.chat_id = Some(live.chat_id.clone());
                 message.to.workspace_id = live.workspace_id.clone();
-                if !self.host.is_busy(&live.chat_id).await {
+                if !self.host.occupancy(&live.chat_id).await.is_busy() {
                     let _ = self.drain_if_idle(&message.to).await?;
                 }
                 self.deliver_resolved(message, live.chat_id, busy, ttl_ms)
@@ -307,7 +336,7 @@ impl AgentBridgeService {
     ) -> Result<DeliveryAck> {
         let to = message.to.clone();
         let id = message.id.clone();
-        let currently_busy = self.host.is_busy(&chat_id).await;
+        let currently_busy = self.host.occupancy(&chat_id).await.is_busy();
         match plan_delivery(currently_busy, busy_policy) {
             DeliveryPlan::DeliverNow => self.inject_now(message, &chat_id).await,
             DeliveryPlan::Queue => {
@@ -328,16 +357,34 @@ impl AgentBridgeService {
     }
 
     async fn inject_now(&self, message: BridgeMessage, chat_id: &str) -> Result<DeliveryAck> {
-        let text = format_inject(&message);
+        let ack = self.try_inject(&message, chat_id).await?;
+        if ack.status != DeliveryStatus::Delivered {
+            self.state.lock().mailbox.enqueue(message);
+        }
+        Ok(ack)
+    }
+
+    async fn try_inject(&self, message: &BridgeMessage, chat_id: &str) -> Result<DeliveryAck> {
+        if self.host.occupancy(chat_id).await.is_busy() {
+            return Ok(DeliveryAck::new(
+                message.id.clone(),
+                message.to.clone(),
+                DeliveryStatus::Rejected,
+            )
+            .with_error("BUSY", "target is busy or waiting on permission"));
+        }
+        let text = format_inject(message);
         if let Err(err) = self.host.inject(chat_id, &text).await {
-            return Ok(
-                DeliveryAck::new(message.id, message.to, DeliveryStatus::Rejected)
-                    .with_error("INJECT_FAILED", err.to_string()),
-            );
+            return Ok(DeliveryAck::new(
+                message.id.clone(),
+                message.to.clone(),
+                DeliveryStatus::Rejected,
+            )
+            .with_error("INJECT_FAILED", err.to_string()));
         }
         Ok(DeliveryAck::new(
-            message.id,
-            message.to,
+            message.id.clone(),
+            message.to.clone(),
             DeliveryStatus::Delivered,
         ))
     }
@@ -345,7 +392,7 @@ impl AgentBridgeService {
     async fn wait_idle(&self, chat_id: &str, ttl_ms: u64) -> bool {
         let deadline = Instant::now() + Duration::from_millis(ttl_ms);
         loop {
-            if !self.host.is_busy(chat_id).await {
+            if !self.host.occupancy(chat_id).await.is_busy() {
                 return true;
             }
             if Instant::now() >= deadline {
@@ -354,7 +401,7 @@ impl AgentBridgeService {
             let remaining = deadline.saturating_duration_since(Instant::now());
             let slice = WAIT_POLL.min(remaining);
             if slice.is_zero() {
-                return !self.host.is_busy(chat_id).await;
+                return !self.host.occupancy(chat_id).await.is_busy();
             }
             tokio::time::sleep(slice).await;
         }
@@ -366,21 +413,24 @@ impl AgentBridgeService {
             Ok(TargetResolution::Unique(live)) => live,
             _ => return Ok(Vec::new()),
         };
-        if self.host.is_busy(&resolved.chat_id).await {
+        if self.host.occupancy(&resolved.chat_id).await.is_busy() {
             return Ok(Vec::new());
         }
-        let queued = {
+        let mut query = to.clone();
+        query.provider_id = resolved.provider_id.clone();
+        query.chat_id = Some(resolved.chat_id.clone());
+        let popped = {
             let mut state = self.state.lock();
-            let mut query = to.clone();
-            query.provider_id = resolved.provider_id.clone();
-            query.chat_id = Some(resolved.chat_id.clone());
-            state.mailbox.drain_matching(&query)
+            state.mailbox.pop_matching(&query)
         };
-        let mut acks = Vec::new();
-        for msg in queued {
-            acks.push(self.inject_now(msg, &resolved.chat_id).await?);
+        let Some((idx, msg)) = popped else {
+            return Ok(Vec::new());
+        };
+        let ack = self.try_inject(&msg, &resolved.chat_id).await?;
+        if ack.status != DeliveryStatus::Delivered {
+            self.state.lock().mailbox.insert(idx, msg);
         }
-        Ok(acks)
+        Ok(vec![ack])
     }
 
     async fn gather_catalog(&self, workspace_id: Option<&str>) -> Result<Vec<CatalogEntry>> {
@@ -458,11 +508,7 @@ impl AgentBridgeService {
                     continue;
                 }
             }
-            let occupancy = if self.host.is_busy(&chat.chat_id).await {
-                Occupancy::Running
-            } else {
-                Occupancy::Idle
-            };
+            let occupancy = self.host.occupancy(&chat.chat_id).await;
             entries.push(CatalogEntry {
                 kind: CatalogKind::Chat,
                 provider_id: chat.provider_id,
@@ -502,15 +548,17 @@ pub struct StatusResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::{map_chat_occupancy, AgentOccupancy};
     use crate::ServiceError;
     use agent_bridge::{
         AgentAddress, BridgeError, BusyPolicy, CatalogKind, ContextBagSlices, DeliveryStatus,
-        ListRequest, Occupancy, SendRequest, SendTargets, StatusRequest,
+        ListRequest, Occupancy, SendRequest, SendTargets, StatusRequest, LOCAL_SERVER_ID,
     };
 
     struct MockHost {
         chats: Mutex<Vec<LiveSession>>,
-        busy: Mutex<HashSet<String>>,
+        occupancy: Mutex<std::collections::HashMap<String, Occupancy>>,
+        inject_failures: Mutex<usize>,
         injected: Mutex<Vec<(String, String)>>,
     }
 
@@ -518,9 +566,18 @@ mod tests {
         fn new(chats: Vec<LiveSession>) -> Arc<Self> {
             Arc::new(Self {
                 chats: Mutex::new(chats),
-                busy: Mutex::new(HashSet::new()),
+                occupancy: Mutex::new(std::collections::HashMap::new()),
+                inject_failures: Mutex::new(0),
                 injected: Mutex::new(Vec::new()),
             })
+        }
+
+        fn set_occupancy(&self, chat_id: &str, occupancy: Occupancy) {
+            self.occupancy.lock().insert(chat_id.to_string(), occupancy);
+        }
+
+        fn fail_next_injects(&self, n: usize) {
+            *self.inject_failures.lock() = n;
         }
     }
 
@@ -530,11 +587,27 @@ mod tests {
             Ok(self.chats.lock().clone())
         }
 
-        async fn is_busy(&self, chat_id: &str) -> bool {
-            self.busy.lock().contains(chat_id)
+        async fn occupancy(&self, chat_id: &str) -> Occupancy {
+            self.occupancy
+                .lock()
+                .get(chat_id)
+                .copied()
+                .unwrap_or(Occupancy::Idle)
         }
 
         async fn inject(&self, chat_id: &str, text: &str) -> Result<()> {
+            if self.occupancy(chat_id).await.is_busy() {
+                return Err(ServiceError::Validation(
+                    "bridge inject refused: target is busy or waiting on permission".into(),
+                ));
+            }
+            {
+                let mut remaining = self.inject_failures.lock();
+                if *remaining > 0 {
+                    *remaining -= 1;
+                    return Err(ServiceError::Validation("inject failed".into()));
+                }
+            }
             self.injected
                 .lock()
                 .push((chat_id.to_string(), text.to_string()));
@@ -543,11 +616,19 @@ mod tests {
     }
 
     fn service(host: Arc<MockHost>, providers: &[&str]) -> AgentBridgeService {
+        service_with_id(host, providers, "srv-local")
+    }
+
+    fn service_with_id(
+        host: Arc<MockHost>,
+        providers: &[&str],
+        server_id: &str,
+    ) -> AgentBridgeService {
         AgentBridgeService {
             agent: Arc::new(AgentService::new()),
             host,
             state: Mutex::new(BridgeState::new()),
-            server_id: "srv-local".into(),
+            server_id: server_id.into(),
             known_providers: Some(providers.iter().map(|s| (*s).to_string()).collect()),
         }
     }
@@ -616,7 +697,7 @@ mod tests {
     #[tokio::test]
     async fn busy_queue_and_status_drains_list_does_not() {
         let host = MockHost::new(vec![live("claude", "c1")]);
-        host.busy.lock().insert("c1".into());
+        host.set_occupancy("c1", Occupancy::Running);
         let svc = service(host.clone(), &["claude"]);
         let acks = svc
             .send(send_to("claude", Some("c1"), "later"))
@@ -625,7 +706,7 @@ mod tests {
         assert_eq!(acks[0].status, DeliveryStatus::QueuedBusy);
         svc.list(ListRequest::default()).await.unwrap();
         assert_eq!(svc.state.lock().mailbox.len(), 1);
-        host.busy.lock().clear();
+        host.set_occupancy("c1", Occupancy::Idle);
         let status = svc
             .status(StatusRequest {
                 to: Some(AgentAddress::new("local", "claude")),
@@ -641,7 +722,7 @@ mod tests {
     #[tokio::test]
     async fn wait_timeout() {
         let host = MockHost::new(vec![live("claude", "c1")]);
-        host.busy.lock().insert("c1".into());
+        host.set_occupancy("c1", Occupancy::Running);
         let svc = service(host, &["claude"]);
         let mut req = send_to("claude", Some("c1"), "x");
         req.busy = Some(BusyPolicy::Wait);
@@ -699,7 +780,7 @@ mod tests {
     #[tokio::test]
     async fn fail_fast_rejects_busy_without_queue() {
         let host = MockHost::new(vec![live("claude", "c1")]);
-        host.busy.lock().insert("c1".into());
+        host.set_occupancy("c1", Occupancy::Running);
         let svc = service(host, &["claude"]);
         let mut req = send_to("claude", Some("c1"), "nope");
         req.busy = Some(BusyPolicy::FailFast);
@@ -786,5 +867,155 @@ mod tests {
             status.bag.expect("bag").slices.goals,
             vec!["land v1".to_string()]
         );
+    }
+
+    #[test]
+    fn occupancy_maps_permission_request_not_running() {
+        assert_eq!(
+            map_chat_occupancy(Some(AgentOccupancy::PermissionRequest), false, false),
+            Occupancy::PermissionRequest
+        );
+        assert_eq!(
+            map_chat_occupancy(Some(AgentOccupancy::Running), false, false),
+            Occupancy::Running
+        );
+        assert_eq!(
+            map_chat_occupancy(Some(AgentOccupancy::Idle), true, false),
+            Occupancy::PermissionRequest
+        );
+        assert_eq!(map_chat_occupancy(None, false, true), Occupancy::Running);
+        assert_eq!(map_chat_occupancy(None, false, false), Occupancy::Idle);
+    }
+
+    #[tokio::test]
+    async fn list_emits_permission_request_occupancy() {
+        let host = MockHost::new(vec![live("claude", "c1")]);
+        host.set_occupancy("c1", Occupancy::PermissionRequest);
+        let svc = service(host.clone(), &["claude"]);
+        let listed = svc.list(ListRequest::default()).await.unwrap();
+        assert_eq!(listed.entries.len(), 1);
+        assert_eq!(listed.entries[0].occupancy, Occupancy::PermissionRequest);
+        let acks = svc
+            .send(send_to("claude", Some("c1"), "hold"))
+            .await
+            .unwrap();
+        assert_eq!(acks[0].status, DeliveryStatus::QueuedBusy);
+        assert!(host.injected.lock().is_empty());
+        assert_eq!(svc.state.lock().mailbox.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn drain_delivers_one_and_leaves_the_rest_queued() {
+        let host = MockHost::new(vec![live("claude", "c1")]);
+        host.set_occupancy("c1", Occupancy::Running);
+        let svc = service(host.clone(), &["claude"]);
+        svc.send(send_to("claude", Some("c1"), "one"))
+            .await
+            .unwrap();
+        svc.send(send_to("claude", Some("c1"), "two"))
+            .await
+            .unwrap();
+        assert_eq!(svc.state.lock().mailbox.len(), 2);
+        host.set_occupancy("c1", Occupancy::Idle);
+        let status = svc
+            .status(StatusRequest {
+                to: Some(AgentAddress::new("local", "claude")),
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+        assert_eq!(status.drained.len(), 1);
+        assert_eq!(status.drained[0].status, DeliveryStatus::Delivered);
+        assert_eq!(host.injected.lock().len(), 1);
+        assert!(host.injected.lock()[0].1.contains("one"));
+        assert_eq!(svc.state.lock().mailbox.len(), 1);
+        assert!(svc
+            .state
+            .lock()
+            .mailbox
+            .get(status.drained[0].message_id.as_str())
+            .is_none());
+    }
+
+    #[tokio::test]
+    async fn drain_requeues_all_matching_when_mid_inject_fails() {
+        let host = MockHost::new(vec![live("claude", "c1")]);
+        host.set_occupancy("c1", Occupancy::Running);
+        let svc = service(host.clone(), &["claude"]);
+        let first = svc
+            .send(send_to("claude", Some("c1"), "one"))
+            .await
+            .unwrap();
+        let second = svc
+            .send(send_to("claude", Some("c1"), "two"))
+            .await
+            .unwrap();
+        host.fail_next_injects(1);
+        host.set_occupancy("c1", Occupancy::Idle);
+        let status = svc
+            .status(StatusRequest {
+                to: Some(AgentAddress::new("local", "claude")),
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+        assert_eq!(status.drained.len(), 1);
+        assert_eq!(status.drained[0].status, DeliveryStatus::Rejected);
+        assert_eq!(
+            status.drained[0].error_code.as_deref(),
+            Some("INJECT_FAILED")
+        );
+        assert!(host.injected.lock().is_empty());
+        assert_eq!(svc.state.lock().mailbox.len(), 2);
+        assert!(svc.state.lock().mailbox.get(&first[0].message_id).is_some());
+        assert!(svc
+            .state
+            .lock()
+            .mailbox
+            .get(&second[0].message_id)
+            .is_some());
+    }
+
+    #[tokio::test]
+    async fn inject_rejected_requeues_first_delivery() {
+        let host = MockHost::new(vec![live("claude", "c1")]);
+        host.fail_next_injects(1);
+        let svc = service(host.clone(), &["claude"]);
+        let acks = svc
+            .send(send_to("claude", Some("c1"), "ping"))
+            .await
+            .unwrap();
+        assert_eq!(acks[0].status, DeliveryStatus::Rejected);
+        assert_eq!(acks[0].error_code.as_deref(), Some("INJECT_FAILED"));
+        assert!(host.injected.lock().is_empty());
+        assert_eq!(svc.state.lock().mailbox.len(), 1);
+        assert!(svc.state.lock().mailbox.get(&acks[0].message_id).is_some());
+    }
+
+    #[tokio::test]
+    async fn local_identity_treats_explicit_other_server_as_foreign() {
+        let host = MockHost::new(vec![live("claude", "c1")]);
+        let svc = service_with_id(host, &["claude"], LOCAL_SERVER_ID);
+        let mut req = send_to("claude", None, "x");
+        req.to = SendTargets::One(AgentAddress::new("other-computer", "claude"));
+        let err = svc.send(req).await.unwrap_err();
+        match err {
+            ServiceError::AgentBridge(BridgeError::CrossMachineConnect { server_id }) => {
+                assert_eq!(server_id, "other-computer");
+            }
+            other => panic!("{other:?}"),
+        }
+        assert!(svc.state.lock().mailbox.is_empty());
+        let pull = svc
+            .status(StatusRequest {
+                context_ref: Some("other-computer/bag:aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee".into()),
+                ..Default::default()
+            })
+            .await
+            .unwrap_err();
+        match pull {
+            ServiceError::AgentBridge(BridgeError::ContextRefRemote { .. }) => {}
+            other => panic!("{other:?}"),
+        }
     }
 }
