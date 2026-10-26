@@ -23,17 +23,17 @@ Server cost + settle correctness. Proof is Rust tests on `ensure_chat` / `close_
 
 This table is the hand-off from plan to implementation/testing.
 
-| Scenario | Level     | Expected tool                | Target command / method                                     | Fixture / data                                          | Signals                                                                              | Status  |
-| -------- | --------- | ---------------------------- | ----------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------ | ------- |
-| S1       | Rust unit | `cargo test -p core-service` | `ensure_chat_empty_live_does_not_scan_transcript`           | 200 user turns, empty `live.jsonl`                      | `leftover_transcript_envelopes_read` unchanged (0); fold count unchanged             | planned |
-| S2       | Rust unit | `cargo test -p api`          | `subscribe_empty_live_does_not_scan_transcript`             | same through subscribe                                  | transcript leftover counter 0; `{ last_event_seq }`; conn registered                 | planned |
-| S3       | Rust unit | `cargo test -p core-service` | `ensure_chat_closes_leftover_without_full_transcript_scan`  | 200 user turns + open live `TextChunk`                  | `PartFinished`; live truncated; transcript leftover reads ≤ 64; fold count unchanged | planned |
-| S4       | Rust unit | `cargo test -p core-service` | `ensure_chat_skips_already_finished_via_transcript_tail`    | live chunk + trailing `PartFinished` for same `part_id` | no second `PartFinished`; live truncated; transcript reads ≤ 64                      | planned |
-| S5       | Rust unit | `cargo test -p core-service` | `ensure_chat_closes_leftover_open_parts_without_folding`    | existing QUALITY-033 leftover fixture                   | `PartFinished`; live empty; second call idempotent; fold count unchanged             | planned |
-| S6       | Rust unit | `cargo test -p core-service` | `ensure_chat_unknown_is_not_found`                          | random UUID                                             | `NotFound`; no chat dir                                                              | planned |
-| S7       | Rust unit | `cargo test -p core-service` | `lifecycle_load_without_runtime_closes_leftover_open_parts` | existing get() leftover test                            | `get()` still settles when detached                                                  | planned |
-| S8       | Rust unit | `cargo test -p api`          | QUALITY-033 subscribe names                                 | existing fixtures                                       | no fold; leftover subscribe still settles                                            | planned |
-| S9       | Toolchain | shell                        | `package.json` script text                                  | repo root                                               | `oxlint --max-warnings=455`                                                          | planned |
+| Scenario | Level     | Expected tool                | Target command / method                                     | Fixture / data                                          | Signals                                                                              | Status |
+| -------- | --------- | ---------------------------- | ----------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------ | ------ |
+| S1       | Rust unit | `cargo test -p core-service` | `ensure_chat_empty_live_does_not_scan_transcript`           | 200 user turns, empty `live.jsonl`                      | `leftover_transcript_envelopes_read` unchanged (0); fold count unchanged             | pass   |
+| S2       | Rust unit | `cargo test -p api`          | `subscribe_empty_live_does_not_scan_transcript`             | same through subscribe                                  | transcript leftover counter 0; `{ last_event_seq }`; conn registered                 | pass   |
+| S3       | Rust unit | `cargo test -p core-service` | `ensure_chat_closes_leftover_without_full_transcript_scan`  | 200 user turns + open live `TextChunk`                  | `PartFinished`; live truncated; transcript leftover reads ≤ 64; fold count unchanged | pass   |
+| S4       | Rust unit | `cargo test -p core-service` | `ensure_chat_skips_already_finished_via_transcript_tail`    | live chunk + trailing `PartFinished` for same `part_id` | no second `PartFinished`; live truncated; transcript reads ≤ 64                      | pass   |
+| S5       | Rust unit | `cargo test -p core-service` | `ensure_chat_closes_leftover_open_parts_without_folding`    | existing QUALITY-033 leftover fixture                   | `PartFinished`; live empty; second call idempotent; fold count unchanged             | pass   |
+| S6       | Rust unit | `cargo test -p core-service` | `ensure_chat_unknown_is_not_found`                          | random UUID                                             | `NotFound`; no chat dir                                                              | pass   |
+| S7       | Rust unit | `cargo test -p core-service` | `lifecycle_load_without_runtime_closes_leftover_open_parts` | existing get() leftover test                            | `get()` still settles when detached                                                  | pass   |
+| S8       | Rust unit | `cargo test -p api`          | QUALITY-033 subscribe names                                 | existing fixtures                                       | no fold; leftover subscribe still settles                                            | pass   |
+| S9       | Toolchain | shell                        | `package.json` script text                                  | repo root                                               | `oxlint --max-warnings=455`                                                          | pass   |
 
 ## Scenarios
 
@@ -118,11 +118,11 @@ This table is the hand-off from plan to implementation/testing.
 
 ## Regression checklist
 
-- [ ] QUALITY-033 subscribe does not fold.
-- [ ] QUALITY-018 register-first / missing-chat rollback.
-- [ ] Alive runtime still skips leftover close (`get()` / `ensure_chat` same branch).
-- [ ] `package.json` lint script is still `--max-warnings=455`.
-- [ ] No client timeout constant change.
+- [x] QUALITY-033 subscribe does not fold.
+- [x] QUALITY-018 register-first / missing-chat rollback.
+- [x] Alive runtime still skips leftover close (`get()` / `ensure_chat` same branch).
+- [x] `package.json` lint script is still `--max-warnings=455`.
+- [x] No client timeout constant change.
 
 ## Exploratory agent-browser checks
 
@@ -130,12 +130,12 @@ Omitted. No screen, copy, or route change.
 
 ## Acceptance criteria
 
-- [ ] S1–S6 pass at the declared level.
-- [ ] S7–S8 existing leftover / subscribe tests pass.
-- [ ] S9 oxlint cap is 455.
-- [ ] `cargo test -p core-service` leftover/`ensure_chat` names and `cargo test -p api --bin api -- agent_chat` pass.
-- [ ] `cargo clippy -p api -p core-service --tests -- -D warnings` pass, or scoped clippy is recorded.
-- [ ] No new REST route. No timeout constant change.
+- [x] S1–S6 pass at the declared level.
+- [x] S7–S8 existing leftover / subscribe tests pass.
+- [x] S9 oxlint cap is 455.
+- [x] `cargo test -p core-service` leftover/`ensure_chat` names and `cargo test -p api --bin api -- agent_chat` pass.
+- [x] `cargo clippy -p api -p core-service --tests -- -D warnings` pass, or scoped clippy is recorded.
+- [x] No new REST route. No timeout constant change.
 
 ## Manual verification steps
 
@@ -149,4 +149,14 @@ None. Automated server tests cover short-circuit and settle.
 
 ## Coverage Status
 
-> Filled after implementation by `atmos-specs-test-run`.
+- S1 — pass. `cargo test -p core-service --lib ensure_chat_empty_live_does_not_scan_transcript`. `leftover_transcript_envelopes_read` unchanged; fold count unchanged.
+- S2 — pass. `cargo test -p api --bin api -- subscribe_empty_live_does_not_scan_transcript`. Same counters through subscribe; `last_event_seq` present.
+- S3 — pass. `ensure_chat_closes_leftover_without_full_transcript_scan`. `PartFinished` for `p-left`; live truncated; transcript reads ≤ 64; second call does not duplicate.
+- S4 — pass. `ensure_chat_skips_already_finished_via_transcript_tail`. Still one `PartFinished` for `p1`; transcript reads ≤ 64.
+- S5 — pass. `ensure_chat_closes_leftover_open_parts_without_folding`.
+- S6 — pass. `ensure_chat_unknown_is_not_found`.
+- S7 — pass. `lifecycle_load_without_runtime_closes_leftover_open_parts`.
+- S8 — pass. `cargo test -p api --bin api -- agent_chat` (QUALITY-033/018 subscribe names still pass).
+- S9 — pass. `package.json` `lint` is `oxlint --max-warnings=455`.
+- `cargo clippy -p api -p core-service --all-targets --all-features -- -D warnings` passed.
+- Agent-browser: not run. No UI surface.

@@ -3455,6 +3455,253 @@ async fn ensure_chat_closes_leftover_open_parts_without_folding() {
     );
 }
 
+fn append_user_turns_jsonl(chat_dir: &std::path::Path, count: usize) {
+    let path = chat_dir.join("transcript.jsonl");
+    let mut body = std::fs::read_to_string(&path).unwrap_or_default();
+    for n in 1..=count {
+        body.push_str(&format!(
+            r#"{{"event_id":"e-start-{n}","turn_id":"t{n}","timestamp":"2026-01-01T00:00:00Z","event":{{"type":"turn_started"}}}}
+{{"event_id":"e-user-{n}","turn_id":"t{n}","timestamp":"2026-01-01T00:00:00Z","event":{{"type":"user_message","message_id":"m{n}","kind":"normal","text":"msg {n}","attachments":[]}}}}
+{{"event_id":"e-done-{n}","turn_id":"t{n}","timestamp":"2026-01-01T00:00:00Z","event":{{"type":"turn_completed","status":"completed"}}}}
+"#
+        ));
+    }
+    std::fs::write(&path, body).expect("write transcript");
+}
+
+fn append_user_assistant_turns_jsonl(chat_dir: &std::path::Path, count: usize) {
+    let path = chat_dir.join("transcript.jsonl");
+    let mut body = std::fs::read_to_string(&path).unwrap_or_default();
+    for n in 1..=count {
+        body.push_str(&format!(
+            r#"{{"event_id":"e-start-{n}","turn_id":"ta{n}","timestamp":"2026-01-01T00:00:00Z","event":{{"type":"turn_started"}}}}
+{{"event_id":"e-user-{n}","turn_id":"ta{n}","timestamp":"2026-01-01T00:00:00Z","event":{{"type":"user_message","message_id":"u{n}","kind":"normal","text":"ask {n}","attachments":[]}}}}
+{{"event_id":"e-asst-{n}","turn_id":"ta{n}","timestamp":"2026-01-01T00:00:00Z","event":{{"type":"assistant_snapshot","message_id":"a{n}","text":"reply {n}"}}}}
+{{"event_id":"e-done-{n}","turn_id":"ta{n}","timestamp":"2026-01-01T00:00:00Z","event":{{"type":"turn_completed","status":"completed"}}}}
+"#
+        ));
+    }
+    std::fs::write(&path, body).expect("write transcript");
+}
+
+fn transcript_envelope_count(chat_dir: &std::path::Path) -> u64 {
+    std::fs::read_to_string(chat_dir.join("transcript.jsonl"))
+        .unwrap_or_default()
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .count() as u64
+}
+
+#[tokio::test]
+async fn get_page_does_not_full_fold_a_long_transcript() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    let (_dir, service) = make_service(provider);
+    let meta = service.create(create_req("/tmp/page-long")).unwrap();
+    let chat_dir = service.store().dir_for(&meta.id);
+    append_user_turns_jsonl(&chat_dir, 200);
+    let total = transcript_envelope_count(&chat_dir);
+    let folds_before = service.store().fold_chat_dir_calls();
+    let folded_before = service.store().paged_fold_envelopes();
+
+    let (snapshot, has_more) = service.get_page(&meta.id, 20, None).await.unwrap();
+
+    assert!(has_more);
+    assert_eq!(snapshot.messages.len(), 20);
+    assert_eq!(snapshot.messages[0].id, "m181");
+    assert_eq!(snapshot.messages[19].id, "m200");
+    assert_eq!(
+        service.store().fold_chat_dir_calls(),
+        folds_before,
+        "lean page must not call fold_chat_dir"
+    );
+    let folded = service.store().paged_fold_envelopes() - folded_before;
+    assert!(
+        folded > 0 && folded * 2 < total,
+        "paged fold must be O(page), folded={folded} total={total}"
+    );
+}
+
+#[tokio::test]
+async fn get_page_matches_full_fold_tail() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    let (_dir, service) = make_service(provider);
+    let meta = service.create(create_req("/tmp/page-match")).unwrap();
+    append_user_assistant_turns_jsonl(&service.store().dir_for(&meta.id), 40);
+
+    let full = service.get(&meta.id).await.unwrap();
+    let (paged, has_more) = service.get_page(&meta.id, 20, None).await.unwrap();
+    let expected: Vec<String> = full
+        .messages
+        .iter()
+        .rev()
+        .take(20)
+        .rev()
+        .map(|message| message.id.clone())
+        .collect();
+    let got: Vec<String> = paged
+        .messages
+        .iter()
+        .map(|message| message.id.clone())
+        .collect();
+    assert_eq!(got, expected);
+    assert!(has_more);
+    assert!(full.messages.len() > 20);
+}
+
+#[tokio::test]
+async fn get_page_before_id_does_not_full_fold() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    let (_dir, service) = make_service(provider);
+    let meta = service.create(create_req("/tmp/page-before")).unwrap();
+    let chat_dir = service.store().dir_for(&meta.id);
+    append_user_turns_jsonl(&chat_dir, 200);
+    let total = transcript_envelope_count(&chat_dir);
+    let folds_before = service.store().fold_chat_dir_calls();
+    let folded_before = service.store().paged_fold_envelopes();
+
+    let (page, has_more) = service.get_page(&meta.id, 20, Some("m181")).await.unwrap();
+
+    let ids: Vec<String> = page
+        .messages
+        .iter()
+        .map(|message| message.id.clone())
+        .collect();
+    let expected: Vec<String> = (161..=180).map(|n| format!("m{n}")).collect();
+    assert_eq!(ids, expected);
+    assert!(has_more);
+    assert_eq!(service.store().fold_chat_dir_calls(), folds_before);
+    let folded = service.store().paged_fold_envelopes() - folded_before;
+    assert!(
+        folded > 0 && folded * 2 < total,
+        "older page must fold the window only, folded={folded} total={total}"
+    );
+}
+
+#[tokio::test]
+async fn ensure_chat_empty_live_does_not_scan_transcript() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    let (_dir, service) = make_service(provider);
+    let meta = service.create(create_req("/tmp/empty-live")).unwrap();
+    append_user_turns_jsonl(&service.store().dir_for(&meta.id), 200);
+    std::fs::write(service.store().dir_for(&meta.id).join("live.jsonl"), "").unwrap();
+    let folds_before = service.store().fold_chat_dir_calls();
+    let transcript_before = service.store().leftover_transcript_envelopes_read();
+
+    service.ensure_chat(&meta.id).await.unwrap();
+
+    assert_eq!(
+        service.store().leftover_transcript_envelopes_read(),
+        transcript_before,
+        "empty live must not scan transcript.jsonl"
+    );
+    assert_eq!(service.store().fold_chat_dir_calls(), folds_before);
+}
+
+#[tokio::test]
+async fn ensure_chat_closes_leftover_without_full_transcript_scan() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    let (_dir, service) = make_service(provider);
+    let meta = service.create(create_req("/tmp/leftover-tail")).unwrap();
+    let chat_dir = service.store().dir_for(&meta.id);
+    append_user_turns_jsonl(&chat_dir, 200);
+    std::fs::write(
+        chat_dir.join("live.jsonl"),
+        r#"{"event_id":"e-left","turn_id":"t-left","timestamp":"2026-01-01T00:00:00Z","event":{"type":"text_chunk","part_id":"p-left","message_id":"a-left","ordinal":0,"kind":"answer","offset":0,"text":"leftover"}}
+"#,
+    )
+    .unwrap();
+    let folds_before = service.store().fold_chat_dir_calls();
+    let total = transcript_envelope_count(&chat_dir);
+    let transcript_before = service.store().leftover_transcript_envelopes_read();
+
+    service.ensure_chat(&meta.id).await.unwrap();
+
+    let transcript_read = service.store().leftover_transcript_envelopes_read() - transcript_before;
+    assert!(
+        leftover_part_finished_id(&chat_dir.join("transcript.jsonl"), "p-left", "leftover"),
+        "ensure_chat must persist PartFinished for leftover text"
+    );
+    assert!(std::fs::read_to_string(chat_dir.join("live.jsonl"))
+        .unwrap_or_default()
+        .trim()
+        .is_empty());
+    assert_eq!(service.store().fold_chat_dir_calls(), folds_before);
+    assert!(
+        transcript_read <= 64 && transcript_read < total,
+        "leftover close must not full-scan transcript, read={transcript_read} total={total}"
+    );
+
+    service.ensure_chat(&meta.id).await.unwrap();
+    let finished_count = jsonl_events(&chat_dir.join("transcript.jsonl"))
+        .into_iter()
+        .filter(|event| {
+            matches!(
+                event,
+                TranscriptEvent::PartFinished { ref part_id, .. } if part_id == "p-left"
+            )
+        })
+        .count();
+    assert_eq!(finished_count, 1);
+}
+
+#[tokio::test]
+async fn ensure_chat_skips_already_finished_via_transcript_tail() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    let (_dir, service) = make_service(provider);
+    let meta = service.create(create_req("/tmp/leftover-dup")).unwrap();
+    let chat_dir = service.store().dir_for(&meta.id);
+    append_user_turns_jsonl(&chat_dir, 200);
+    let mut transcript = std::fs::read_to_string(chat_dir.join("transcript.jsonl")).unwrap();
+    transcript.push_str(
+        r#"{"event_id":"e-fin","turn_id":"t-left","timestamp":"2026-01-01T00:00:01Z","event":{"type":"part_finished","part_id":"p1","message_id":"a1","ordinal":0,"kind":"answer","text":"leftover"}}
+"#,
+    );
+    std::fs::write(chat_dir.join("transcript.jsonl"), transcript).unwrap();
+    std::fs::write(
+        chat_dir.join("live.jsonl"),
+        r#"{"event_id":"e-left","turn_id":"t-left","timestamp":"2026-01-01T00:00:00Z","event":{"type":"text_chunk","part_id":"p1","message_id":"a1","ordinal":0,"kind":"answer","offset":0,"text":"leftover"}}
+"#,
+    )
+    .unwrap();
+    let total = transcript_envelope_count(&chat_dir);
+    let transcript_before = service.store().leftover_transcript_envelopes_read();
+
+    service.ensure_chat(&meta.id).await.unwrap();
+
+    let finished_count = jsonl_events(&chat_dir.join("transcript.jsonl"))
+        .into_iter()
+        .filter(|event| {
+            matches!(
+                event,
+                TranscriptEvent::PartFinished { ref part_id, .. } if part_id == "p1"
+            )
+        })
+        .count();
+    assert_eq!(finished_count, 1, "must not append a second PartFinished");
+    assert!(std::fs::read_to_string(chat_dir.join("live.jsonl"))
+        .unwrap_or_default()
+        .trim()
+        .is_empty());
+    let transcript_read = service.store().leftover_transcript_envelopes_read() - transcript_before;
+    assert!(
+        transcript_read <= 64 && transcript_read < total,
+        "already-finished lookup must stay in the tail, read={transcript_read} total={total}"
+    );
+}
+
+fn leftover_part_finished_id(path: &std::path::Path, want_part: &str, want_text: &str) -> bool {
+    jsonl_events(path).into_iter().any(|event| {
+        matches!(
+            event,
+            TranscriptEvent::PartFinished {
+                ref part_id,
+                ref text,
+                ..
+            } if part_id == want_part && text == want_text
+        )
+    })
+}
+
 fn jsonl_events(path: &std::path::Path) -> Vec<TranscriptEvent> {
     std::fs::read_to_string(path)
         .unwrap_or_default()

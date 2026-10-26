@@ -23,18 +23,18 @@ This is a server cost bug. Proof is Rust tests on `get_snapshot_page` / `get_pag
 
 This table is the hand-off from plan to implementation/testing.
 
-| Scenario | Level     | Expected tool                | Target command / method                            | Fixture / data                             | Signals                                                                                | Status  |
-| -------- | --------- | ---------------------------- | -------------------------------------------------- | ------------------------------------------ | -------------------------------------------------------------------------------------- | ------- |
-| S1       | Rust unit | `cargo test -p core-service` | `get_page_does_not_full_fold_a_long_transcript`    | 200 user turns, `limit` 20                 | `fold_chat_dir_calls` unchanged; `paged_fold_envelopes` ≪ total envelopes; last 20 ids | planned |
-| S2       | Rust unit | `cargo test -p api`          | `get_pages_last_twenty_without_full_fold`          | 200 user turns + tool turn, lean get 20    | same counters; 20 messages; `has_more_messages`; `detail_omitted`                      | planned |
-| S3       | Rust unit | `cargo test -p core-service` | `get_page_matches_full_fold_tail`                  | 40 user+assistant turns                    | paged ids == `page_messages(full, 20, None)`                                           | planned |
-| S4       | Rust unit | `cargo test -p api`          | `get_without_flags_keeps_full_snapshot`            | existing QUALITY-031 fixture               | no `has_more_messages`; full diff body; `fold_chat_dir_calls` increments               | planned |
-| S5       | Rust unit | `cargo test -p core-service` | `get_page_before_id_does_not_full_fold`            | 200 user turns, cursor = oldest of last 20 | `fold_chat_dir_calls` unchanged; `paged_fold_envelopes` ≪ total; previous 20 ids       | planned |
-| S6       | Rust unit | `cargo test -p api`          | `messages_before_id_loads_older_page`              | existing 25-turn fixture                   | ids `m1`…`m5`; unknown cursor empty + `has_more: false`                                | planned |
-| S7       | Rust unit | `cargo test -p api`          | `tool_get_returns_full_diff`                       | existing tool fixture                      | full `diff`; no `detail_omitted`                                                       | planned |
-| S8       | Rust unit | `cargo test -p api`          | `get_pages_last_twenty_and_strips_tools`           | 24 user + tool                             | 20 messages; strip (QUALITY-031 S1/S2)                                                 | planned |
-| S9       | Rust unit | `cargo test -p api`          | `subscribe_does_not_fold_transcript_for_existence` | QUALITY-033 fixture                        | fold count unchanged                                                                   | planned |
-| S10      | Toolchain | shell                        | `package.json` script text                         | repo root                                  | `oxlint --max-warnings=455`                                                            | planned |
+| Scenario | Level     | Expected tool                | Target command / method                            | Fixture / data                             | Signals                                                                                | Status |
+| -------- | --------- | ---------------------------- | -------------------------------------------------- | ------------------------------------------ | -------------------------------------------------------------------------------------- | ------ |
+| S1       | Rust unit | `cargo test -p core-service` | `get_page_does_not_full_fold_a_long_transcript`    | 200 user turns, `limit` 20                 | `fold_chat_dir_calls` unchanged; `paged_fold_envelopes` ≪ total envelopes; last 20 ids | pass   |
+| S2       | Rust unit | `cargo test -p api`          | `get_pages_last_twenty_without_full_fold`          | 200 user turns + tool turn, lean get 20    | same counters; 20 messages; `has_more_messages`; `detail_omitted`                      | pass   |
+| S3       | Rust unit | `cargo test -p core-service` | `get_page_matches_full_fold_tail`                  | 40 user+assistant turns                    | paged ids == `page_messages(full, 20, None)`                                           | pass   |
+| S4       | Rust unit | `cargo test -p api`          | `get_without_flags_keeps_full_snapshot`            | existing QUALITY-031 fixture               | no `has_more_messages`; full diff body; `fold_chat_dir_calls` increments               | pass   |
+| S5       | Rust unit | `cargo test -p core-service` | `get_page_before_id_does_not_full_fold`            | 200 user turns, cursor = oldest of last 20 | `fold_chat_dir_calls` unchanged; `paged_fold_envelopes` ≪ total; previous 20 ids       | pass   |
+| S6       | Rust unit | `cargo test -p api`          | `messages_before_id_loads_older_page`              | existing 25-turn fixture                   | ids `m1`…`m5`; unknown cursor empty + `has_more: false`                                | pass   |
+| S7       | Rust unit | `cargo test -p api`          | `tool_get_returns_full_diff`                       | existing tool fixture                      | full `diff`; no `detail_omitted`                                                       | pass   |
+| S8       | Rust unit | `cargo test -p api`          | `get_pages_last_twenty_and_strips_tools`           | 24 user + tool                             | 20 messages; strip (QUALITY-031 S1/S2)                                                 | pass   |
+| S9       | Rust unit | `cargo test -p api`          | `subscribe_does_not_fold_transcript_for_existence` | QUALITY-033 fixture                        | fold count unchanged                                                                   | pass   |
+| S10      | Toolchain | shell                        | `package.json` script text                         | repo root                                  | `oxlint --max-warnings=455`                                                            | pass   |
 
 ## Scenarios
 
@@ -126,12 +126,12 @@ This table is the hand-off from plan to implementation/testing.
 
 ## Regression checklist
 
-- [ ] QUALITY-031 lean strip / `has_more_messages` / unknown cursor / Web `{ chat_id }` only.
-- [ ] QUALITY-018 subscribe register-before-replay + rollback.
-- [ ] QUALITY-033 `ensure_chat` does not fold.
-- [ ] `get()` leftover close when detached still runs (via QUALITY-035).
-- [ ] `package.json` lint script is still `--max-warnings=455`.
-- [ ] No client timeout constant change.
+- [x] QUALITY-031 lean strip / `has_more_messages` / unknown cursor / Web `{ chat_id }` only.
+- [x] QUALITY-018 subscribe register-before-replay + rollback.
+- [x] QUALITY-033 `ensure_chat` does not fold.
+- [x] `get()` leftover close when detached still runs (via QUALITY-035).
+- [x] `package.json` lint script is still `--max-warnings=455`.
+- [x] No client timeout constant change.
 
 ## Exploratory agent-browser checks
 
@@ -139,12 +139,12 @@ Omitted. No screen, copy, or route change. The bug is a discarded full fold on l
 
 ## Acceptance criteria
 
-- [ ] S1–S6 pass at the declared level.
-- [ ] S7–S9 existing QUALITY-031/033 tests pass.
-- [ ] S10 oxlint cap is 455.
-- [ ] `cargo test -p core-service` page/leftover names and `cargo test -p api --bin api -- agent_chat` pass.
-- [ ] `cargo clippy -p api -p core-service --tests -- -D warnings` pass, or scoped clippy on touched packages is recorded.
-- [ ] No new REST route. No timeout constant change. No page-size change.
+- [x] S1–S6 pass at the declared level.
+- [x] S7–S9 existing QUALITY-031/033 tests pass.
+- [x] S10 oxlint cap is 455.
+- [x] `cargo test -p core-service` page/leftover names and `cargo test -p api --bin api -- agent_chat` pass.
+- [x] `cargo clippy -p api -p core-service --tests -- -D warnings` pass, or scoped clippy on touched packages is recorded.
+- [x] No new REST route. No timeout constant change. No page-size change.
 
 ## Manual verification steps
 
@@ -159,4 +159,16 @@ None. Automated server tests cover the fold counters and wire.
 
 ## Coverage Status
 
-> Filled after implementation by `atmos-specs-test-run`.
+- S1 — pass. `cargo test -p core-service --lib get_page_does_not_full_fold_a_long_transcript`. Last 20 ids `m181`…`m200`; `fold_chat_dir_calls` unchanged; `paged_fold_envelopes` ≪ 600.
+- S2 — pass. `cargo test -p api --bin api -- get_pages_last_twenty_without_full_fold`. 20 messages, `has_more_messages`, `detail_omitted`; fold counter unchanged; paged fold ≪ transcript.
+- S3 — pass. `get_page_matches_full_fold_tail`. Paged ids match `get()` tail of 20 on 40 user+assistant turns.
+- S4 — pass. `get_without_flags_keeps_full_snapshot`. No `has_more_messages`; full tool body.
+- S5 — pass. `get_page_before_id_does_not_full_fold`. Cursor `m181` → `m161`…`m180`; fold counter unchanged; paged fold ≪ total.
+- S6 — pass. `messages_before_id_loads_older_page`. `m1`…`m5`; missing cursor empty + `has_more: false`.
+- S7 — pass. `tool_get_returns_full_diff`.
+- S8 — pass. `get_pages_last_twenty_and_strips_tools`.
+- S9 — pass. `subscribe_does_not_fold_transcript_for_existence`.
+- S10 — pass. `package.json` `lint` is `oxlint --max-warnings=455`.
+- Also: `cargo test -p core-service --lib agent_chat::` (235 passed); `cargo test -p api --bin api -- agent_chat` (17 matching tests passed).
+- `cargo clippy -p api -p core-service --all-targets --all-features -- -D warnings` passed.
+- Agent-browser: not run. No UI surface.

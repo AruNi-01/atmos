@@ -26,6 +26,7 @@ use super::coalesce::{is_high_frequency_agent_event, TextChunkCoalescer, COALESC
 use super::options::OptionsPrefetchWorker;
 use super::queue::maybe_dispatch_queue;
 use super::store::AgentChatStore;
+use super::transcript_view::page_messages;
 use super::types::{
     apply_rewind_view, resolve_session_config_select, text_suffix_from, AgentChatEvent,
     AgentChatMeta, AgentChatPayload, AgentChatSessionOpOutcome, AgentChatSnapshot,
@@ -370,6 +371,43 @@ impl AgentChatService {
         }
         self.store.close_leftover_open_parts(id)?;
         self.store.get_snapshot(id)
+    }
+
+    /// QUALITY-034: last `limit` messages (or the page older than `before_message_id`)
+    /// without `fold_chat_dir` over the whole transcript.
+    pub async fn get_page(
+        &self,
+        id: &str,
+        limit: usize,
+        before_message_id: Option<&str>,
+    ) -> Result<(AgentChatSnapshot, bool)> {
+        let state = {
+            let map = self.runtimes.lock().await;
+            map.get(id).and_then(|runtime| {
+                runtime
+                    .alive
+                    .load(Ordering::SeqCst)
+                    .then(|| Arc::clone(&runtime.state))
+            })
+        };
+        if let Some(state) = state {
+            let state = state.lock().await;
+            let (mut snapshot, mut has_more) =
+                self.store.get_snapshot_page(id, limit, before_message_id)?;
+            // QUALITY-031 overlaid the full snapshot, then sliced. Live parts
+            // belong on the tail page only; older windows must not grow them.
+            if before_message_id.is_none() {
+                overlay_live_state(&mut snapshot, &state);
+                if snapshot.messages.len() > limit {
+                    let (page, more) = page_messages(&snapshot.messages, limit, None);
+                    snapshot.messages = page;
+                    has_more = has_more || more;
+                }
+            }
+            return Ok((snapshot, has_more));
+        }
+        self.store.close_leftover_open_parts(id)?;
+        self.store.get_snapshot_page(id, limit, before_message_id)
     }
 
     /// Existence plus leftover-part close without folding the transcript.

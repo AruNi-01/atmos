@@ -8,6 +8,7 @@ mod queue;
 pub mod service;
 pub mod store;
 pub mod terminal_prefs;
+mod transcript_page;
 pub mod transcript_view;
 pub mod types;
 
