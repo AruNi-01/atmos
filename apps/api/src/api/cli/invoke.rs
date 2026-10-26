@@ -84,6 +84,7 @@ pub(crate) fn service_error_parts(err: &core_service::ServiceError) -> (&'static
         ServiceError::NotFound(msg) => ("not_found", msg.clone()),
         ServiceError::Repository(msg) => ("repository_error", msg.clone()),
         ServiceError::DeviceControl(e) => (e.code(), e.to_string()),
+        ServiceError::AgentBridge(e) => (e.code(), e.to_string()),
         other => ("ACTION_FAILED", other.to_string()),
     }
 }
@@ -109,6 +110,14 @@ mod tests {
         assert!(matches!(
             parse_ws_action("settings_bootstrap_get"),
             Some(WsAction::SettingsBootstrapGet)
+        ));
+        assert!(matches!(
+            parse_ws_action("agent_bridge_list"),
+            Some(WsAction::AgentBridgeList)
+        ));
+        assert!(matches!(
+            parse_ws_action("agent_bridge_send"),
+            Some(WsAction::AgentBridgeSend)
         ));
     }
 
