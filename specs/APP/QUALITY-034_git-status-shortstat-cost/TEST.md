@@ -22,19 +22,19 @@ This is a server process-cost change. Proof is Rust tests on `GitEngine::get_git
 
 ## Execution map
 
-This table is the hand-off from plan to implementation/testing. `Status` stays `planned` until test-run fills Coverage Status.
+This table is the hand-off from plan to implementation/testing.
 
-| Scenario | Level            | Expected tool               | Target command / method                                 | Fixture / data                                     | Signals                                                                                      | Status  |
-| -------- | ---------------- | --------------------------- | ------------------------------------------------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------- |
-| S1       | Rust integration | `cargo test -p core-engine` | `git_status_shortstat_skipped_when_clean`               | cloned temp repo, no local edits                   | `additions=0`, `deletions=0`, `uncommitted_count=0`, shortstat calls 0, branch still present | planned |
-| S2       | Rust integration | `cargo test -p core-engine` | `git_status_shortstat_skipped_when_untracked_only`      | clean clone + one `??` file                        | dirty true, uncommitted ≥ 1, +/- = 0, shortstat calls 0                                      | planned |
-| S3       | Rust integration | `cargo test -p core-engine` | `git_status_unstaged_only_matches_two_call_sum`         | modify tracked file, do not stage                  | +/- equals `git diff --shortstat` + cached; shortstat calls 1                                | planned |
-| S4       | Rust integration | `cargo test -p core-engine` | `git_status_staged_only_matches_two_call_sum`           | stage tracked edit                                 | +/- equals cached shortstat; shortstat calls 1                                               | planned |
-| S5       | Rust integration | `cargo test -p core-engine` | `git_status_staged_and_unstaged_additive_matches_sum`   | stage one new line, then add another unstaged line | +/- equals two-call sum and HEAD shortstat; shortstat calls 1                                | planned |
-| S6       | Rust integration | `cargo test -p core-engine` | `git_status_staged_new_file_counts_insertions`          | untracked then `git add`                           | +/- > 0 and matches cached/HEAD; shortstat calls 1                                           | planned |
-| S7       | Rust unit        | `cargo test -p core-engine` | `porcelain_has_tracked_diff_*` / `parse_diff_shortstat` | porcelain strings; shortstat stdout samples        | `??`/`!!`/empty skip; ` M`/`M `/`A ` need shortstat; parse still reads insertions/deletions  | planned |
-| S8       | Rust integration | `cargo test -p core-engine` | existing `git_status_reports_*`                         | existing ahead/behind/conflict fixtures            | default-branch ahead/behind and `has_merge_conflicts` still pass                             | planned |
-| S9       | Toolchain        | shell                       | `package.json` script text                              | repo root                                          | `oxlint --max-warnings=455`; no new `WsAction`                                               | planned |
+| Scenario | Level            | Expected tool               | Target command / method                                 | Fixture / data                                     | Signals                                                                                      | Status |
+| -------- | ---------------- | --------------------------- | ------------------------------------------------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------ |
+| S1       | Rust integration | `cargo test -p core-engine` | `git_status_shortstat_skipped_when_clean`               | cloned temp repo, no local edits                   | `additions=0`, `deletions=0`, `uncommitted_count=0`, shortstat calls 0, branch still present | pass   |
+| S2       | Rust integration | `cargo test -p core-engine` | `git_status_shortstat_skipped_when_untracked_only`      | clean clone + one `??` file                        | dirty true, uncommitted ≥ 1, +/- = 0, shortstat calls 0                                      | pass   |
+| S3       | Rust integration | `cargo test -p core-engine` | `git_status_unstaged_only_matches_two_call_sum`         | modify tracked file, do not stage                  | +/- equals `git diff --shortstat` + cached; shortstat calls 1                                | pass   |
+| S4       | Rust integration | `cargo test -p core-engine` | `git_status_staged_only_matches_two_call_sum`           | stage tracked edit                                 | +/- equals cached shortstat; shortstat calls 1                                               | pass   |
+| S5       | Rust integration | `cargo test -p core-engine` | `git_status_staged_and_unstaged_additive_matches_sum`   | stage one new line, then add another unstaged line | +/- equals two-call sum and HEAD shortstat; shortstat calls 1                                | pass   |
+| S6       | Rust integration | `cargo test -p core-engine` | `git_status_staged_new_file_counts_insertions`          | untracked then `git add`                           | +/- > 0 and matches cached/HEAD; shortstat calls 1                                           | pass   |
+| S7       | Rust unit        | `cargo test -p core-engine` | `porcelain_has_tracked_diff_*` / `parse_diff_shortstat` | porcelain strings; shortstat stdout samples        | `??`/`!!`/empty skip; ` M`/`M `/`A ` need shortstat; parse still reads insertions/deletions  | pass   |
+| S8       | Rust integration | `cargo test -p core-engine` | existing `git_status_reports_*`                         | existing ahead/behind/conflict fixtures            | default-branch ahead/behind and `has_merge_conflicts` still pass                             | pass   |
+| S9       | Toolchain        | shell                       | `package.json` script text                              | repo root                                          | `oxlint --max-warnings=455`; no new `WsAction`                                               | pass   |
 
 ## Scenarios
 
@@ -116,13 +116,13 @@ Per `get_git_status` path: **0** shortstat processes when porcelain has no track
 
 ## Regression checklist
 
-- [ ] Clean and untracked-only rows still show 0 +/-.
-- [ ] Untracked files still increment `uncommitted_count` / `has_uncommitted_changes`.
-- [ ] Staged-only, unstaged-only, and additive both still show the same +/- as the old two-call sum.
-- [ ] Merge-conflict porcelain still sets `has_merge_conflicts`.
-- [ ] Default-branch ahead/behind tests still pass.
-- [ ] WS `current_branch` still comes from the engine (no extra `rev-parse --abbrev-ref HEAD` in the mapper).
-- [ ] `package.json` lint script is still `--max-warnings=455`.
+- [x] Clean and untracked-only rows still show 0 +/-.
+- [x] Untracked files still increment `uncommitted_count` / `has_uncommitted_changes`.
+- [x] Staged-only, unstaged-only, and additive both still show the same +/- as the old two-call sum.
+- [x] Merge-conflict porcelain still sets `has_merge_conflicts`.
+- [x] Default-branch ahead/behind tests still pass.
+- [x] WS `current_branch` still comes from the engine (no extra `rev-parse --abbrev-ref HEAD` in the mapper).
+- [x] `package.json` lint script is still `--max-warnings=455`.
 
 ## Exploratory agent-browser checks
 
@@ -130,12 +130,12 @@ Omitted. No screen, copy, or route change. The bug is extra git processes in `ge
 
 ## Acceptance criteria
 
-- [ ] S1–S7 pass at the declared level.
-- [ ] S8 existing `git_status_reports_*` tests pass.
-- [ ] S9 oxlint cap is 455; no new WS action.
-- [ ] `cargo test -p core-engine` git status / shortstat tests pass.
-- [ ] `cargo clippy -p core-engine --all-targets --all-features -- -D warnings` passes, or a scoped clippy on touched packages is recorded.
-- [ ] No new REST route. No client path-collect refactor.
+- [x] S1–S7 pass at the declared level.
+- [x] S8 existing `git_status_reports_*` tests pass.
+- [x] S9 oxlint cap is 455; no new WS action.
+- [x] `cargo test -p core-engine` git status / shortstat tests pass.
+- [x] `cargo clippy -p core-engine --all-targets --all-features -- -D warnings` passes, or a scoped clippy on touched packages is recorded.
+- [x] No new REST route. No client path-collect refactor.
 
 ## Manual verification steps
 
@@ -151,4 +151,15 @@ None. Automated engine tests cover skip, one-call, and parity.
 
 ## Coverage Status
 
-> Filled after implementation by `atmos-specs-test-run`. Include exact automated tests, commands, and remaining gaps.
+- S1 — pass. `cargo test -p core-engine --lib git_status_shortstat_skipped_when_clean`. +/- 0, uncommitted 0, shortstat calls 0, `current_branch` is `main`.
+- S2 — pass. `cargo test -p core-engine --lib git_status_shortstat_skipped_when_untracked_only`. Dirty with +/- 0; shortstat calls 0.
+- S3 — pass. `cargo test -p core-engine --lib git_status_unstaged_only_matches_two_call_sum`. Engine +/- equals two-call sum and HEAD; shortstat calls 1.
+- S4 — pass. `cargo test -p core-engine --lib git_status_staged_only_matches_two_call_sum`. Same as S3 for staged-only.
+- S5 — pass. `cargo test -p core-engine --lib git_status_staged_and_unstaged_additive_matches_sum`. `additions == 2`; matches sum and HEAD; shortstat calls 1.
+- S6 — pass. `cargo test -p core-engine --lib git_status_staged_new_file_counts_insertions`. `additions == 1`; shortstat calls 1.
+- S7 — pass. `cargo test -p core-engine --lib porcelain_skip` and `reads_insertions`. Porcelain skip helper plus parse cases including `0 insertions`.
+- S8 — pass. `cargo test -p core-engine --lib git_status` (12 tests), including `git_status_reports_equal_remote_default_branch`, ahead/behind, no-upstream, tracking-default-only, merge-conflicts.
+- S9 — pass. `package.json` `lint` is `oxlint --max-warnings=455`. Diff has no new `WsAction`.
+- `cargo clippy -p core-engine --all-targets --all-features -- -D warnings` passed.
+- `cargo clippy -p api --all-targets --all-features -- -D warnings` passed.
+- Agent-browser: not run. No UI surface.
