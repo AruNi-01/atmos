@@ -5,9 +5,8 @@ use super::*;
 use core_service::utils::path_boundary::path_or_existing_parent_within_root;
 use core_service::{
     clamp_message_limit, collect_tool_parts, default_agent_data_dir, mark_tool_details_omitted,
-    options_probe_plan_for, page_messages, strip_event_tool_details, strip_message_tool_details,
-    AgentChatEvent, AgentChatService, CreateAgentChatRequest, QueueItemStatus,
-    AGENT_CHAT_MESSAGE_PAGE_DEFAULT,
+    options_probe_plan_for, strip_event_tool_details, strip_message_tool_details, AgentChatEvent,
+    AgentChatService, CreateAgentChatRequest, QueueItemStatus, AGENT_CHAT_MESSAGE_PAGE_DEFAULT,
 };
 use serde_json::{json, Value};
 
@@ -114,16 +113,40 @@ impl WsMessageService {
     }
 
     pub(super) async fn handle_agent_chat_get(&self, req: AgentChatGetRequest) -> Result<Value> {
+        if let Some(limit) = req.message_limit {
+            let (snapshot, has_more) = self
+                .agent_chat()
+                .get_page(&req.chat_id, clamp_message_limit(limit), None)
+                .await?;
+            return agent_chat_snapshot_response(
+                snapshot,
+                lean_tools(req.include_tool_detail),
+                has_more,
+            );
+        }
         let snapshot = self.agent_chat().get(&req.chat_id).await?;
-        agent_chat_get_json(snapshot, &req)
+        agent_chat_snapshot_response(snapshot, lean_tools(req.include_tool_detail), false)
     }
 
     pub(super) async fn handle_agent_chat_messages(
         &self,
         req: AgentChatMessagesRequest,
     ) -> Result<Value> {
+        let lean = lean_tools(req.include_tool_detail);
+        let paged = req.limit.is_some() || req.before_message_id.is_some();
+        if paged {
+            let limit = req
+                .limit
+                .map(clamp_message_limit)
+                .unwrap_or(AGENT_CHAT_MESSAGE_PAGE_DEFAULT);
+            let (snapshot, has_more) = self
+                .agent_chat()
+                .get_page(&req.chat_id, limit, req.before_message_id.as_deref())
+                .await?;
+            return agent_chat_messages_response(snapshot, has_more, true, lean);
+        }
         let snapshot = self.agent_chat().get(&req.chat_id).await?;
-        agent_chat_messages_json(snapshot, &req)
+        agent_chat_messages_response(snapshot, false, false, lean)
     }
 
     pub(super) async fn handle_agent_chat_rename(
@@ -475,17 +498,11 @@ fn lean_tools(flag: Option<bool>) -> bool {
     flag == Some(false)
 }
 
-fn agent_chat_get_json(
+fn agent_chat_snapshot_response(
     mut snapshot: core_service::AgentChatSnapshot,
-    req: &AgentChatGetRequest,
+    lean: bool,
+    has_more: bool,
 ) -> Result<Value> {
-    let lean = lean_tools(req.include_tool_detail);
-    let mut has_more = false;
-    if let Some(limit) = req.message_limit {
-        let (messages, more) = page_messages(&snapshot.messages, clamp_message_limit(limit), None);
-        snapshot.messages = messages;
-        has_more = more;
-    }
     if lean {
         strip_message_tool_details(&mut snapshot.messages);
     }
@@ -500,24 +517,13 @@ fn agent_chat_get_json(
     Ok(value)
 }
 
-fn agent_chat_messages_json(
+fn agent_chat_messages_response(
     snapshot: core_service::AgentChatSnapshot,
-    req: &AgentChatMessagesRequest,
+    has_more: bool,
+    paged: bool,
+    lean: bool,
 ) -> Result<Value> {
-    let lean = lean_tools(req.include_tool_detail);
-    let paged = req.limit.is_some() || req.before_message_id.is_some();
     let mut messages = snapshot.messages;
-    let has_more = if paged {
-        let limit = req
-            .limit
-            .map(clamp_message_limit)
-            .unwrap_or(AGENT_CHAT_MESSAGE_PAGE_DEFAULT);
-        let (page, more) = page_messages(&messages, limit, req.before_message_id.as_deref());
-        messages = page;
-        more
-    } else {
-        false
-    };
     if lean {
         strip_message_tool_details(&mut messages);
     }
@@ -1167,6 +1173,107 @@ mod tests {
         assert!(tool_part["result"]["old_content"].is_null());
         assert!(tool_part["result"]["new_content"].is_null());
         assert_eq!(tool_part["result"]["type"], "diff_stats");
+    }
+
+    fn transcript_envelope_count(chat_dir: &std::path::Path) -> u64 {
+        std::fs::read_to_string(chat_dir.join("transcript.jsonl"))
+            .unwrap_or_default()
+            .lines()
+            .filter(|line| !line.trim().is_empty())
+            .count() as u64
+    }
+
+    #[tokio::test]
+    async fn get_pages_last_twenty_without_full_fold() {
+        let root = TempRoot(
+            std::env::temp_dir().join(format!("atmos-chat-page-fold-{}", uuid::Uuid::new_v4())),
+        );
+        std::fs::create_dir_all(&root.0).expect("temp root");
+        let service = service_at(&root.0).await;
+        let chat_id = create_chat(&service, &root.0);
+        let dir = service.agent_chat().store().dir_for(&chat_id);
+        append_user_turns(&dir, 200);
+        append_tool_turn(&dir);
+        let total = transcript_envelope_count(&dir);
+        let folds_before = service.agent_chat().store().fold_chat_dir_calls();
+        let folded_before = service.agent_chat().store().paged_fold_envelopes();
+
+        let value = service
+            .handle_agent_chat_get(AgentChatGetRequest {
+                chat_id: chat_id.clone(),
+                message_limit: Some(20),
+                include_tool_detail: Some(false),
+            })
+            .await
+            .expect("lean get");
+        let messages = value["messages"].as_array().expect("messages");
+        assert_eq!(messages.len(), 20);
+        assert_eq!(value["has_more_messages"], true);
+        let tool_part = messages
+            .iter()
+            .rev()
+            .find_map(|message| {
+                message["parts"]
+                    .as_array()
+                    .and_then(|parts| parts.iter().find(|part| part["type"] == "tool_call"))
+            })
+            .expect("tool part");
+        assert_eq!(tool_part["detail_omitted"], true);
+        assert_eq!(
+            service.agent_chat().store().fold_chat_dir_calls(),
+            folds_before,
+            "lean get must not full-fold transcript.jsonl"
+        );
+        let folded = service.agent_chat().store().paged_fold_envelopes() - folded_before;
+        assert!(
+            folded > 0 && folded * 2 < total,
+            "lean get fold must be O(page), folded={folded} total={total}"
+        );
+    }
+
+    #[tokio::test]
+    async fn subscribe_empty_live_does_not_scan_transcript() {
+        let root = TempRoot(std::env::temp_dir().join(format!(
+            "atmos-subscribe-empty-live-{}",
+            uuid::Uuid::new_v4()
+        )));
+        std::fs::create_dir_all(&root.0).expect("temp root");
+        let service = service_at(&root.0).await;
+        let chat_id = create_chat(&service, &root.0);
+        let dir = service.agent_chat().store().dir_for(&chat_id);
+        append_user_turns(&dir, 200);
+        std::fs::write(dir.join("live.jsonl"), "").expect("empty live");
+        let folds_before = service.agent_chat().store().fold_chat_dir_calls();
+        let transcript_before = service
+            .agent_chat()
+            .store()
+            .leftover_transcript_envelopes_read();
+
+        let response = service
+            .handle_agent_chat_subscribe(
+                "conn-empty-live",
+                AgentChatSubscribeRequest {
+                    chat_id: chat_id.clone(),
+                    after_sequence: Some(0),
+                    include_tool_detail: None,
+                },
+            )
+            .await
+            .expect("subscribe");
+
+        assert!(response["last_event_seq"].as_u64().is_some());
+        assert_eq!(
+            service.agent_chat().store().fold_chat_dir_calls(),
+            folds_before
+        );
+        assert_eq!(
+            service
+                .agent_chat()
+                .store()
+                .leftover_transcript_envelopes_read(),
+            transcript_before,
+            "subscribe with empty live must not scan transcript.jsonl"
+        );
     }
 
     #[tokio::test]

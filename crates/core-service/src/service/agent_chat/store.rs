@@ -11,6 +11,10 @@ use serde::Serialize;
 use crate::error::{Result, ServiceError};
 use crate::utils::path_boundary::{path_or_existing_parent_within_root, path_within_root};
 
+use super::transcript_page::{
+    fold_message_page, for_each_jsonl_envelope_reverse, ReverseControl,
+    LEFTOVER_TRANSCRIPT_TAIL_MAX,
+};
 use super::types::{
     apply_rewind_view, apply_text_offset, chat_descriptor, flatten_messages,
     sort_parts_by_recorded_ordinals, AgentChatIndexEntry, AgentChatMeta, AgentChatOrigin,
@@ -29,6 +33,10 @@ pub struct AgentChatStore {
     index_lock: Mutex<()>,
     seqs: Mutex<HashMap<String, u64>>,
     fold_chat_dir_calls: AtomicU64,
+    paged_fold_envelopes: AtomicU64,
+    paged_transcript_envelopes_read: AtomicU64,
+    leftover_transcript_envelopes_read: AtomicU64,
+    leftover_live_envelopes_read: AtomicU64,
 }
 
 impl AgentChatStore {
@@ -39,6 +47,10 @@ impl AgentChatStore {
             index_lock: Mutex::new(()),
             seqs: Mutex::new(HashMap::new()),
             fold_chat_dir_calls: AtomicU64::new(0),
+            paged_fold_envelopes: AtomicU64::new(0),
+            paged_transcript_envelopes_read: AtomicU64::new(0),
+            leftover_transcript_envelopes_read: AtomicU64::new(0),
+            leftover_live_envelopes_read: AtomicU64::new(0),
         }
     }
 
@@ -183,6 +195,31 @@ impl AgentChatStore {
         self.fold_chat_dir_calls.load(Ordering::SeqCst)
     }
 
+    /// Envelopes passed to `fold_envelopes` on the QUALITY-034 page path.
+    #[doc(hidden)]
+    pub fn paged_fold_envelopes(&self) -> u64 {
+        self.paged_fold_envelopes.load(Ordering::SeqCst)
+    }
+
+    /// Transcript jsonl envelopes parsed while building a page (includes skip-to-cursor).
+    #[doc(hidden)]
+    pub fn paged_transcript_envelopes_read(&self) -> u64 {
+        self.paged_transcript_envelopes_read.load(Ordering::SeqCst)
+    }
+
+    /// Transcript envelopes reverse-scanned for leftover `PartFinished` (QUALITY-035).
+    #[doc(hidden)]
+    pub fn leftover_transcript_envelopes_read(&self) -> u64 {
+        self.leftover_transcript_envelopes_read
+            .load(Ordering::SeqCst)
+    }
+
+    /// Live jsonl envelopes scanned for leftover open parts (QUALITY-035).
+    #[doc(hidden)]
+    pub fn leftover_live_envelopes_read(&self) -> u64 {
+        self.leftover_live_envelopes_read.load(Ordering::SeqCst)
+    }
+
     fn count_fold_chat_dir(&self) {
         self.fold_chat_dir_calls.fetch_add(1, Ordering::SeqCst);
     }
@@ -212,6 +249,47 @@ impl AgentChatStore {
             running_turn_id,
             running_turn_started_at,
         })
+    }
+
+    /// Last `limit` messages (or the page older than `before_message_id`) without
+    /// `fold_chat_dir` over the whole transcript (QUALITY-034).
+    pub fn get_snapshot_page(
+        &self,
+        id: &str,
+        limit: usize,
+        before_message_id: Option<&str>,
+    ) -> Result<(AgentChatSnapshot, bool)> {
+        require_chat_id(id)?;
+        let lock = self.lock_arc(id);
+        let _guard = lock.lock().expect("agent chat lock");
+        let meta = self.get_meta(id)?;
+        let page = fold_message_page(
+            &self.dir_for(id),
+            meta.rewind_view.as_ref(),
+            limit,
+            before_message_id,
+        )?;
+        self.paged_fold_envelopes
+            .fetch_add(page.fold_envelopes, Ordering::SeqCst);
+        self.paged_transcript_envelopes_read
+            .fetch_add(page.transcript_envelopes_read, Ordering::SeqCst);
+        let queue = self.read_queue_unlocked(id)?;
+        let pending_session_op = meta
+            .pending_session_op
+            .as_ref()
+            .map(|pending| pending.request.clone());
+        Ok((
+            AgentChatSnapshot {
+                meta,
+                messages: page.messages,
+                queue,
+                pending_permission: page.pending_permission,
+                pending_session_op,
+                running_turn_id: page.running_turn_id,
+                running_turn_started_at: page.running_turn_started_at,
+            },
+            page.has_more,
+        ))
     }
 
     pub fn folded_turns(&self, id: &str) -> Result<Vec<FoldedTurn>> {
@@ -339,13 +417,20 @@ impl AgentChatStore {
     }
 
     fn settle_live_unlocked(&self, id: &str) -> Result<()> {
+        if !live_file_has_bytes(&self.live_path(id)) {
+            return Ok(());
+        }
         self.materialize_leftovers_unlocked(id)?;
         self.truncate_live_unlocked(id)
     }
 
     fn materialize_leftovers_unlocked(&self, id: &str) -> Result<()> {
-        let leftovers = leftover_open_text_parts(&self.transcript_path(id), &self.live_path(id))?;
-        for (part_id, leftover) in leftovers {
+        let scan = leftover_open_text_parts(&self.transcript_path(id), &self.live_path(id))?;
+        self.leftover_live_envelopes_read
+            .fetch_add(scan.live_read, Ordering::SeqCst);
+        self.leftover_transcript_envelopes_read
+            .fetch_add(scan.transcript_read, Ordering::SeqCst);
+        for (part_id, leftover) in scan.leftovers {
             self.append_record_unlocked(
                 id,
                 &TranscriptEnvelope::at(
@@ -636,7 +721,7 @@ fn fold_chat_dir(dir: &Path) -> Result<Vec<FoldedTurn>> {
 /// Live text chunks are the exception: they sit in a second file and have to
 /// be woven in by time. Equal timestamps stay with the transcript record
 /// (stable with the old sort, which concatenated transcript then live).
-fn merge_live_into_transcript(
+pub(super) fn merge_live_into_transcript(
     transcript: Vec<TranscriptEnvelope>,
     mut live: Vec<TranscriptEnvelope>,
 ) -> Vec<TranscriptEnvelope> {
@@ -708,7 +793,7 @@ fn materialize_text_part_from_envelopes(
     found
 }
 
-fn read_envelopes(path: &Path, out: &mut Vec<TranscriptEnvelope>) -> Result<()> {
+pub(super) fn read_envelopes(path: &Path, out: &mut Vec<TranscriptEnvelope>) -> Result<()> {
     if !path.exists() {
         return Ok(());
     }
@@ -725,7 +810,7 @@ fn read_envelopes(path: &Path, out: &mut Vec<TranscriptEnvelope>) -> Result<()> 
 
 /// APP-068: skip a jsonl line that is not the current envelope. A truncated last
 /// line from a killed API process must not fail the whole snapshot.
-fn parse_transcript_envelope_line(line: &str) -> Option<TranscriptEnvelope> {
+pub(super) fn parse_transcript_envelope_line(line: &str) -> Option<TranscriptEnvelope> {
     let trimmed = line.trim();
     if trimmed.is_empty() {
         return None;
@@ -817,34 +902,69 @@ struct LeftoverOpenText {
     first_at: DateTime<Utc>,
 }
 
-fn leftover_open_text_parts(
-    transcript: &Path,
-    live: &Path,
-) -> Result<Vec<(String, LeftoverOpenText)>> {
+struct LeftoverScan {
+    leftovers: Vec<(String, LeftoverOpenText)>,
+    live_read: u64,
+    transcript_read: u64,
+}
+
+fn live_file_has_bytes(path: &Path) -> bool {
+    path.metadata().map(|meta| meta.len() > 0).unwrap_or(false)
+}
+
+fn leftover_open_text_parts(transcript: &Path, live: &Path) -> Result<LeftoverScan> {
+    if !live_file_has_bytes(live) {
+        return Ok(LeftoverScan {
+            leftovers: Vec::new(),
+            live_read: 0,
+            transcript_read: 0,
+        });
+    }
     let mut open: HashMap<String, LeftoverOpenText> = HashMap::new();
     let mut finished: HashSet<String> = HashSet::new();
-    scan_leftover_jsonl(transcript, &mut open, &mut finished)?;
-    scan_leftover_jsonl(live, &mut open, &mut finished)?;
+    let live_read = scan_leftover_jsonl(live, &mut open, &mut finished)?;
+    let mut transcript_read = 0u64;
+    if !open.is_empty() {
+        let mut tail = 0usize;
+        let walk = for_each_jsonl_envelope_reverse(transcript, |record| {
+            tail += 1;
+            if let TranscriptEvent::PartFinished { part_id, .. } = record.event {
+                open.remove(&part_id);
+            }
+            if open.is_empty() || tail >= LEFTOVER_TRANSCRIPT_TAIL_MAX {
+                Ok(ReverseControl::Stop)
+            } else {
+                Ok(ReverseControl::Continue)
+            }
+        })?;
+        transcript_read = walk.envelopes_read;
+    }
     let mut leftovers: Vec<_> = open.into_iter().collect();
     leftovers.sort_by(|a, b| a.1.ordinal.cmp(&b.1.ordinal).then_with(|| a.0.cmp(&b.0)));
-    Ok(leftovers)
+    Ok(LeftoverScan {
+        leftovers,
+        live_read,
+        transcript_read,
+    })
 }
 
 fn scan_leftover_jsonl(
     path: &Path,
     open: &mut HashMap<String, LeftoverOpenText>,
     finished: &mut HashSet<String>,
-) -> Result<()> {
+) -> Result<u64> {
     if !path.exists() {
-        return Ok(());
+        return Ok(0);
     }
     let file = File::open(path).map_err(io_err)?;
     let reader = BufReader::new(file);
+    let mut read = 0u64;
     for line in reader.lines() {
         let line = line.map_err(io_err)?;
         let Some(record) = parse_transcript_envelope_line(&line) else {
             continue;
         };
+        read += 1;
         let turn_id = record.turn_id.unwrap_or_else(|| "unknown".into());
         let first_at = record.timestamp;
         match record.event {
@@ -879,7 +999,7 @@ fn scan_leftover_jsonl(
             _ => {}
         }
     }
-    Ok(())
+    Ok(read)
 }
 
 fn envelope_time(envelope: &AgentEventEnvelope) -> DateTime<Utc> {
