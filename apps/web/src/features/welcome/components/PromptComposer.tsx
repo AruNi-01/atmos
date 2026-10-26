@@ -61,6 +61,18 @@ import {
   pickClipboardImageFiles,
 } from "@/shared/lib/composer-image";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
+import {
+  applySlashCommandChipLook,
+  buildSlashCommandChipIcon,
+} from "@/features/welcome/lib/slash-command-glyph";
+import {
+  DYNAMIC_SKILLS_SLASH_COMMAND_ID,
+  SIDE_SLASH_COMMAND_ID,
+  SPAWN_SLASH_COMMAND_ID,
+  slashCommandVisual,
+  slashSkillVisual,
+  slashVisualForAiContextKind,
+} from "@/features/welcome/lib/slash-command-visual";
 import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh.json";
 
@@ -242,33 +254,6 @@ function buildMaskIcon(url: string): HTMLSpanElement {
   return icon;
 }
 
-function buildMessageCirclePlusIcon(): SVGSVGElement {
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("aria-hidden", "true");
-  svg.setAttribute("viewBox", "0 0 24 24");
-  svg.setAttribute("width", "12");
-  svg.setAttribute("height", "12");
-  svg.setAttribute("fill", "none");
-  svg.setAttribute("stroke", "currentColor");
-  svg.setAttribute("stroke-width", "2");
-  svg.setAttribute("stroke-linecap", "round");
-  svg.setAttribute("stroke-linejoin", "round");
-  svg.style.display = "block";
-  svg.style.flexShrink = "0";
-
-  for (const d of [
-    "M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719",
-    "M8 12h8",
-    "M12 8v8",
-  ]) {
-    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    path.setAttribute("d", d);
-    svg.appendChild(path);
-  }
-
-  return svg;
-}
-
 function buildMessageCircleMoreIcon(): SVGSVGElement {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("aria-hidden", "true");
@@ -294,117 +279,6 @@ function buildMessageCircleMoreIcon(): SVGSVGElement {
     svg.appendChild(path);
   }
 
-  return svg;
-}
-
-function buildMessagesSquareIcon(): SVGSVGElement {
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("aria-hidden", "true");
-  svg.setAttribute("viewBox", "0 0 24 24");
-  svg.setAttribute("width", "12");
-  svg.setAttribute("height", "12");
-  svg.setAttribute("fill", "none");
-  svg.setAttribute("stroke", "currentColor");
-  svg.setAttribute("stroke-width", "2");
-  svg.setAttribute("stroke-linecap", "round");
-  svg.setAttribute("stroke-linejoin", "round");
-  svg.style.display = "block";
-  svg.style.flexShrink = "0";
-
-  for (const d of [
-    "M14 9a2 2 0 0 1-2 2H6l-4 4V4c0-1.1.9-2 2-2h8a2 2 0 0 1 2 2Z",
-    "M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1",
-  ]) {
-    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    path.setAttribute("d", d);
-    svg.appendChild(path);
-  }
-
-  return svg;
-}
-
-/** Mirrors `BrowserUseIconStatic` for contenteditable skill chips. */
-function buildBrowserUseChipIcon(): SVGSVGElement {
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("aria-hidden", "true");
-  svg.setAttribute("viewBox", "0 0 24 24");
-  svg.setAttribute("width", "12");
-  svg.setAttribute("height", "12");
-  svg.setAttribute("fill", "none");
-  svg.setAttribute("stroke", "currentColor");
-  svg.setAttribute("stroke-width", "2");
-  svg.setAttribute("stroke-linecap", "round");
-  svg.setAttribute("stroke-linejoin", "round");
-  svg.style.display = "block";
-  svg.style.flexShrink = "0";
-
-  for (const d of [
-    "M12 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9",
-    "M2 8h10",
-    "M6 4v4",
-    "M10 4v4",
-  ]) {
-    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    path.setAttribute("d", d);
-    svg.appendChild(path);
-  }
-  const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-  g.setAttribute("transform", "translate(23.4 2.0) scale(-0.45 0.45)");
-  for (const d of [
-    "M14 4.1 12 6",
-    "m5.1 8-2.9-.8",
-    "m6 12-1.9 2",
-    "M7.2 2.2 8 5.1",
-    "M9.037 9.69a.498.498 0 0 1 .653-.653l11 4.5a.5.5 0 0 1-.074.949l-4.349 1.041a1 1 0 0 0-.74.739l-1.04 4.35a.5.5 0 0 1-.95.074z",
-  ]) {
-    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    path.setAttribute("d", d);
-    if (!d.startsWith("M9.037")) path.setAttribute("opacity", "0.9");
-    g.appendChild(path);
-  }
-  svg.appendChild(g);
-  return svg;
-}
-
-/** Mirrors `DesktopUseIconStatic` for contenteditable skill chips. */
-function buildDesktopUseChipIcon(): SVGSVGElement {
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("aria-hidden", "true");
-  svg.setAttribute("viewBox", "0 0 24 24");
-  svg.setAttribute("width", "12");
-  svg.setAttribute("height", "12");
-  svg.setAttribute("fill", "none");
-  svg.setAttribute("stroke", "currentColor");
-  svg.setAttribute("stroke-width", "2");
-  svg.setAttribute("stroke-linecap", "round");
-  svg.setAttribute("stroke-linejoin", "round");
-  svg.style.display = "block";
-  svg.style.flexShrink = "0";
-
-  for (const d of [
-    "M13 3H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-3",
-    "M8 21h8",
-    "M12 17v4",
-  ]) {
-    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    path.setAttribute("d", d);
-    svg.appendChild(path);
-  }
-  const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-  g.setAttribute("transform", "translate(22.6 0.2) scale(-0.48 0.48)");
-  for (const d of [
-    "M14 4.1 12 6",
-    "m5.1 8-2.9-.8",
-    "m6 12-1.9 2",
-    "M7.2 2.2 8 5.1",
-    "M9.037 9.69a.498.498 0 0 1 .653-.653l11 4.5a.5.5 0 0 1-.074.949l-4.349 1.041a1 1 0 0 0-.74.739l-1.04 4.35a.5.5 0 0 1-.95.074z",
-  ]) {
-    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    path.setAttribute("d", d);
-    if (!d.startsWith("M9.037")) path.setAttribute("opacity", "0.9");
-    g.appendChild(path);
-  }
-  svg.appendChild(g);
   return svg;
 }
 
@@ -476,6 +350,10 @@ function buildAiContextIcon(icon: AiContextChipIcon): SVGSVGElement {
       ]);
     case "layout":
       return buildStrokeIcon(["M3 3h7v9H3z", "M14 3h7v5h-7z", "M14 12h7v9h-7z", "M3 16h7v5H3z"]);
+    case "scroll-text":
+      return buildSlashCommandChipIcon("scroll-text");
+    case "smartphone":
+      return buildSlashCommandChipIcon("smartphone");
   }
 }
 
@@ -569,15 +447,9 @@ function buildChipNode(token: string): HTMLSpanElement {
     const absolutePath = token.slice("/skill:".length);
     const filename = absolutePath.split("/").pop() || absolutePath;
     span.dataset.tooltip = absolutePath;
-    const isBrowserUse = absolutePath.includes("atmos-browser-use");
-    const isDesktopUse = absolutePath.includes("atmos-desktop-use");
-    if (isBrowserUse) {
-      span.className += " border-amber-500/35 bg-amber-500/10 text-amber-700 dark:text-amber-300";
-      span.appendChild(buildBrowserUseChipIcon());
-    } else if (isDesktopUse) {
-      span.className +=
-        " border-violet-500/35 bg-violet-500/10 text-violet-700 dark:text-violet-300";
-      span.appendChild(buildDesktopUseChipIcon());
+    const skillVisual = slashSkillVisual(absolutePath, filename);
+    if (skillVisual) {
+      applySlashCommandChipLook(span, skillVisual);
     } else {
       span.className +=
         " border-yellow-500/30 bg-yellow-500/10 text-yellow-600 dark:text-yellow-400";
@@ -590,12 +462,7 @@ function buildChipNode(token: string): HTMLSpanElement {
     const name = token.slice("/cmd:".length);
     span.dataset.kind = "command";
     span.dataset.tooltip = `/${name}`;
-    span.className += " border-border/70 bg-muted/60 text-foreground";
-    span.appendChild(
-      buildStrokeIcon([
-        "M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z",
-      ]),
-    );
+    applySlashCommandChipLook(span, slashCommandVisual(name));
     const label = document.createElement("span");
     label.textContent = name;
     span.appendChild(label);
@@ -611,25 +478,23 @@ function buildChipNode(token: string): HTMLSpanElement {
   } else if (parseSideChatProtocolToken(token)) {
     span.dataset.kind = "side";
     span.dataset.tooltip = promptComposerT("sideCommand.description");
-    span.className += " border-cyan-500/35 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300";
-    span.appendChild(buildMessageCirclePlusIcon());
+    applySlashCommandChipLook(span, slashCommandVisual(SIDE_SLASH_COMMAND_ID));
     const label = document.createElement("span");
     label.textContent = promptComposerT("selectionContext.sideChip");
     span.appendChild(label);
   } else if (parseSpawnProtocolToken(token)) {
     span.dataset.kind = "spawn";
     span.dataset.tooltip = promptComposerT("spawnCommand.description");
-    span.className += " border-green-500/35 bg-green-500/10 text-green-700 dark:text-green-400";
-    span.appendChild(buildMessagesSquareIcon());
+    applySlashCommandChipLook(span, slashCommandVisual(SPAWN_SLASH_COMMAND_ID));
     const label = document.createElement("span");
     label.textContent = promptComposerT("selectionContext.spawnChip");
     span.appendChild(label);
   } else if (parseSkillDisableProtocolToken(token)) {
     span.dataset.kind = "skill-disable";
     span.dataset.tooltip = promptComposerT("skillDisable.chipTooltip");
-    span.className = `${COMPOSER_CHIP_BASE} h-auto min-h-[18px] max-w-full flex-wrap border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300`;
+    span.className = `${COMPOSER_CHIP_BASE} h-auto min-h-[18px] max-w-full flex-wrap`;
     applyComposerChipLineMetrics(span, true);
-    span.appendChild(buildMaskIcon("/icons/puzzle.svg"));
+    applySlashCommandChipLook(span, slashCommandVisual(DYNAMIC_SKILLS_SLASH_COMMAND_ID));
     const label = document.createElement("span");
     label.dataset.sdLabel = "true";
     label.textContent = promptComposerT("skillDisable.chip");
@@ -670,10 +535,15 @@ function buildChipNode(token: string): HTMLSpanElement {
     const parsed = parseAiContextToken(token)!;
     const payload = resolveAiContextPrompt(token);
     const presentation = presentAiContextChip(parsed.kind, payload?.promptText ?? "");
+    const slashVisual = slashVisualForAiContextKind(parsed.kind);
     span.dataset.kind = `ai-context:${parsed.kind}`;
     span.dataset.tooltip = presentation.tooltip;
-    span.className += aiContextToneClassName(presentation.tone);
-    span.appendChild(buildAiContextIcon(presentation.icon));
+    if (slashVisual) {
+      applySlashCommandChipLook(span, slashVisual);
+    } else {
+      span.className += aiContextToneClassName(presentation.tone);
+      span.appendChild(buildAiContextIcon(presentation.icon));
+    }
     const label = document.createElement("span");
     label.textContent = presentation.label;
     span.appendChild(label);

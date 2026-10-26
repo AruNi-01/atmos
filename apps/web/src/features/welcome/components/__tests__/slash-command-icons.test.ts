@@ -5,20 +5,17 @@ import { join } from "node:path";
 const root = join(import.meta.dir, "../../../../../../..");
 
 describe("composer slash command icons", () => {
-  it("wires Browser Use and Desktop Use glyphs in SlashCommandPopover", () => {
+  it("wires shared slash-command visuals in SlashCommandPopover", () => {
     const popover = readFileSync(
       join(root, "apps/web/src/features/welcome/components/SlashCommandPopover.tsx"),
       "utf8",
     );
-    expect(popover).toContain("BrowserUseIconStatic");
-    expect(popover).toContain("DesktopUseIconStatic");
-    expect(popover).toContain("BROWSER_USE_SLASH_COMMAND_ID");
-    expect(popover).toContain("DESKTOP_USE_SLASH_COMMAND_ID");
-    expect(popover).toContain("AGENT_BRIDGE_SLASH_COMMAND_ID");
-    expect(popover).toContain("commandId === BROWSER_USE_SLASH_COMMAND_ID");
-    expect(popover).toContain("commandId === DESKTOP_USE_SLASH_COMMAND_ID");
-    expect(popover).toContain("commandId === AGENT_BRIDGE_SLASH_COMMAND_ID");
-    expect(popover).toContain('<Zap className="size-4" />');
+    expect(popover).toContain("SlashCommandGlyph");
+    expect(popover).toContain("SlashCommandGlyphIcon");
+    expect(popover).toContain("slashSkillVisual");
+    expect(popover).not.toContain("commandId === BROWSER_USE_SLASH_COMMAND_ID");
+    expect(popover).not.toContain('<Zap className="size-4" />');
+    expect(popover).not.toContain("AGENT_BRIDGE_SLASH_COMMAND_ID");
     expect(popover).not.toContain("MessageCirclePlus");
     expect(popover).toContain("expandedSections.commands");
     expect(popover).toContain("expandedSections.atmosCommands");
@@ -27,6 +24,14 @@ describe("composer slash command icons", () => {
     expect(popover).toContain("slashPopover.atmosCommands");
     expect(popover).toContain("<ScrollArea");
     expect(popover).toContain("scrollFade");
+
+    const composer = readFileSync(
+      join(root, "apps/web/src/features/welcome/components/PromptComposer.tsx"),
+      "utf8",
+    );
+    expect(composer).toContain("applySlashCommandChipLook");
+    expect(composer).toContain("slashCommandVisual");
+    expect(composer).toContain("slashVisualForAiContextKind");
   });
 
   it("uses ScrollArea fades for the @ mention list", () => {
