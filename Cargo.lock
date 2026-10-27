@@ -72,6 +72,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "agent-bridge"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 2.0.17",
+ "uuid",
+]
+
+[[package]]
 name = "agent-client-protocol"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1360,6 +1370,7 @@ name = "core-service"
 version = "0.1.0"
 dependencies = [
  "agent",
+ "agent-bridge",
  "anyhow",
  "async-trait",
  "base64 0.22.1",

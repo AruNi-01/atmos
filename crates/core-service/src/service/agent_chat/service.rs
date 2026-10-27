@@ -1792,6 +1792,10 @@ impl AgentChatService {
         true
     }
 
+    pub async fn is_live_turn_busy(&self, chat_id: &str) -> bool {
+        self.live_turn_is_busy(chat_id).await
+    }
+
     async fn live_turn_is_busy(&self, chat_id: &str) -> bool {
         if let Some(runtime) = self.runtimes.lock().await.get(chat_id) {
             if runtime.alive.load(Ordering::SeqCst)

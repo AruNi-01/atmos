@@ -37,6 +37,12 @@ import {
   resolveBrowserUseSkillRef,
 } from "@/features/welcome/lib/slash-browser-use";
 import {
+  AGENT_BRIDGE_SLASH_COMMAND_ID,
+  buildAgentBridgeSlashCommand,
+  matchesAgentBridgeSlashQuery,
+  resolveAgentBridgeSkillRef,
+} from "@/features/welcome/lib/slash-agent-bridge";
+import {
   buildDesktopUseSlashCommand,
   DESKTOP_USE_SLASH_COMMAND_ID,
   matchesDesktopUseSlashQuery,
@@ -196,6 +202,14 @@ export function useAgentComposerPopovers({
         buildDesktopUseSlashCommand({
           label: t("slashPopover.desktopUse.label"),
           description: t("slashPopover.desktopUse.description"),
+        }),
+      );
+    }
+    if (matchesAgentBridgeSlashQuery(query)) {
+      commands.push(
+        buildAgentBridgeSlashCommand({
+          label: t("slashPopover.agentBridge.label"),
+          description: t("slashPopover.agentBridge.description"),
         }),
       );
     }
@@ -401,6 +415,22 @@ export function useAgentComposerPopovers({
             });
           },
         );
+        return;
+      }
+      if (command.id === AGENT_BRIDGE_SLASH_COMMAND_ID) {
+        const skill = resolveAgentBridgeSkillRef(allSkills);
+        if (skill.status === "disabled") {
+          setSlashPopover(null);
+          setSlashPopoverView("menu");
+          return;
+        }
+        setSlashPopover(null);
+        setSlashPopoverView("menu");
+        composerRef.current?.applySlashAtRange(popover.slashOffset, popover.query.length, {
+          kind: "skill",
+          absolutePath: skill.absolutePath,
+          name: skill.name,
+        });
         return;
       }
       const matched = availableCommands.find((item) => item.name === command.id);

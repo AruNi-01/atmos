@@ -3,6 +3,7 @@
 //! This service processes incoming WebSocket requests and delegates to appropriate services.
 //! All communication uses the Request/Response pattern with JSON messages.
 
+mod agent_bridge;
 mod agent_chat;
 mod agent_status;
 mod agents;
@@ -52,12 +53,12 @@ use tokio::sync::{OnceCell, RwLock};
 
 use core_service::{
     builtin_options_probe_plans, default_agent_data_dir, default_chats_dir, options_probe_dir,
-    AgentChatService, AgentChatStore, AgentService, AgentServiceOptionsResolver,
-    AgentStatusService, AutomationService, DefaultAgentProviderFactory, DeviceControlService,
-    DevicePreviewService, DiskAnalyzerService, GroupService, HostSessionService, LinearService,
-    LocalServicesService, NotificationService, OptionsPrefetchWorker, ProjectService,
-    ResourceMonitorService, ReviewService, TerminalService, WorkspaceProjectOwnerLookup,
-    WorkspaceService, PREFETCH_POLL,
+    AgentBridgeService, AgentChatService, AgentChatStore, AgentService,
+    AgentServiceOptionsResolver, AgentStatusService, AutomationService,
+    DefaultAgentProviderFactory, DeviceControlService, DevicePreviewService, DiskAnalyzerService,
+    GroupService, HostSessionService, LinearService, LocalServicesService, NotificationService,
+    OptionsPrefetchWorker, ProjectService, ResourceMonitorService, ReviewService, TerminalService,
+    WorkspaceProjectOwnerLookup, WorkspaceService, PREFETCH_POLL,
 };
 use core_service::{Result, ServiceError};
 use sea_orm_migration::sea_orm::DatabaseConnection;
@@ -92,6 +93,7 @@ pub struct WsMessageService {
     simulator: Arc<DevicePreviewService>,
     device_control: Arc<DeviceControlService>,
     agent_chat_service: Arc<AgentChatService>,
+    agent_bridge_service: Arc<AgentBridgeService>,
     host_session_service: Arc<HostSessionService>,
     options_worker: Arc<OptionsPrefetchWorker>,
     agent_chat_subs: Arc<RwLock<HashMap<String, HashMap<String, AgentChatSubOpts>>>>,
@@ -253,6 +255,11 @@ impl WsMessageService {
         );
         agent_chat_service.set_options_worker(Arc::clone(&options_worker));
         automation_service.attach_agent_chat(Arc::clone(&agent_chat_service));
+        let agent_bridge_service = Arc::new(AgentBridgeService::new(
+            Arc::clone(&agent_service),
+            Arc::clone(&agent_chat_service),
+            Arc::clone(&agent_status_service),
+        ));
 
         let simulator =
             Arc::new(DevicePreviewService::new().expect("device preview pins must parse"));
@@ -292,6 +299,7 @@ impl WsMessageService {
             simulator,
             device_control,
             agent_chat_service,
+            agent_bridge_service,
             host_session_service,
             options_worker,
             agent_chat_subs: Arc::new(RwLock::new(HashMap::new())),
@@ -442,6 +450,7 @@ impl WsMessageService {
                     ServiceError::Validation(_) => "validation_error",
                     ServiceError::NotFound(_) => "not_found",
                     ServiceError::DeviceControl(err) => err.code(),
+                    ServiceError::AgentBridge(err) => err.code(),
                     _ => "error",
                 };
                 WsMessage::error(&request_id, error_code, e.to_string())
@@ -1645,6 +1654,35 @@ impl WsMessageService {
             WsAction::AgentSessionArchive => {
                 self.handle_agent_session_archive(parse_request(request.data)?)
                     .await
+            }
+
+            WsAction::AgentBridgeList => {
+                let data = if request.data.is_null() {
+                    serde_json::json!({})
+                } else {
+                    request.data
+                };
+                self.handle_agent_bridge_list(parse_request(data)?).await
+            }
+            WsAction::AgentBridgeSend => {
+                self.handle_agent_bridge_send(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AgentBridgeRequest => {
+                self.handle_agent_bridge_request(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AgentBridgeReply => {
+                self.handle_agent_bridge_reply(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AgentBridgeStatus => {
+                let data = if request.data.is_null() {
+                    serde_json::json!({})
+                } else {
+                    request.data
+                };
+                self.handle_agent_bridge_status(parse_request(data)?).await
             }
         }
     }

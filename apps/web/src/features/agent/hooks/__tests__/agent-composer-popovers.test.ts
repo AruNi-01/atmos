@@ -22,6 +22,7 @@ describe("agent composer atmos slash commands", () => {
   it("wires Welcome built-in commands, not only Simulator Device Use", () => {
     expect(source).toContain("buildBrowserUseSlashCommand");
     expect(source).toContain("buildDesktopUseSlashCommand");
+    expect(source).toContain("buildAgentBridgeSlashCommand");
     expect(source).toContain("buildViewRunLogsSlashCommand");
     expect(source).toContain("buildDevicePreviewSlashCommand");
     expect(source).toContain('id: "dynamic-skills"');

@@ -13,6 +13,7 @@ where
 }
 use serde_json::Value;
 
+mod agent_bridge;
 mod agent_chat;
 mod agents;
 mod disk_analyzer;
@@ -28,6 +29,7 @@ mod skills;
 mod terminal;
 mod workspace;
 
+pub use agent_bridge::*;
 pub use agent_chat::*;
 pub use agents::*;
 pub use disk_analyzer::*;
@@ -917,6 +919,18 @@ pub enum WsAction {
     AgentSessionStatusList,
     /// Set archived_at. Unknown id is success.
     AgentSessionArchive,
+
+    // ===== Agent Bridge (APP-084) =====
+    /// Paginated Chat session directory on the connected Computer
+    AgentBridgeList,
+    /// Send a Bridge envelope (optional explicit target list)
+    AgentBridgeSend,
+    /// Request with correlation id
+    AgentBridgeRequest,
+    /// Reply to a Bridge request
+    AgentBridgeReply,
+    /// Read-only presence, message, or context bag (may drain idle mail)
+    AgentBridgeStatus,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

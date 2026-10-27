@@ -219,5 +219,6 @@ fn service_error_code(error: &ServiceError) -> &'static str {
         ServiceError::Repository(_) => "repository_error",
         ServiceError::Processing(_) => "processing_error",
         ServiceError::DeviceControl(e) => e.code(),
+        ServiceError::AgentBridge(e) => e.code(),
     }
 }

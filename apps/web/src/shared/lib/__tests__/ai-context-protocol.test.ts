@@ -69,6 +69,13 @@ describe("ai-context protocol", () => {
     expect(presentation.icon).toBe("code");
   });
 
+  it("uses slash-command glyphs for run-log and device-preview chips", () => {
+    expect(presentAiContextChip("run-log", "Atmos Run log").icon).toBe("scroll-text");
+    expect(presentAiContextChip("run-log", "Atmos Run log").tone).toBe("emerald");
+    expect(presentAiContextChip("device-preview", "Simulator Device Use").icon).toBe("smartphone");
+    expect(presentAiContextChip("device-preview", "Simulator Device Use").tone).toBe("cyan");
+  });
+
   it("wraps Prototype Design copy-prompt as a context chip", () => {
     const body = [
       "The live Prototype Design board is already open on this computer.",

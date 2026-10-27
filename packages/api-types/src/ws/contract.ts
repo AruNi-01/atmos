@@ -4,6 +4,7 @@ import type { AgentStatusContract } from "./contract/agent-status";
 import type { AutomationContract } from "./contract/automation";
 import type { CanvasContract } from "./contract/canvas";
 import type { CenterLayoutContract } from "./contract/center-layout";
+import type { AgentBridgeContract } from "./contract/agent-bridge";
 import type { AgentChatContract } from "./contract/agent-chat";
 import type { DiskAnalyzerContract } from "./contract/disk-analyzer";
 import type { HostSessionContract } from "./contract/host-session";
@@ -53,7 +54,8 @@ export type WsContract = FsContract &
   DiskAnalyzerContract &
   SimulatorContract &
   ResourceMonitorContract &
-  LinkPreviewContract;
+  LinkPreviewContract &
+  AgentBridgeContract;
 
 export type MappedWsAction = keyof WsContract & WsAction;
 /** Empty once every `WsAction` has a `WsContract` row. */
