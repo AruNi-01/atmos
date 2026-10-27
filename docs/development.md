@@ -66,3 +66,9 @@ just test
 just lint
 just fmt
 ```
+
+## Optional: Blaze (incremental Rust, local only)
+
+Atmos CI and `rust-toolchain.toml` stay on **stable Cargo**. [Blaze](https://github.com/indexable-inc/blaze) is an optional local accelerator for function-edit rebuilds on macOS Apple silicon and Linux; it is **not** the default recommendation, and it must not replace CI or release builds.
+
+Coverage, install notes, and `just bench-blaze`: [`docs/dev/blaze.md`](./dev/blaze.md).

@@ -658,6 +658,11 @@ typecheck:
 typecheck-bench:
     bun run typecheck:bench
 
+# Optional local cargo vs blaze incremental bench (does not change CI).
+# See docs/dev/blaze.md. Override crate with PACKAGES=core-engine.
+bench-blaze *args:
+    bash scripts/dev/bench-blaze.sh {{args}}
+
 # Format all code
 fmt:
     bun run fmt

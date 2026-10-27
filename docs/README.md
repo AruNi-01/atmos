@@ -10,6 +10,7 @@
 docs/
 ├── architecture.md         # System architecture overview
 ├── development.md          # Development guide
+├── dev/                    # Optional local-dev experiments (e.g. Blaze)
 ├── deployment.md           # Deployment guide
 ├── release.md              # Release guide
 ├── api-design.md          # API design principles
@@ -52,6 +53,14 @@ Development workflow and guidelines:
 - Testing strategy
 
 **Audience**: All Developers
+
+---
+
+### `dev/blaze.md`
+
+Optional [Blaze](https://github.com/indexable-inc/blaze) incremental Rust builds: what it can and cannot cover for Atmos, why it stays **off** default CI, and `just bench-blaze`.
+
+**Audience**: Developers experimenting with local Rust rebuild speed. Not a toolchain pin.
 
 ---
 
@@ -152,19 +161,20 @@ Level 4: Component README.md
 
 ## 📝 When to Read What?
 
-| You Want To...             | Read This                                    |
-| -------------------------- | -------------------------------------------- |
-| Understand overall project | [Root README.md](../README.md)               |
-| Navigate as AI agent       | [Root AGENTS.md](../AGENTS.md)               |
-| Understand architecture    | `architecture.md`                            |
-| Set up development         | `development.md`                             |
-| Deploy the system          | `deployment.md`                              |
-| Release Atmos              | [`release.md`](./release.md)                 |
-| Run a desktop release      | [`desktop-release.md`](./desktop-release.md) |
-| Design APIs                | `api-design.md`                              |
-| Understand a decision      | `adr/*.md`                                   |
-| Work on specific component | Component's AGENTS.md                        |
-| Understand code structure  | Component's README.md                        |
+| You Want To...               | Read This                                    |
+| ---------------------------- | -------------------------------------------- |
+| Understand overall project   | [Root README.md](../README.md)               |
+| Navigate as AI agent         | [Root AGENTS.md](../AGENTS.md)               |
+| Understand architecture      | `architecture.md`                            |
+| Set up development           | `development.md`                             |
+| Optional Blaze Rust rebuilds | [`dev/blaze.md`](./dev/blaze.md)             |
+| Deploy the system            | `deployment.md`                              |
+| Release Atmos                | [`release.md`](./release.md)                 |
+| Run a desktop release        | [`desktop-release.md`](./desktop-release.md) |
+| Design APIs                  | `api-design.md`                              |
+| Understand a decision        | `adr/*.md`                                   |
+| Work on specific component   | Component's AGENTS.md                        |
+| Understand code structure    | Component's README.md                        |
 
 ---
 
