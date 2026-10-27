@@ -31,8 +31,8 @@ Details: [`references/cli.md`](references/cli.md).
 
 ## Decision tree
 
-1. `atmos agent-bridge list` — Chat **sessions** only (title, `chat_id`, `provider_id`, occupancy). Not Native/Registry/Custom/Terminal install rows.
-2. `provider_id` is Chat/registry/custom id (`claude`, `codex-acp`, …), **never** `claude_code`. Filter with `--provider` / `--agent`. Default page size is **20** (max 100); use `--cursor` from `next_cursor` for the next page.
+1. `atmos agent-bridge list` — calls `agent_session_status_list` (sessions, counts, enabled `agents`). Not a Bridge action and not an install dump.
+2. `--provider` / `--agent` set `provider_ids`. `--workspace` sets `context_id`. Page with `--limit` / `--cursor`.
 3. Several live chats for one provider → pass `--to-chat`. Do not guess.
 4. Send a short body. Default busy policy is **queue**. Override `--busy wait|fail_fast` only when asked.
 5. Need a structured slice (goals / paths / PR refs / artifacts / danger)? Pass `--bag '{...}'`. Never put secrets, transcripts, or chain-of-thought in a bag.

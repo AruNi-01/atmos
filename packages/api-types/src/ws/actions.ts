@@ -347,7 +347,6 @@ export const WS_ACTIONS = [
   "link_preview",
   "agent_session_status_list",
   "agent_session_archive",
-  "agent_bridge_list",
   "agent_bridge_send",
   "agent_bridge_request",
   "agent_bridge_reply",

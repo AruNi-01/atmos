@@ -11,6 +11,7 @@ export type AgentSessionStatusListOptions = {
   groupKey?: string | null;
   contextId?: string | null;
   limit?: number | null;
+  providerIds?: readonly string[] | null;
 };
 
 /**
@@ -27,6 +28,7 @@ export function useAgentSessionStatusList(options: AgentSessionStatusListOptions
   const groupKey = options.groupKey;
   const contextId = options.contextId;
   const limit = options.limit;
+  const providerIds = options.providerIds;
 
   const query = useInfiniteQuery({
     queryKey: agentSessionStatusQueryKey({
@@ -34,6 +36,7 @@ export function useAgentSessionStatusList(options: AgentSessionStatusListOptions
       groupKey,
       contextId,
       limit,
+      providerIds,
     }),
     enabled: Boolean(client && connected && enabled),
     initialPageParam: null as string | null,
@@ -46,6 +49,7 @@ export function useAgentSessionStatusList(options: AgentSessionStatusListOptions
           groupKey,
           contextId,
           limit,
+          providerIds,
         }),
       );
     },
@@ -87,6 +91,7 @@ export function useAgentSessionStatusList(options: AgentSessionStatusListOptions
   const sessions = useMemo(() => pages?.flatMap((page) => page.sessions) ?? [], [pages]);
 
   return {
+    agents: pages?.[0]?.agents ?? [],
     counts: pages?.[0]?.counts,
     error: enabled ? query.error : null,
     fetchNextPage,

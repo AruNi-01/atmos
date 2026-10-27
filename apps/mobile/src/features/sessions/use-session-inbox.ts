@@ -43,6 +43,7 @@ import {
   useBucketCandidateLoad,
 } from "./use-bucket-candidate-load";
 import { useSessionRowActions } from "./use-session-row-actions";
+import { useSessionInboxStore } from "@/stores/session-inbox-store";
 
 const SESSION_STATUS_EVENTS = new Set([
   "agent_status_changed",
@@ -98,6 +99,7 @@ export function useSessionInbox(options: SessionInboxOptions = {}) {
   const hasDeviceCredential = useSessionStore((state) => state.hasDeviceCredential);
   const selectedServerId = useSessionStore((state) => state.selectedServerId);
   const connected = hasDeviceCredential && wsState === "open";
+  const agentIds = useSessionInboxStore((state) => state.agentIds);
 
   const bootstrapQuery = useQuery({
     queryKey: ["workspace-bootstrap", selectedServerId, wsState],
@@ -160,7 +162,9 @@ export function useSessionInbox(options: SessionInboxOptions = {}) {
   });
 
   const statusQuery = useAgentSessionStatusList(
-    groupKey ? { enabled: active, groupKey, limit: LIST_PAGE_SIZE } : { enabled: active },
+    groupKey
+      ? { enabled: active, groupKey, limit: LIST_PAGE_SIZE, providerIds: agentIds }
+      : { enabled: active, providerIds: agentIds },
   );
   const bucketSessionKey = useMemo(
     () =>
@@ -350,6 +354,7 @@ export function useSessionInbox(options: SessionInboxOptions = {}) {
       serverId: selectedServerId,
       groupKey,
       limit: groupKey ? LIST_PAGE_SIZE : undefined,
+      providerIds: agentIds,
     });
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["workspace-bootstrap", selectedServerId] }),
@@ -361,9 +366,10 @@ export function useSessionInbox(options: SessionInboxOptions = {}) {
       queryClient.invalidateQueries({ queryKey: ["session-branch-prs", selectedServerId] }),
       queryClient.invalidateQueries({ queryKey: ["workspace-sidebar-sessions", selectedServerId] }),
     ]);
-  }, [client, connected, groupKey, queryClient, selectedServerId]);
+  }, [agentIds, client, connected, groupKey, queryClient, selectedServerId]);
 
   return {
+    agents: statusQuery.agents,
     archiveChat,
     connected,
     deleteChat,

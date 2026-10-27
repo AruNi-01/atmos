@@ -3,19 +3,10 @@ use serde_json::Value;
 use core_service::{Result, ServiceError};
 
 use super::{
-    AgentBridgeListRequest, AgentBridgeReplyRequest, AgentBridgeSendRequest,
-    AgentBridgeStatusRequest, WsMessageService,
+    AgentBridgeReplyRequest, AgentBridgeSendRequest, AgentBridgeStatusRequest, WsMessageService,
 };
 
 impl WsMessageService {
-    pub(super) async fn handle_agent_bridge_list(
-        &self,
-        req: AgentBridgeListRequest,
-    ) -> Result<Value> {
-        serde_json::to_value(self.agent_bridge_service.list(req).await?)
-            .map_err(|e| ServiceError::Processing(e.to_string()))
-    }
-
     pub(super) async fn handle_agent_bridge_send(
         &self,
         req: AgentBridgeSendRequest,

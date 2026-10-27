@@ -23,6 +23,7 @@ impl WsMessageService {
         } else {
             req.limit as usize
         };
+        let provider_ids: Vec<&str> = req.provider_ids.iter().map(String::as_str).collect();
         let page = core_service::page_agent_sessions(
             sessions,
             req.cursor.as_deref(),
@@ -30,13 +31,16 @@ impl WsMessageService {
             core_service::AgentSessionListFilter {
                 group_key: req.group_key.as_deref(),
                 context_id: req.context_id.as_deref(),
+                provider_ids: &provider_ids,
             },
         );
+        let agents = core_service::enabled_session_agents()?;
         Ok(json!({
             "sessions": page.sessions,
             "next_cursor": page.next_cursor,
             "total": page.total,
             "counts": page.counts,
+            "agents": agents,
         }))
     }
 

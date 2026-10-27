@@ -24,11 +24,7 @@ import { listFooterState, listWindow } from "@/features/lists/list-page";
 import { markListNavigation } from "@/features/lists/list-navigation";
 import { useListReveal } from "@/features/lists/use-list-window";
 import { useSessionInboxStore } from "@/stores/session-inbox-store";
-import {
-  SESSION_AGENT_FILTER_EMPTY,
-  filterSessionRowsByAgent,
-  visibleSessionInbox,
-} from "./session-agent-filter";
+import { SESSION_AGENT_FILTER_EMPTY } from "./session-agent-filter";
 import {
   filterSessionRows,
   isSessionBucket,
@@ -49,15 +45,9 @@ const DISCONNECTED_MESSAGE = "This phone is not connected to a Computer.";
 export function SessionHomeScreen() {
   const router = useRouter();
   const inbox = useSessionInbox();
-  const agentIds = useSessionInboxStore((state) => state.agentIds);
-  const visible = visibleSessionInbox({
-    agentIds,
-    cards: inbox.cards,
-    recent: inbox.recent,
-    rows: inbox.rows,
-  });
+  const filterActive = useSessionInboxStore((state) => state.agentIds.length > 0);
   const pinnedVisible = inbox.pinnedIds.some((id) =>
-    visible.rows.some((item) => sessionPinId(item) === id),
+    inbox.rows.some((item) => sessionPinId(item) === id),
   );
   const { onRefresh, refreshing } = usePullRefresh(inbox.refresh);
 
@@ -72,7 +62,7 @@ export function SessionHomeScreen() {
   return (
     <AppScreen onRefresh={onRefresh} refreshing={refreshing}>
       <SessionCardGrid
-        cards={visible.cards}
+        cards={inbox.cards}
         onPress={(bucket) => {
           markListNavigation("session-bucket", bucket);
           router.push({
@@ -81,20 +71,20 @@ export function SessionHomeScreen() {
           });
         }}
       />
-      {inbox.isLoading && visible.recent.length === 0 && !pinnedVisible ? (
+      {inbox.isLoading && inbox.recent.length === 0 && !pinnedVisible ? (
         <Section label="Recent">
           <ListSkeleton />
         </Section>
-      ) : visible.recent.length === 0 && !pinnedVisible ? (
+      ) : inbox.recent.length === 0 && !pinnedVisible ? (
         <Section>
           <EmptyState
             layout="section"
             message={
-              visible.filterActive
+              filterActive
                 ? SESSION_AGENT_FILTER_EMPTY.message
                 : "Sessions from your workspaces show up here."
             }
-            title={visible.filterActive ? SESSION_AGENT_FILTER_EMPTY.title : "No sessions"}
+            title={filterActive ? SESSION_AGENT_FILTER_EMPTY.title : "No sessions"}
           />
         </Section>
       ) : (
@@ -103,8 +93,8 @@ export function SessionHomeScreen() {
           deleteChat={inbox.deleteChat}
           onPress={(row) => openSessionRow(router, row)}
           pinnedIds={inbox.pinnedIds}
-          recent={visible.recent}
-          rows={visible.rows}
+          recent={inbox.recent}
+          rows={inbox.rows}
           togglePin={inbox.togglePin}
         />
       )}
@@ -121,14 +111,11 @@ export function SessionBucketScreen({ bucket }: { bucket: string | undefined }) 
     active: reveal.ready && parsed != null,
     groupKey: parsed,
   });
-  const agentIds = useSessionInboxStore((state) => state.agentIds);
-  const filterActive = agentIds.length > 0;
+  const filterActive = useSessionInboxStore((state) => state.agentIds.length > 0);
   const { onRefresh, refreshing } = usePullRefresh(inbox.refresh);
   const rows = parsed
     ? orderPinnedRows(
-        sortSessionRowsByRecency(
-          filterSessionRowsByAgent(filterSessionRows(inbox.rows, parsed), agentIds),
-        ),
+        sortSessionRowsByRecency(filterSessionRows(inbox.rows, parsed)),
         inbox.pinnedIds,
         sessionPinId,
       )

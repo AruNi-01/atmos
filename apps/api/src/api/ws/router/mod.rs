@@ -1656,14 +1656,6 @@ impl WsMessageService {
                     .await
             }
 
-            WsAction::AgentBridgeList => {
-                let data = if request.data.is_null() {
-                    serde_json::json!({})
-                } else {
-                    request.data
-                };
-                self.handle_agent_bridge_list(parse_request(data)?).await
-            }
             WsAction::AgentBridgeSend => {
                 self.handle_agent_bridge_send(parse_request(request.data)?)
                     .await

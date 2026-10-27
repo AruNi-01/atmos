@@ -2,7 +2,10 @@ use std::collections::HashSet;
 use std::sync::{Arc, Mutex as StdMutex};
 
 mod agents;
-pub use agents::terminal_agent_command_names;
+pub use agents::{
+    enabled_session_agent_rows, enabled_session_agents, terminal_agent_command_names,
+    SessionAgentOption,
+};
 mod artifacts;
 mod complete;
 mod events;

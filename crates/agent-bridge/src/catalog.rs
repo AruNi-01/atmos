@@ -3,7 +3,8 @@ use serde::{Deserialize, Serialize};
 use crate::busy::Occupancy;
 use crate::delivery::LiveSession;
 
-/// Default page size for `agent_bridge_list`. Missing or 0 uses this.
+/// Default page size for a chat-session page helper. The product list is
+/// `agent_session_status_list`, which Bridge `list` calls.
 pub const LIST_DEFAULT_LIMIT: usize = 20;
 /// Hard cap so a list dump cannot fill an agent context window.
 pub const LIST_MAX_LIMIT: usize = 100;

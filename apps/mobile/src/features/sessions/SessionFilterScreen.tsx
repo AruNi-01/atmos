@@ -1,7 +1,7 @@
 import { Pressable, Text, View } from "react-native";
 import { Stack } from "expo-router";
 import { MobileAgentIcon } from "@/features/terminal/MobileAgentIcon";
-import { SESSION_AGENT_NONE, sessionAgentChoices } from "@/features/sessions/session-agent-filter";
+import { SESSION_AGENT_NONE, sessionAgentLabel } from "@/features/sessions/session-agent-filter";
 import { useSessionInbox } from "@/features/sessions/use-session-inbox";
 import { useSessionInboxStore } from "@/stores/session-inbox-store";
 import { useMobileTheme } from "@/theme/theme-store";
@@ -13,12 +13,14 @@ import { nativeCompactTitleOptions } from "@/ui/navigation/native-screen-options
 import { ListSkeleton } from "@/ui/primitives/list-skeleton";
 
 export function SessionFilterScreen() {
-  const theme = useMobileTheme();
   const inbox = useSessionInbox();
   const agentIds = useSessionInboxStore((state) => state.agentIds);
   const clearAgents = useSessionInboxStore((state) => state.clearAgents);
   const toggleAgent = useSessionInboxStore((state) => state.toggleAgent);
-  const choices = sessionAgentChoices(inbox.rows, agentIds);
+  const choices = inbox.agents.map((agent) => ({
+    id: agent.id,
+    label: agent.label.trim() || sessionAgentLabel(agent.id),
+  }));
   const allOn = agentIds.length === 0;
 
   return (

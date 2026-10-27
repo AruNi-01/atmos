@@ -2,43 +2,18 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { AgentBridgeListRequest, AgentBridgeListResponse } from "./agent-bridge";
 
-const dto = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "agent-bridge.ts"), "utf8");
+const here = dirname(fileURLToPath(import.meta.url));
+const dto = readFileSync(join(here, "agent-bridge.ts"), "utf8");
+const actions = readFileSync(join(here, "../actions.ts"), "utf8");
+const session = readFileSync(join(here, "agent-status.ts"), "utf8");
 
-describe("agent-bridge list session directory contract", () => {
-  it("pages chat sessions instead of provider install rows", () => {
-    expect(dto).toContain("provider_id?: string | null");
-    expect(dto).toContain("agent?: string | null");
-    expect(dto).toContain("next_cursor?: string | null");
-    expect(dto).toContain("has_more: boolean");
-    expect(dto).toContain("last_activity_at?: string | null");
-    const req: AgentBridgeListRequest = {
-      provider_id: "claude",
-      workspace_id: "ws-1",
-      limit: 20,
-    };
-    const res: AgentBridgeListResponse = {
-      server_id: "srv",
-      entries: [
-        {
-          kind: "chat",
-          provider_id: "claude",
-          display_name: "Fix login",
-          title: "Fix login",
-          server_id: "srv",
-          chat_id: "c1",
-          workspace_id: "ws-1",
-          occupancy: "idle",
-          updated_at: "2026-10-27T12:00:00Z",
-          last_activity_at: "2026-10-27T12:00:00Z",
-        },
-      ],
-      next_cursor: "2026-10-27T12:00:00Z\nc1",
-      has_more: true,
-    };
-    expect(req.agent).toBeUndefined();
-    expect(res.entries[0]?.kind).toBe("chat");
-    expect(res.entries[0]?.display_name.startsWith("chat ")).toBe(false);
+describe("agent-bridge does not own the session directory", () => {
+  it("leaves listing to agent_session_status_list", () => {
+    expect(dto).not.toContain("export type AgentBridgeListRequest");
+    expect(actions).not.toContain('"agent_bridge_list"');
+    expect(actions).toContain('"agent_session_status_list"');
+    expect(session).toContain("provider_ids?: string[] | null");
+    expect(session).toContain("agents?: SessionAgentOption[] | null");
   });
 });

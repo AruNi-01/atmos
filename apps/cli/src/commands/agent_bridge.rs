@@ -13,7 +13,9 @@ use crate::server_invoke::{invoke, wrap_ok, InvokeError};
 
 #[derive(Debug, Subcommand)]
 pub enum AgentBridgeCommand {
-    /// List Chat sessions on the connected Computer (not provider installs)
+    /// List sessions on the connected Computer by calling the session list.
+    /// This is not a Bridge catalog. `--provider` / `--agent` and `--workspace`
+    /// map to `provider_ids` and `context_id`.
     List {
         #[arg(long)]
         workspace: Option<String>,
@@ -118,10 +120,10 @@ pub async fn execute_agent_bridge(api: ApiClientArgs, command: AgentBridgeComman
         } => {
             let mut data = Map::new();
             if let Some(ws) = workspace {
-                data.insert("workspace_id".into(), json!(ws));
+                data.insert("context_id".into(), json!(ws));
             }
             if let Some(provider) = provider {
-                data.insert("provider_id".into(), json!(provider));
+                data.insert("provider_ids".into(), json!([provider]));
             }
             if let Some(limit) = limit {
                 data.insert("limit".into(), json!(limit));
@@ -132,7 +134,7 @@ pub async fn execute_agent_bridge(api: ApiClientArgs, command: AgentBridgeComman
             invoke_env(
                 &api,
                 "atmos agent-bridge list",
-                "agent_bridge_list",
+                "agent_session_status_list",
                 Value::Object(data),
                 vec![
                     next(

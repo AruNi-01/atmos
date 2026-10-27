@@ -574,6 +574,37 @@ pub fn definition_launch_flags_for_upgrade(
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionAgentOption {
+    pub id: String,
+    pub label: String,
+}
+
+pub fn enabled_session_agents() -> Result<Vec<SessionAgentOption>> {
+    Ok(enabled_session_agent_rows(
+        resolved_terminal_agents()?
+            .into_iter()
+            .map(|agent| (agent.id, agent.label, agent.enabled)),
+    ))
+}
+
+pub fn enabled_session_agent_rows(
+    rows: impl IntoIterator<Item = (String, String, bool)>,
+) -> Vec<SessionAgentOption> {
+    let mut agents: Vec<SessionAgentOption> = rows
+        .into_iter()
+        .filter(|(_, _, enabled)| *enabled)
+        .map(|(id, label, _)| SessionAgentOption { id, label })
+        .collect();
+    agents.sort_by(|left, right| {
+        left.label
+            .to_lowercase()
+            .cmp(&right.label.to_lowercase())
+            .then_with(|| left.id.cmp(&right.id))
+    });
+    agents
+}
+
 fn resolved_terminal_agents() -> Result<Vec<ResolvedTerminalAgent>> {
     let built_ins = load_builtin_terminal_agents()?;
     let settings = load_terminal_code_agent_file()?;
@@ -3570,5 +3601,23 @@ mod tests {
                 .unwrap_or_else(|| legacy_prompt_strategy(definition.use_echo)),
             stdout_parser: definition.stdout_parser,
         }
+    }
+}
+
+#[cfg(test)]
+mod session_agent_option_tests {
+    use super::enabled_session_agent_rows;
+
+    #[test]
+    fn drops_disabled_and_sorts_by_label() {
+        let rows = enabled_session_agent_rows([
+            ("codex".into(), "Codex".into(), true),
+            ("claude".into(), "Claude Code".into(), true),
+            ("off".into(), "Off".into(), false),
+        ]);
+        assert_eq!(
+            rows.iter().map(|row| row.id.as_str()).collect::<Vec<_>>(),
+            vec!["claude", "codex"]
+        );
     }
 }

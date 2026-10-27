@@ -1,7 +1,5 @@
 import type {
   AgentBridgeDeliveryAck,
-  AgentBridgeListRequest,
-  AgentBridgeListResponse,
   AgentBridgeReplyRequest,
   AgentBridgeSendRequest,
   AgentBridgeStatusRequest,
@@ -9,10 +7,6 @@ import type {
 } from "../dto/agent-bridge";
 
 export type AgentBridgeContract = {
-  agent_bridge_list: {
-    input: AgentBridgeListRequest;
-    output: AgentBridgeListResponse;
-  };
   agent_bridge_send: {
     input: AgentBridgeSendRequest;
     output: AgentBridgeDeliveryAck[];

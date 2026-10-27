@@ -77,7 +77,6 @@ New `service/agent_bridge/`:
 ### apps/api
 
 - `WsAction` variants (serde snake_case) at end of enum in `apps/api/src/api/ws/message.rs`:
-  - `AgentBridgeList`
   - `AgentBridgeSend`
   - `AgentBridgeRequest`
   - `AgentBridgeReply`
@@ -171,13 +170,12 @@ No SQL table. Mailbox + bags are process memory on that Server.
 ### WebSocket / CLI invoke
 
 ```text
-agent_bridge_list     input: { workspace_id?: string, provider_id?: string, agent?: string,
-                               limit?: number, cursor?: string }
-                      output: { server_id, entries: CatalogEntry[], next_cursor?: string,
-                                has_more: boolean }
-                      CatalogEntry is a Chat session row (kind=chat): chat_id, provider_id,
-                      title/display_name, workspace_id, project_id?, occupancy,
-                      updated_at, last_activity_at. List never emits install-directory kinds.
+agent_session_status_list
+                      input: { limit?, cursor?, group_key?, context_id?, provider_ids?: string[] }
+                      output: { sessions, next_cursor, total, counts, agents }
+                      `agents` is the enabled terminal-agent catalog (id + label), not this page.
+                      `provider_ids` narrows the page and counts. Bridge `list` calls this action.
+                      There is no `agent_bridge_list`.
 
 agent_bridge_send     input: { to: AgentAddress | AgentAddress[], from?: AgentAddress,
                                body: string, busy?: BusyPolicy, ttl_ms?: number,

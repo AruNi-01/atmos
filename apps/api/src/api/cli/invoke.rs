@@ -112,9 +112,10 @@ mod tests {
             Some(WsAction::SettingsBootstrapGet)
         ));
         assert!(matches!(
-            parse_ws_action("agent_bridge_list"),
-            Some(WsAction::AgentBridgeList)
+            parse_ws_action("agent_session_status_list"),
+            Some(WsAction::AgentSessionStatusList)
         ));
+        assert!(parse_ws_action("agent_bridge_list").is_none());
         assert!(matches!(
             parse_ws_action("agent_bridge_send"),
             Some(WsAction::AgentBridgeSend)

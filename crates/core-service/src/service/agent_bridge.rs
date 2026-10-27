@@ -5,11 +5,11 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use agent_bridge::{
-    format_inject, is_foreign_server, normalize_list_limit, page_live_sessions, plan_delivery,
-    resolve_live_targets, terminal_provider_id, AgentAddress, BridgeError, BridgeMessage,
-    BridgeState, BusyPolicy, CatalogEntry, ContextBag, ContextBagSlices, DeliveryAck, DeliveryPlan,
-    DeliveryStatus, ListRequest, ListResponse, LiveSession, MessageKind, Occupancy, ReplyRequest,
-    SendRequest, StatusRequest, TargetResolution, DEFAULT_TTL_MS, LOCAL_SERVER_ID,
+    format_inject, is_foreign_server, plan_delivery, resolve_live_targets, terminal_provider_id,
+    AgentAddress, BridgeError, BridgeMessage, BridgeState, BusyPolicy, CatalogEntry, ContextBag,
+    ContextBagSlices, DeliveryAck, DeliveryPlan, DeliveryStatus, LiveSession, MessageKind,
+    Occupancy, ReplyRequest, SendRequest, StatusRequest, TargetResolution, DEFAULT_TTL_MS,
+    LOCAL_SERVER_ID,
 };
 use async_trait::async_trait;
 use parking_lot::Mutex;
@@ -147,34 +147,6 @@ impl AgentBridgeService {
 
     pub fn server_id(&self) -> &str {
         &self.server_id
-    }
-
-    pub async fn list(&self, req: ListRequest) -> Result<ListResponse> {
-        let mut sessions = self.host.list_chats()?;
-        if let Some(workspace_id) = nonempty_opt(req.workspace_id.as_deref()) {
-            sessions.retain(|row| row.workspace_id.as_deref() == Some(workspace_id));
-        }
-        if let Some(provider_id) = req.provider_filter() {
-            sessions.retain(|row| row.provider_id == provider_id);
-        }
-        let limit = normalize_list_limit(req.limit);
-        let (page, next_cursor, has_more) =
-            page_live_sessions(sessions, req.cursor.as_deref(), limit);
-        let mut entries = Vec::with_capacity(page.len());
-        for session in &page {
-            let occupancy = self.host.occupancy(&session.chat_id).await;
-            entries.push(CatalogEntry::from_live_session(
-                session,
-                &self.server_id,
-                occupancy,
-            ));
-        }
-        Ok(ListResponse {
-            server_id: self.server_id.clone(),
-            entries,
-            next_cursor,
-            has_more,
-        })
     }
 
     pub async fn send(&self, req: SendRequest) -> Result<Vec<DeliveryAck>> {
@@ -517,15 +489,6 @@ impl AgentBridgeService {
     }
 }
 
-fn nonempty_opt(value: Option<&str>) -> Option<&str> {
-    let trimmed = value?.trim();
-    if trimmed.is_empty() {
-        None
-    } else {
-        Some(trimmed)
-    }
-}
-
 #[derive(Debug, Clone, Serialize)]
 pub struct StatusResponse {
     pub server_id: String,
@@ -545,8 +508,8 @@ mod tests {
     use super::{map_chat_occupancy, AgentOccupancy};
     use crate::ServiceError;
     use agent_bridge::{
-        AgentAddress, BridgeError, BusyPolicy, CatalogKind, ContextBagSlices, DeliveryStatus,
-        ListRequest, Occupancy, SendRequest, SendTargets, StatusRequest, LOCAL_SERVER_ID,
+        AgentAddress, BridgeError, BusyPolicy, ContextBagSlices, DeliveryStatus, Occupancy,
+        SendRequest, SendTargets, StatusRequest, LOCAL_SERVER_ID,
     };
 
     struct MockHost {
@@ -634,14 +597,6 @@ mod tests {
         LiveSession::new(provider, chat)
     }
 
-    fn live_at(provider: &str, chat: &str, at: &str) -> LiveSession {
-        let mut session = LiveSession::new(provider, chat);
-        session.title = Some(format!("{provider} {chat}"));
-        session.updated_at = Some(at.into());
-        session.last_activity_at = Some(at.into());
-        session
-    }
-
     fn send_to(provider: &str, chat: Option<&str>, body: &str) -> SendRequest {
         SendRequest {
             to: SendTargets::One(AgentAddress {
@@ -695,7 +650,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn busy_queue_and_status_drains_list_does_not() {
+    async fn busy_queue_and_status_drains() {
         let host = MockHost::new(vec![live("claude", "c1")]);
         host.set_occupancy("c1", Occupancy::Running);
         let svc = service(host.clone(), &["claude"]);
@@ -704,7 +659,6 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(acks[0].status, DeliveryStatus::QueuedBusy);
-        svc.list(ListRequest::default()).await.unwrap();
         assert_eq!(svc.state.lock().mailbox.len(), 1);
         host.set_occupancy("c1", Occupancy::Idle);
         let status = svc
@@ -762,105 +716,6 @@ mod tests {
             ServiceError::AgentBridge(BridgeError::ContextRefRemote { .. }) => {}
             other => panic!("{other:?}"),
         }
-    }
-
-    #[tokio::test]
-    async fn list_returns_connected_computer_chats() {
-        let host = MockHost::new(vec![live("claude", "c1")]);
-        let svc = service(host, &["claude"]);
-        let listed = svc.list(ListRequest::default()).await.unwrap();
-        assert_eq!(listed.server_id, "srv-local");
-        assert_eq!(listed.entries.len(), 1);
-        assert_eq!(listed.entries[0].kind, CatalogKind::Chat);
-        assert_eq!(listed.entries[0].provider_id, "claude");
-        assert_eq!(listed.entries[0].chat_id.as_deref(), Some("c1"));
-        assert_eq!(listed.entries[0].display_name, "claude");
-        assert!(!listed.entries[0].display_name.starts_with("chat "));
-        assert_eq!(listed.entries[0].occupancy, Occupancy::Idle);
-        assert!(!listed.has_more);
-        assert!(listed.next_cursor.is_none());
-        assert!(svc.state.lock().mailbox.is_empty());
-    }
-
-    #[tokio::test]
-    async fn list_omits_provider_install_directory_rows() {
-        let host = MockHost::new(vec![live("claude", "c1")]);
-        let svc = AgentBridgeService {
-            agent: Arc::new(AgentService::new()),
-            host,
-            state: Mutex::new(BridgeState::new()),
-            server_id: "srv-local".into(),
-            known_providers: None,
-        };
-        let listed = svc.list(ListRequest::default()).await.unwrap();
-        assert!(listed
-            .entries
-            .iter()
-            .all(|entry| entry.kind == CatalogKind::Chat && entry.chat_id.is_some()));
-        assert_eq!(listed.entries.len(), 1);
-    }
-
-    #[tokio::test]
-    async fn list_filters_by_provider_and_workspace() {
-        let mut a = live_at("claude", "c1", "2026-10-27T12:00:00Z");
-        a.workspace_id = Some("ws-a".into());
-        let mut b = live_at("codex", "c2", "2026-10-27T11:00:00Z");
-        b.workspace_id = Some("ws-b".into());
-        let host = MockHost::new(vec![a, b]);
-        let svc = service(host, &["claude", "codex"]);
-        let by_agent = svc
-            .list(ListRequest {
-                agent: Some("codex".into()),
-                ..Default::default()
-            })
-            .await
-            .unwrap();
-        assert_eq!(by_agent.entries.len(), 1);
-        assert_eq!(by_agent.entries[0].provider_id, "codex");
-        assert_eq!(by_agent.entries[0].title.as_deref(), Some("codex c2"));
-        let by_ws = svc
-            .list(ListRequest {
-                workspace_id: Some("ws-a".into()),
-                ..Default::default()
-            })
-            .await
-            .unwrap();
-        assert_eq!(by_ws.entries.len(), 1);
-        assert_eq!(by_ws.entries[0].chat_id.as_deref(), Some("c1"));
-    }
-
-    #[tokio::test]
-    async fn list_pages_and_occupancy_only_the_page() {
-        let host = MockHost::new(vec![
-            live_at("claude", "c1", "2026-10-27T12:00:00Z"),
-            live_at("claude", "c2", "2026-10-27T11:00:00Z"),
-            live_at("codex", "c3", "2026-10-27T10:00:00Z"),
-        ]);
-        let svc = service(host.clone(), &["claude", "codex"]);
-        let page1 = svc
-            .list(ListRequest {
-                limit: Some(2),
-                ..Default::default()
-            })
-            .await
-            .unwrap();
-        assert!(page1.has_more);
-        assert_eq!(page1.entries.len(), 2);
-        assert_eq!(page1.entries[0].chat_id.as_deref(), Some("c1"));
-        assert_eq!(page1.entries[1].chat_id.as_deref(), Some("c2"));
-        assert_eq!(*host.occupancy_calls.lock(), 2);
-        let page2 = svc
-            .list(ListRequest {
-                limit: Some(2),
-                cursor: page1.next_cursor.clone(),
-                ..Default::default()
-            })
-            .await
-            .unwrap();
-        assert!(!page2.has_more);
-        assert_eq!(page2.entries.len(), 1);
-        assert_eq!(page2.entries[0].chat_id.as_deref(), Some("c3"));
-        assert_eq!(*host.occupancy_calls.lock(), 3);
     }
 
     #[tokio::test]
@@ -974,13 +829,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn list_emits_permission_request_occupancy() {
+    async fn permission_request_queues_instead_of_injecting() {
         let host = MockHost::new(vec![live("claude", "c1")]);
         host.set_occupancy("c1", Occupancy::PermissionRequest);
         let svc = service(host.clone(), &["claude"]);
-        let listed = svc.list(ListRequest::default()).await.unwrap();
-        assert_eq!(listed.entries.len(), 1);
-        assert_eq!(listed.entries[0].occupancy, Occupancy::PermissionRequest);
         let acks = svc
             .send(send_to("claude", Some("c1"), "hold"))
             .await

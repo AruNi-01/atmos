@@ -1,6 +1,6 @@
 # `atmos agent-bridge` CLI
 
-Thin client. Every verb except `skill-dir` is `POST /api/cli/invoke` with `agent_bridge_*`.
+Thin client. `list` invokes `agent_session_status_list`. The other verbs except `skill-dir` are `POST /api/cli/invoke` with `agent_bridge_*`.
 
 JSON envelope: `ok`, `command`, `result` or `error.code`.
 
@@ -23,13 +23,9 @@ atmos agent-bridge skill-dir
 
 ## List (session directory)
 
-`list` returns **Chat sessions** on the connected Computer, newest activity first. It does **not** emit Native / Registry / Custom / Terminal provider install rows. Send addressing still uses `provider_id`; unknown ids still fail `UNKNOWN_PROVIDER` against known chats or installed providers.
+`list` calls `agent_session_status_list`. It does not have its own Bridge action.
 
-Default `--limit` is **20**. Values above **100** are clamped. Response includes `entries`, `has_more`, and `next_cursor` (opaque: last activity timestamp + newline + `chat_id`). Pass `--cursor` to load the next page.
-
-Each entry includes `chat_id`, `provider_id`, real `title` (untitled falls back to `provider_id`, never `chat {id}`), `workspace_id`, optional `project_id`, `occupancy` (`idle` / `running` / `permission_request`), and `updated_at` / `last_activity_at` from the chat index.
-
-`--provider` and `--agent` are the same filter. Combine with `--workspace`.
+`--provider` / `--agent` become `provider_ids`. `--workspace` becomes `context_id`. `--limit` and `--cursor` are the session list page (`updated_at` + newline + `session_id`). The response includes `sessions`, `counts`, `total`, `next_cursor`, and `agents` (enabled terminal agents, not limited to this page).
 
 ## Acks
 

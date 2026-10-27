@@ -915,14 +915,14 @@ pub enum WsAction {
     // ===== Per-session inbox =====
     /// Live occupancy merged with the inbox catalog. Default page is 100, newest
     /// first. Optional `group_key` / `context_id` filter that page. `counts`
-    /// and `total` stay catalog-wide. Each chat row includes its title.
+    /// and `total` stay catalog-wide unless `provider_ids` is set, which narrows
+    /// both the page and the totals. `agents` is the enabled terminal-agent
+    /// catalog and does not depend on the page. Each chat row includes its title.
     AgentSessionStatusList,
     /// Set archived_at. Unknown id is success.
     AgentSessionArchive,
 
     // ===== Agent Bridge (APP-084) =====
-    /// Paginated Chat session directory on the connected Computer
-    AgentBridgeList,
     /// Send a Bridge envelope (optional explicit target list)
     AgentBridgeSend,
     /// Request with correlation id
@@ -948,6 +948,10 @@ pub struct AgentSessionStatusListRequest {
     /// Exact workspace id. Blank means every workspace.
     #[serde(default)]
     pub context_id: Option<String>,
+    /// Enabled agent ids (`claude`, `codex`, …). Empty means every agent.
+    /// Narrows the page and `counts` / `total`.
+    #[serde(default)]
+    pub provider_ids: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
