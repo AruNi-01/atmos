@@ -12,6 +12,7 @@
 #   PACKAGES="core-engine quota-usage" bash scripts/dev/bench-blaze.sh
 #   SKIP_BLAZE=1 bash scripts/dev/bench-blaze.sh          # cargo only
 #   BLAZE_SANDBOX=off bash scripts/dev/bench-blaze.sh     # container without user ns
+#   RUSTUP_TOOLCHAIN=1.99.0 bash scripts/dev/bench-blaze.sh  # match ra-jit 0.0.0 on this PR's VM
 #
 # See docs/dev/blaze.md.
 set -euo pipefail
@@ -52,8 +53,13 @@ resolve_blaze() {
     BLAZE_ARGS=(blaze)
     return 0
   fi
+  # Nightly installer (pre first named blaze release) ships cargo-blaze + ra-jit.
   if command -v cargo-blaze >/dev/null 2>&1; then
     BLAZE_ARGS=(cargo blaze)
+    return 0
+  fi
+  if command -v ra-jit >/dev/null 2>&1; then
+    BLAZE_ARGS=(ra-jit cargo)
     return 0
   fi
   return 1
@@ -118,15 +124,26 @@ collect_meta() {
   commit="$(git -C "$repo_root" rev-parse HEAD)"
   rustc="$(rustc --version 2>/dev/null || echo 'rustc: missing')"
   cargo_v="$(cargo --version 2>/dev/null || echo 'cargo: missing')"
+  blaze_v="blaze: not installed"
+  toolchain="n/a"
+  local rustup_tc
+  if [[ -n "${RUSTUP_TOOLCHAIN:-}" ]]; then
+    rustup_tc="$RUSTUP_TOOLCHAIN"
+  else
+    rustup_tc="(unset; rust-toolchain.toml / default)"
+  fi
   if have_blaze; then
     blaze_v="$(blaze --version 2>/dev/null || true)"
     if [[ -z "$blaze_v" ]]; then
       blaze_v="$(blaze -V 2>/dev/null || echo 'blaze present, version unknown')"
     fi
     toolchain="$(blaze toolchain 2>/dev/null || echo 'blaze toolchain: unknown')"
-  else
-    blaze_v="blaze: not installed"
-    toolchain="n/a"
+  elif command -v ra-jit >/dev/null 2>&1; then
+    blaze_v="$(ra-jit --version 2>/dev/null || echo 'ra-jit present, version unknown')"
+    blaze_v="${blaze_v} (no blaze binary; cargo-blaze/ra-jit from ix.dev nightly installer)"
+    if command -v rustup >/dev/null 2>&1; then
+      toolchain="$(rustup run nightly-2026-10-25 rustc -V 2>/dev/null || echo 'nightly-2026-10-25 not in rustup')"
+    fi
   fi
   cat <<EOF
 os: ${os_name}
@@ -138,6 +155,7 @@ rustc: ${rustc}
 cargo: ${cargo_v}
 blaze: ${blaze_v}
 blaze_toolchain: ${toolchain}
+rustup_toolchain: ${rustup_tc}
 packages: ${PACKAGES}
 edit_file: ${EDIT_FILE}
 edit_line: ${EDIT_LINE}
@@ -170,6 +188,8 @@ finished_kind() {
   local log_file="$1"
   if grep -q '\[ra-jit\]' "$log_file"; then
     printf '%s\n' ra-jit
+  elif grep -q 'this ra-jit compiles for' "$log_file"; then
+    printf '%s\n' 'cargo-toolchain-mismatch'
   elif grep -qi 'Waiting for blaze' "$log_file"; then
     printf '%s\n' 'cargo-then-load'
   else
