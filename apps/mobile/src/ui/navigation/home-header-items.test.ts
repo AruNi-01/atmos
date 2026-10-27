@@ -10,13 +10,13 @@ import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 
 describe("session header items", () => {
-  test("Filter sits left of Settings: Settings is first (trailing edge on iOS)", () => {
+  test("Filter sits left of Settings: Filter is first, matching Workspace", () => {
     const source = readFileSync(join(here, "home-header-items.ts"), "utf8");
     const helper = source.slice(source.indexOf("export function sessionHeaderRightItems"));
-    expect(helper).toContain("settingsHeaderItem(onSettings, tintColor)");
     expect(helper).toContain("sessionFilterHeaderItem(onFilter, tintColor)");
-    expect(helper.indexOf("settingsHeaderItem")).toBeLessThan(
-      helper.indexOf("sessionFilterHeaderItem"),
+    expect(helper).toContain("settingsHeaderItem(onSettings, tintColor)");
+    expect(helper.indexOf("sessionFilterHeaderItem")).toBeLessThan(
+      helper.indexOf("settingsHeaderItem"),
     );
     expect(source).toContain('name: "line.3.horizontal.decrease"');
   });

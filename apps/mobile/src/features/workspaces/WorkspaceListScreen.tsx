@@ -48,7 +48,7 @@ function workspaceHeaderRightItems({
 }) {
   const settings = settingsHeaderItem(onSettings, tintColor);
   if (!showFilter) return [settings];
-  // First item is the trailing edge on iOS. Filter sits on that edge.
+  // Filter then Settings so Filter sits to the left of Settings.
   return [workspaceFilterHeaderItem(onFilter, tintColor), settings];
 }
 

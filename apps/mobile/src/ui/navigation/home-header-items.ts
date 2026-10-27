@@ -71,13 +71,13 @@ export function sessionFilterHeaderItem(
 }
 
 /**
- * Session home/bucket right-bar items. Filter sits left of Settings.
- * First item is the trailing (right) edge on iOS, so Settings stays there.
+ * Session home/bucket right-bar items. Same order as Workspace:
+ * Filter, then Settings, so Filter sits to the left of Settings.
  */
 export function sessionHeaderRightItems(
   onFilter: () => void,
   onSettings: () => void,
   tintColor: string,
 ): NativeStackHeaderItem[] {
-  return [settingsHeaderItem(onSettings, tintColor), sessionFilterHeaderItem(onFilter, tintColor)];
+  return [sessionFilterHeaderItem(onFilter, tintColor), settingsHeaderItem(onSettings, tintColor)];
 }
