@@ -952,6 +952,10 @@ pub struct AgentSessionStatusListRequest {
     /// Narrows the page and `counts` / `total`.
     #[serde(default)]
     pub provider_ids: Vec<String>,
+    /// Return the enabled-agent catalog only. The filter sheet asks for this
+    /// after it opens, instead of scanning the live session list.
+    #[serde(default)]
+    pub agents_only: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

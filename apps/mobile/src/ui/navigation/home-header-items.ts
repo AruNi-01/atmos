@@ -2,6 +2,7 @@ import { PlatformColor, type ColorValue } from "react-native";
 import type { NativeStackHeaderItem } from "expo-router";
 import type { SFSymbol } from "sf-symbols-typescript";
 import { isOpaqueGlassTint } from "@/ui/navigation/home-header-glass";
+import { filterBadgeValue, type FilterBadgeColors } from "@/ui/navigation/filter-badge";
 
 /**
  * Stable ids so iOS 26 can match the same bar button across navigation
@@ -38,13 +39,31 @@ export function settingsHeaderItem(onPress: () => void, tintColor: string): Nati
   };
 }
 
+export type { FilterBadgeColors } from "@/ui/navigation/filter-badge";
+
 function filterHeaderItem(
   identifier: string,
   onPress: () => void,
   tintColor: string,
+  filterCount: number,
+  badgeColors: FilterBadgeColors,
 ): NativeStackHeaderItem {
+  const value = filterBadgeValue(filterCount);
   return {
-    accessibilityLabel: "Filter",
+    accessibilityLabel: value == null ? "Filter" : `Filter, ${value} selected`,
+    ...(value == null
+      ? {}
+      : {
+          badge: {
+            style: {
+              backgroundColor: badgeColors.backgroundColor,
+              color: badgeColors.color,
+              fontSize: 10,
+              fontWeight: "600",
+            },
+            value,
+          },
+        }),
     icon: { type: "sfSymbol", name: "line.3.horizontal.decrease" satisfies SFSymbol },
     identifier,
     label: "",
@@ -59,15 +78,31 @@ function filterHeaderItem(
 export function workspaceFilterHeaderItem(
   onPress: () => void,
   tintColor: string,
+  filterCount: number,
+  badgeColors: FilterBadgeColors,
 ): NativeStackHeaderItem {
-  return filterHeaderItem(WORKSPACE_FILTER_HEADER_ITEM_ID, onPress, tintColor);
+  return filterHeaderItem(
+    WORKSPACE_FILTER_HEADER_ITEM_ID,
+    onPress,
+    tintColor,
+    filterCount,
+    badgeColors,
+  );
 }
 
 export function sessionFilterHeaderItem(
   onPress: () => void,
   tintColor: string,
+  filterCount: number,
+  badgeColors: FilterBadgeColors,
 ): NativeStackHeaderItem {
-  return filterHeaderItem(SESSION_FILTER_HEADER_ITEM_ID, onPress, tintColor);
+  return filterHeaderItem(
+    SESSION_FILTER_HEADER_ITEM_ID,
+    onPress,
+    tintColor,
+    filterCount,
+    badgeColors,
+  );
 }
 
 /**
@@ -78,6 +113,11 @@ export function sessionHeaderRightItems(
   onFilter: () => void,
   onSettings: () => void,
   tintColor: string,
+  filterCount: number,
+  badgeColors: FilterBadgeColors,
 ): NativeStackHeaderItem[] {
-  return [sessionFilterHeaderItem(onFilter, tintColor), settingsHeaderItem(onSettings, tintColor)];
+  return [
+    sessionFilterHeaderItem(onFilter, tintColor, filterCount, badgeColors),
+    settingsHeaderItem(onSettings, tintColor),
+  ];
 }

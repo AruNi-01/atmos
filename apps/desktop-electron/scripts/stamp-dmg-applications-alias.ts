@@ -3,6 +3,7 @@
  * resources/dmg/applications-folder.png as its icon.
  *
  * macOS 26 leaves a symlink well empty; an alias can carry a custom icon.
+ * The alias is a bookmark file, so packaging does not wait on Finder.
  *
  *   bun scripts/stamp-dmg-applications-alias.ts [path/to/Atmos.dmg]
  */
@@ -64,16 +65,33 @@ if (!ok) throw new Error("NSWorkspace.setIcon returned false");
 function replaceSymlinkWithAlias(volumePath: string): void {
   const linkPath = join(volumePath, "Applications");
   rmSync(linkPath, { force: true });
-  const escapedVolume = volumePath.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-  run("osascript", [
-    "-e",
-    `tell application "Finder"
-      set a to make alias file to POSIX file "/Applications" at POSIX file "${escapedVolume}"
-      set name of a to "Applications"
-    end tell`,
-  ]);
+  // Bookmark alias, not a Finder AppleEvent. Finder times out (-1712) while
+  // the DMG is attached with -nobrowse, and the package step then fails after
+  // electron-builder has already written the disk image.
+  const script = `
+ObjC.import("Foundation");
+const target = $.NSURL.fileURLWithPath("/Applications");
+const dest = $.NSURL.fileURLWithPath(${JSON.stringify(linkPath)});
+const error = Ref();
+const data = target.bookmarkDataWithOptionsIncludingResourceValuesForKeysRelativeToURLError(
+  1 << 10,
+  undefined,
+  undefined,
+  error,
+);
+if (!data || data.isNil()) {
+  const msg = error[0] && !error[0].isNil() ? String(error[0].localizedDescription) : "nil data";
+  throw new Error("bookmark " + msg);
+}
+const ok = $.NSURL.writeBookmarkDataToURLOptionsError(data, dest, 0, error);
+if (!ok) {
+  const msg = error[0] && !error[0].isNil() ? String(error[0].localizedDescription) : "false";
+  throw new Error("write bookmark " + msg);
+}
+`;
+  run("osascript", ["-l", "JavaScript", "-e", script]);
   if (!existsSync(linkPath)) {
-    throw new Error(`Finder alias was not created at ${linkPath}`);
+    throw new Error(`Applications alias was not created at ${linkPath}`);
   }
   if (!existsSync(APPLICATIONS_PNG)) {
     throw new Error(`missing ${APPLICATIONS_PNG}`);

@@ -10,6 +10,7 @@ import type { ProjectWorkspaceBootstrapResponse } from "@/api/types";
 import { wsActions } from "@/api/ws-actions";
 import { getAutoConnectComputerId } from "@/features/computers/computer-selection";
 import { workspaceHomePhase } from "@/features/workspaces/home-connection";
+import { workspaceHomeFilterCount } from "@/features/workspaces/workspace-home-list";
 import { WorkspaceHomeList } from "@/features/workspaces/WorkspaceHomeList";
 
 import { useRelayClient } from "@/hooks/use-relay-client";
@@ -18,14 +19,17 @@ import { useMobileWs } from "@/providers/MobileWsProvider";
 import { useComputerStore } from "@/stores/computer-store";
 import { useSessionStore } from "@/stores/session-store";
 import { useUiStore } from "@/stores/ui-store";
+import { useWorkspaceHomeStore } from "@/stores/workspace-home-store";
 import { spacing } from "@/theme/spacing";
 import { useMobileTheme } from "@/theme/theme-store";
-import { ListFilterIcon, SettingsIcon } from "@/ui/icons/lucide-native";
+import { SettingsIcon } from "@/ui/icons/lucide-native";
 import { AtmosLogo } from "@/ui/AtmosLogo";
 import { AppScreen, EmptyState, InlineError } from "@/ui/layout/app-screen";
+import { FilterHeaderButton, filterBadgeColors } from "@/ui/navigation/filter-header-button";
 import {
   navigationBarTint,
   settingsHeaderItem,
+  type FilterBadgeColors,
   workspaceFilterHeaderItem,
 } from "@/ui/navigation/home-header-items";
 import { nativeLargeTitleOptions } from "@/ui/navigation/native-screen-options";
@@ -36,11 +40,15 @@ import {
 import { expoUiButtonHostStyle, expoUiPrimaryStyle } from "@/ui/primitives/expo-ui-button-styles";
 
 function workspaceHeaderRightItems({
+  badgeColors,
+  filterCount,
   onFilter,
   onSettings,
   showFilter,
   tintColor,
 }: {
+  badgeColors: FilterBadgeColors;
+  filterCount: number;
   onFilter: () => void;
   onSettings: () => void;
   showFilter: boolean;
@@ -49,7 +57,7 @@ function workspaceHeaderRightItems({
   const settings = settingsHeaderItem(onSettings, tintColor);
   if (!showFilter) return [settings];
   // Filter then Settings so Filter sits to the left of Settings.
-  return [workspaceFilterHeaderItem(onFilter, tintColor), settings];
+  return [workspaceFilterHeaderItem(onFilter, tintColor, filterCount, badgeColors), settings];
 }
 
 const EMPTY_BOOTSTRAP: ProjectWorkspaceBootstrapResponse = {
@@ -183,6 +191,8 @@ export function WorkspaceListScreen() {
   });
   const isLoadingHome = phase === "loading";
 
+  const filterCount = useWorkspaceHomeStore((state) => workspaceHomeFilterCount(state.filters));
+  const badgeColors = filterBadgeColors(theme.colors);
   const header = (
     <Stack.Screen
       options={{
@@ -194,6 +204,8 @@ export function WorkspaceListScreen() {
           ? {
               unstable_headerRightItems: () =>
                 workspaceHeaderRightItems({
+                  badgeColors,
+                  filterCount,
                   onFilter: () => router.push("/workspace-filters"),
                   onSettings: () => router.push("/settings"),
                   showFilter: isHomeConnected,
@@ -213,14 +225,11 @@ export function WorkspaceListScreen() {
               ),
               headerRight: () =>
                 isHomeConnected ? (
-                  <Pressable
-                    accessibilityLabel="Filter"
-                    accessibilityRole="button"
-                    hitSlop={12}
+                  <FilterHeaderButton
+                    count={filterCount}
                     onPress={() => router.push("/workspace-filters")}
-                  >
-                    <ListFilterIcon color={theme.colors.label} size={22} strokeWidth={2.2} />
-                  </Pressable>
+                    tintColor={theme.colors.label}
+                  />
                 ) : null,
             }),
       }}

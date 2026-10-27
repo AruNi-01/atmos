@@ -2,26 +2,28 @@ import { Pressable, Text, View } from "react-native";
 import { Stack } from "expo-router";
 import { MobileAgentIcon } from "@/features/terminal/MobileAgentIcon";
 import { SESSION_AGENT_NONE, sessionAgentLabel } from "@/features/sessions/session-agent-filter";
-import { useSessionInbox } from "@/features/sessions/use-session-inbox";
+import { useSessionAgentCatalog } from "@/features/sessions/use-session-agent-catalog";
 import { useSessionInboxStore } from "@/stores/session-inbox-store";
 import { useMobileTheme } from "@/theme/theme-store";
 import { typography } from "@/theme/typography";
 import { BotIcon, CheckIcon } from "@/ui/icons/lucide-native";
-import { AppScreen, EmptyState, Section } from "@/ui/layout/app-screen";
+import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
 import { Separator } from "@/ui/layout/row";
 import { nativeCompactTitleOptions } from "@/ui/navigation/native-screen-options";
 import { ListSkeleton } from "@/ui/primitives/list-skeleton";
 
 export function SessionFilterScreen() {
-  const inbox = useSessionInbox();
+  const theme = useMobileTheme();
+  const catalog = useSessionAgentCatalog();
   const agentIds = useSessionInboxStore((state) => state.agentIds);
   const clearAgents = useSessionInboxStore((state) => state.clearAgents);
   const toggleAgent = useSessionInboxStore((state) => state.toggleAgent);
-  const choices = inbox.agents.map((agent) => ({
+  const choices = (catalog.data ?? []).map((agent) => ({
     id: agent.id,
     label: agent.label.trim() || sessionAgentLabel(agent.id),
   }));
   const allOn = agentIds.length === 0;
+  const catalogError = catalog.error instanceof Error ? catalog.error.message : null;
 
   return (
     <>
@@ -35,7 +37,7 @@ export function SessionFilterScreen() {
       />
       <AppScreen surface="sheet">
         <Section label="Agent">
-          {inbox.isLoading && choices.length === 0 ? (
+          {catalog.isLoading && choices.length === 0 ? (
             <ListSkeleton />
           ) : choices.length === 0 ? (
             <EmptyState layout="section" message="Nothing to filter yet." title="None" />
@@ -56,6 +58,7 @@ export function SessionFilterScreen() {
             </>
           )}
         </Section>
+        <InlineError message={catalogError} />
       </AppScreen>
     </>
   );

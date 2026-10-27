@@ -46,6 +46,8 @@ export type AgentSessionStatusListRequest = {
   context_id?: string | null;
   /** Enabled agent ids. Empty means every agent. Narrows the page and totals. */
   provider_ids?: string[] | null;
+  /** Filter sheet: enabled agents only, without scanning the session list. */
+  agents_only?: boolean | null;
 };
 
 export type SessionAgentOption = {

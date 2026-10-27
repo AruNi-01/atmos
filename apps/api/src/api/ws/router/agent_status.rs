@@ -6,6 +6,21 @@ impl WsMessageService {
         &self,
         req: AgentSessionStatusListRequest,
     ) -> Result<Value> {
+        if req.agents_only {
+            let agents = core_service::enabled_session_agents()?;
+            return Ok(json!({
+                "sessions": [],
+                "next_cursor": null,
+                "total": 0,
+                "counts": {
+                    "permission": 0,
+                    "attention": 0,
+                    "running": 0,
+                    "done": 0,
+                },
+                "agents": agents,
+            }));
+        }
         let chats = self.agent_chat_service.live_session_chats()?;
         let open_terminal_panes = self.terminal_service.list_open_stable_pane_ids().await?;
         let commands = core_service::terminal_agent_command_names();
