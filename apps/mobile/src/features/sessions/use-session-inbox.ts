@@ -294,7 +294,8 @@ export function useSessionInbox(options: SessionInboxOptions = {}) {
       workspaces: sources.active,
       projects: sources.projects,
       archivedWorkspaceIds: sources.archivedIds,
-      chatTitles: chatTitleQuery.data,
+      chatTitles: chatTitleQuery.data?.titles,
+      chatProviders: chatTitleQuery.data?.providers,
       chatTitlesPending: !chatTitleQuery.isSuccess,
     });
     const prByWorkspace = prStateByWorkspace(sources.active, prPlan.byWorkspaceId, prQuery.data);
@@ -476,7 +477,10 @@ async function loadSessionGitStatus(
 const CHAT_TITLE_PAGE = 100;
 const CHAT_TITLE_PAGES = 20;
 
-async function loadSessionChatTitles(client: MobileWsClient): Promise<Record<string, string>> {
+async function loadSessionChatTitles(
+  client: MobileWsClient,
+): Promise<{ providers: Record<string, string>; titles: Record<string, string> }> {
+  const providers: Record<string, string> = {};
   const titles: Record<string, string> = {};
   let cursor: string | null = null;
   for (let page = 0; page < CHAT_TITLE_PAGES; page += 1) {
@@ -488,13 +492,15 @@ async function loadSessionChatTitles(client: MobileWsClient): Promise<Record<str
     const batch = response.items ?? [];
     for (const item of batch) {
       titles[item.id] = item.deleted ? "" : (item.title?.trim() ?? "");
+      const provider = item.provider_id?.trim() ?? "";
+      if (provider && !item.deleted) providers[item.id] = provider;
     }
     if (batch.length < CHAT_TITLE_PAGE) break;
     const lastId = batch[batch.length - 1]?.id ?? null;
     if (!lastId || lastId === cursor) break;
     cursor = lastId;
   }
-  return titles;
+  return { providers, titles };
 }
 
 async function loadSessionBranchPrs(

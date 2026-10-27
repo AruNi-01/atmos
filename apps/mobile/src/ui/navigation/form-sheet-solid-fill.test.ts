@@ -16,6 +16,7 @@ const FORM_SHEET_SCREENS = [
   "quota-settings",
   "settings",
   "sign-in",
+  "session-filters",
   "workspace-filters",
   "workspaces",
   "create-workspace",
@@ -79,9 +80,13 @@ describe("iOS form-sheet solid fill contract", () => {
 
   test("nested sheet stacks and sign-in keep the same opaque fill", () => {
     const settings = readFileSync(join(mobile, "app/settings/_layout.tsx"), "utf8");
+    const sessionFilters = readFileSync(join(mobile, "app/session-filters/_layout.tsx"), "utf8");
     const filters = readFileSync(join(mobile, "app/workspace-filters/_layout.tsx"), "utf8");
     const signIn = readFileSync(join(mobile, "app/sign-in.tsx"), "utf8");
     expect(settings).toContain("contentStyle: { backgroundColor: theme.colors.sheetBackground }");
+    expect(sessionFilters).toContain(
+      "contentStyle: { backgroundColor: theme.colors.sheetBackground }",
+    );
     expect(filters).toContain("contentStyle: { backgroundColor: theme.colors.sheetBackground }");
     expect(signIn).toContain('theme.isDark ? theme.colors.cardElevated : "#0a0a0b"');
     expect(signIn).toContain("contentStyle:");

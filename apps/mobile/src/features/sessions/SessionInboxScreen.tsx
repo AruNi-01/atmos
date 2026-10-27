@@ -23,6 +23,12 @@ import { openSessionDestination } from "@/features/agent-chat/navigation";
 import { listFooterState, listWindow } from "@/features/lists/list-page";
 import { markListNavigation } from "@/features/lists/list-navigation";
 import { useListReveal } from "@/features/lists/use-list-window";
+import { useSessionInboxStore } from "@/stores/session-inbox-store";
+import {
+  SESSION_AGENT_FILTER_EMPTY,
+  filterSessionRowsByAgent,
+  visibleSessionInbox,
+} from "./session-agent-filter";
 import {
   filterSessionRows,
   isSessionBucket,
@@ -43,6 +49,16 @@ const DISCONNECTED_MESSAGE = "This phone is not connected to a Computer.";
 export function SessionHomeScreen() {
   const router = useRouter();
   const inbox = useSessionInbox();
+  const agentIds = useSessionInboxStore((state) => state.agentIds);
+  const visible = visibleSessionInbox({
+    agentIds,
+    cards: inbox.cards,
+    recent: inbox.recent,
+    rows: inbox.rows,
+  });
+  const pinnedVisible = inbox.pinnedIds.some((id) =>
+    visible.rows.some((item) => sessionPinId(item) === id),
+  );
   const { onRefresh, refreshing } = usePullRefresh(inbox.refresh);
 
   if (!inbox.connected) {
@@ -56,7 +72,7 @@ export function SessionHomeScreen() {
   return (
     <AppScreen onRefresh={onRefresh} refreshing={refreshing}>
       <SessionCardGrid
-        cards={inbox.cards}
+        cards={visible.cards}
         onPress={(bucket) => {
           markListNavigation("session-bucket", bucket);
           router.push({
@@ -65,16 +81,20 @@ export function SessionHomeScreen() {
           });
         }}
       />
-      {inbox.isLoading && inbox.recent.length === 0 && inbox.pinnedIds.length === 0 ? (
+      {inbox.isLoading && visible.recent.length === 0 && !pinnedVisible ? (
         <Section label="Recent">
           <ListSkeleton />
         </Section>
-      ) : inbox.recent.length === 0 && inbox.pinnedIds.length === 0 ? (
+      ) : visible.recent.length === 0 && !pinnedVisible ? (
         <Section>
           <EmptyState
             layout="section"
-            message="Sessions from your workspaces show up here."
-            title="No sessions"
+            message={
+              visible.filterActive
+                ? SESSION_AGENT_FILTER_EMPTY.message
+                : "Sessions from your workspaces show up here."
+            }
+            title={visible.filterActive ? SESSION_AGENT_FILTER_EMPTY.title : "No sessions"}
           />
         </Section>
       ) : (
@@ -83,8 +103,8 @@ export function SessionHomeScreen() {
           deleteChat={inbox.deleteChat}
           onPress={(row) => openSessionRow(router, row)}
           pinnedIds={inbox.pinnedIds}
-          recent={inbox.recent}
-          rows={inbox.rows}
+          recent={visible.recent}
+          rows={visible.rows}
           togglePin={inbox.togglePin}
         />
       )}
@@ -101,10 +121,14 @@ export function SessionBucketScreen({ bucket }: { bucket: string | undefined }) 
     active: reveal.ready && parsed != null,
     groupKey: parsed,
   });
+  const agentIds = useSessionInboxStore((state) => state.agentIds);
+  const filterActive = agentIds.length > 0;
   const { onRefresh, refreshing } = usePullRefresh(inbox.refresh);
   const rows = parsed
     ? orderPinnedRows(
-        sortSessionRowsByRecency(filterSessionRows(inbox.rows, parsed)),
+        sortSessionRowsByRecency(
+          filterSessionRowsByAgent(filterSessionRows(inbox.rows, parsed), agentIds),
+        ),
         inbox.pinnedIds,
         sessionPinId,
       )
@@ -139,7 +163,11 @@ export function SessionBucketScreen({ bucket }: { bucket: string | undefined }) 
           {!reveal.ready || (visibleRows.length === 0 && (inbox.isLoading || fillWhenShort)) ? (
             <ListSkeleton />
           ) : visibleRows.length === 0 ? (
-            <EmptyState layout="section" message="This list is empty." title="No sessions" />
+            <EmptyState
+              layout="section"
+              message={filterActive ? SESSION_AGENT_FILTER_EMPTY.message : "This list is empty."}
+              title={filterActive ? SESSION_AGENT_FILTER_EMPTY.title : "No sessions"}
+            />
           ) : (
             <SessionRowList
               onArchiveChat={(row) =>

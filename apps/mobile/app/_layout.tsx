@@ -138,6 +138,22 @@ export default function RootLayout() {
                 }}
               />
               <Stack.Screen
+                name="session-filters"
+                options={{
+                  contentStyle: sheetContentStyle,
+                  headerShown: false,
+                  presentation: sheetPresentation,
+                  sheetCornerRadius: -1,
+                  sheetGrabberVisible: isIos,
+                  ...(isIos
+                    ? {
+                        sheetAllowedDetents: [1],
+                        sheetInitialDetentIndex: 0,
+                      }
+                    : null),
+                }}
+              />
+              <Stack.Screen
                 name="workspace-filters"
                 options={{
                   contentStyle: sheetContentStyle,

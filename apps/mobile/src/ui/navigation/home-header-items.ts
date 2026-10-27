@@ -9,6 +9,7 @@ import { isOpaqueGlassTint } from "@/ui/navigation/home-header-glass";
  * Tab switches use separate navigation bars, so they do not get this match.
  */
 const SETTINGS_HEADER_ITEM_ID = "settings";
+const SESSION_FILTER_HEADER_ITEM_ID = "session-filter";
 const WORKSPACE_FILTER_HEADER_ITEM_ID = "workspace-filter";
 
 /**
@@ -37,14 +38,15 @@ export function settingsHeaderItem(onPress: () => void, tintColor: string): Nati
   };
 }
 
-export function workspaceFilterHeaderItem(
+function filterHeaderItem(
+  identifier: string,
   onPress: () => void,
   tintColor: string,
 ): NativeStackHeaderItem {
   return {
     accessibilityLabel: "Filter",
     icon: { type: "sfSymbol", name: "line.3.horizontal.decrease" satisfies SFSymbol },
-    identifier: WORKSPACE_FILTER_HEADER_ITEM_ID,
+    identifier,
     label: "",
     onPress,
     sharesBackground: true,
@@ -52,4 +54,30 @@ export function workspaceFilterHeaderItem(
     type: "button",
     variant: "plain",
   };
+}
+
+export function workspaceFilterHeaderItem(
+  onPress: () => void,
+  tintColor: string,
+): NativeStackHeaderItem {
+  return filterHeaderItem(WORKSPACE_FILTER_HEADER_ITEM_ID, onPress, tintColor);
+}
+
+export function sessionFilterHeaderItem(
+  onPress: () => void,
+  tintColor: string,
+): NativeStackHeaderItem {
+  return filterHeaderItem(SESSION_FILTER_HEADER_ITEM_ID, onPress, tintColor);
+}
+
+/**
+ * Session home/bucket right-bar items. Filter sits left of Settings.
+ * First item is the trailing (right) edge on iOS, so Settings stays there.
+ */
+export function sessionHeaderRightItems(
+  onFilter: () => void,
+  onSettings: () => void,
+  tintColor: string,
+): NativeStackHeaderItem[] {
+  return [settingsHeaderItem(onSettings, tintColor), sessionFilterHeaderItem(onFilter, tintColor)];
 }
