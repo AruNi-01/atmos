@@ -11,7 +11,7 @@ description: >
 
 # Atmos Agent Bridge
 
-Directory + bus for **agent↔agent** messages on the **connected Computer**.
+Session directory + bus for **agent↔agent** messages on the **connected Computer**.
 **No MCP.** Not a Settings page. Not Relay.
 
 Details: [`references/cli.md`](references/cli.md).
@@ -31,23 +31,23 @@ Details: [`references/cli.md`](references/cli.md).
 
 ## Decision tree
 
-1. `atmos agent-bridge list` — pick `provider_id` and `chat_id`.
-2. `provider_id` is Chat/registry/custom id (`claude`, `codex-acp`, …), **never** `claude_code`.
+1. `atmos agent-bridge list` — Chat **sessions** only (title, `chat_id`, `provider_id`, occupancy). Not Native/Registry/Custom/Terminal install rows.
+2. `provider_id` is Chat/registry/custom id (`claude`, `codex-acp`, …), **never** `claude_code`. Filter with `--provider` / `--agent`. Default page size is **20** (max 100); use `--cursor` from `next_cursor` for the next page.
 3. Several live chats for one provider → pass `--to-chat`. Do not guess.
 4. Send a short body. Default busy policy is **queue**. Override `--busy wait|fail_fast` only when asked.
 5. Need a structured slice (goals / paths / PR refs / artifacts / danger)? Pass `--bag '{...}'`. Never put secrets, transcripts, or chain-of-thought in a bag.
 6. Remote `context_ref` → connect to **that** Computer and `atmos agent-bridge status --context-ref <ref>`. The peer **does not push**.
 
-| Intent              | Command                                                                        |
-| ------------------- | ------------------------------------------------------------------------------ |
-| Directory           | `atmos agent-bridge list`                                                      |
-| Send                | `atmos agent-bridge send --to-provider <id> --body ...`                        |
-| Request             | `atmos agent-bridge request --to-provider <id> --body ...`                     |
-| Reply               | `atmos agent-bridge reply --to-provider <id> --correlation-id <id> --body ...` |
-| Presence / bag pull | `atmos agent-bridge status` / `--context-ref` / `--message-id`                 |
-| Skill path          | `atmos agent-bridge skill-dir`                                                 |
-| Another Computer    | point CLI at it, then the same verbs                                           |
-| MCP                 | **do not** — Atmos has no MCP for Bridge                                       |
+| Intent              | Command                                                                                 |
+| ------------------- | --------------------------------------------------------------------------------------- |
+| Session directory   | `atmos agent-bridge list [--provider <id>] [--workspace <id>] [--limit N] [--cursor …]` |
+| Send                | `atmos agent-bridge send --to-provider <id> --body ...`                                 |
+| Request             | `atmos agent-bridge request --to-provider <id> --body ...`                              |
+| Reply               | `atmos agent-bridge reply --to-provider <id> --correlation-id <id> --body ...`          |
+| Presence / bag pull | `atmos agent-bridge status` / `--context-ref` / `--message-id`                          |
+| Skill path          | `atmos agent-bridge skill-dir`                                                          |
+| Another Computer    | point CLI at it, then the same verbs                                                    |
+| MCP                 | **do not** — Atmos has no MCP for Bridge                                                |
 
 ## Critical rules
 

@@ -16,9 +16,14 @@ export type AgentBridgeCatalogEntry = {
   provider_id: string;
   display_name: string;
   server_id: string;
+  /** Chat title from the index. Omitted when untitled. */
+  title?: string | null;
   chat_id?: string | null;
   workspace_id?: string | null;
+  project_id?: string | null;
   occupancy: AgentBridgeOccupancy;
+  updated_at?: string | null;
+  last_activity_at?: string | null;
   enabled?: boolean | null;
 };
 
@@ -37,11 +42,20 @@ export type AgentBridgeContextBag = AgentBridgeContextBagSlices & {
 
 export type AgentBridgeListRequest = {
   workspace_id?: string | null;
+  provider_id?: string | null;
+  /** Alias of `provider_id`. */
+  agent?: string | null;
+  /** Page size. Missing or 0 means 20. Values above 100 are clamped. */
+  limit?: number | null;
+  /** Previous page's last `last_activity_at`/`updated_at` and `chat_id`, separated by a newline. */
+  cursor?: string | null;
 };
 
 export type AgentBridgeListResponse = {
   server_id: string;
   entries: AgentBridgeCatalogEntry[];
+  next_cursor?: string | null;
+  has_more: boolean;
 };
 
 export type AgentBridgeSendRequest = {

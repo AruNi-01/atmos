@@ -4,7 +4,7 @@
 
 ## Owns
 
-Envelope, address `{ server_id, provider_id, chat_id?, workspace_id? }`, busy policy, in-memory mailbox (no internal mutex), context bags, delivery plan, catalog DTOs.
+Envelope, address `{ server_id, provider_id, chat_id?, workspace_id? }`, busy policy, in-memory mailbox (no internal mutex), context bags, delivery plan, catalog DTOs. `list` is a paginated Chat session directory (not provider install rows).
 
 ## Does not own
 

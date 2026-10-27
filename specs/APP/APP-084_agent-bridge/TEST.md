@@ -23,26 +23,26 @@ Protocol lives in a pure crate — unit tests there are the source of truth for 
 
 ## Execution map
 
-| Scenario | Level               | Expected tool                                 | Target command / method       | Fixture / data               | Signals                                                                                              | Status |
-| -------- | ------------------- | --------------------------------------------- | ----------------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------- | ------ |
-| S1       | Rust unit           | `cargo test -p agent-bridge`                  | catalog merge / address match | synthetic entries            | `provider_id` not `claude_code`; client `local` wildcard; identity `local` is not a foreign wildcard | passed |
-| S2       | Service             | `cargo test -p core-service`                  | `AgentBridgeService::list`    | MockHost chat catalog        | connected-Computer chat entries; list does not drain                                                 | passed |
-| S3       | Service             | `cargo test -p core-service`                  | send idle inject              | MockHost one idle chat       | ack `delivered`; inject called                                                                       | passed |
-| S4       | Service             | `cargo test -p core-service`                  | send no live chat             | catalog provider, zero chats | ack `offline`; mailbox depth 1                                                                       | passed |
-| S5       | Service             | `cargo test -p core-service`                  | send two chats same provider  | two index rows               | `AMBIGUOUS_TARGET`                                                                                   | passed |
-| S6       | Rust unit           | `cargo test -p agent-bridge`                  | `plan_delivery` queue default | busy occupancy               | `Queue`                                                                                              | passed |
-| S7       | Rust unit + service | `cargo test -p agent-bridge` / `core-service` | fail_fast busy                | BusyPolicy::FailFast         | crate `FailFast`; service ack `rejected` + `BUSY`                                                    | passed |
-| S8       | Service             | `cargo test -p core-service`                  | wait ttl 0 busy               | busy host + ttl_ms 0         | ack `timeout`                                                                                        | passed |
-| S9       | Service             | `cargo test -p core-service`                  | status drains, list does not  | queued then idle             | status injects; list leaves queue                                                                    | passed |
-| S10      | Rust unit           | `cargo test -p agent-bridge`                  | ContextStore get              | local bag                    | Some(bag)                                                                                            | passed |
-| S11      | Rust unit + service | `cargo test -p agent-bridge` / `core-service` | two BridgeState; remote ref   | bag on A, lookup on B        | None locally; `CONTEXT_REF_REMOTE`                                                                   | passed |
-| S12      | Rust unit + service | `cargo test -p agent-bridge` / `core-service` | explicit target list          | two tos                      | two plans / two delivered acks; no implicit mesh                                                     | passed |
-| S13      | Rust unit           | `cargo test -p atmos`                         | clap parse                    | argv                         | subcommands kebab; no crate dep                                                                      | passed |
-| S14      | Rust unit           | `cargo test -p atmos`                         | skill-dir local               | home mock if any             | path under `.system/atmos-agent-bridge`                                                              | passed |
-| S15      | Rust unit           | `cargo test -p infra`                         | skill names                   | constants                    | name in `ALL_SYSTEM_SKILL_NAMES` + `repo_skill_root`                                                 | passed |
-| S16      | Bun                 | `bun test` slash files                        | structural                    | source + i18n                | id `agent-bridge`; skill insert; en+zh                                                               | passed |
-| S17      | Service             | `cargo test -p core-service`                  | foreign server_id             | to.server_id other           | `CROSS_MACHINE_CONNECT`; mailbox empty                                                               | passed |
-| S18      | Rust unit           | `cargo test -p agent-bridge`                  | isolated states               | two BridgeState              | A's mail not in B                                                                                    | passed |
+| Scenario | Level               | Expected tool                                 | Target command / method       | Fixture / data               | Signals                                                                                                                                  | Status |
+| -------- | ------------------- | --------------------------------------------- | ----------------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| S1       | Rust unit           | `cargo test -p agent-bridge`                  | catalog merge / address match | synthetic entries            | `provider_id` not `claude_code`; client `local` wildcard; identity `local` is not a foreign wildcard                                     | passed |
+| S2       | Service             | `cargo test -p core-service`                  | `AgentBridgeService::list`    | MockHost chat catalog        | chat rows only (no install kinds); real title; provider/workspace filter; limit/cursor page; occupancy on page only; list does not drain | passed |
+| S3       | Service             | `cargo test -p core-service`                  | send idle inject              | MockHost one idle chat       | ack `delivered`; inject called                                                                                                           | passed |
+| S4       | Service             | `cargo test -p core-service`                  | send no live chat             | catalog provider, zero chats | ack `offline`; mailbox depth 1                                                                                                           | passed |
+| S5       | Service             | `cargo test -p core-service`                  | send two chats same provider  | two index rows               | `AMBIGUOUS_TARGET`                                                                                                                       | passed |
+| S6       | Rust unit           | `cargo test -p agent-bridge`                  | `plan_delivery` queue default | busy occupancy               | `Queue`                                                                                                                                  | passed |
+| S7       | Rust unit + service | `cargo test -p agent-bridge` / `core-service` | fail_fast busy                | BusyPolicy::FailFast         | crate `FailFast`; service ack `rejected` + `BUSY`                                                                                        | passed |
+| S8       | Service             | `cargo test -p core-service`                  | wait ttl 0 busy               | busy host + ttl_ms 0         | ack `timeout`                                                                                                                            | passed |
+| S9       | Service             | `cargo test -p core-service`                  | status drains, list does not  | queued then idle             | status injects; list leaves queue                                                                                                        | passed |
+| S10      | Rust unit           | `cargo test -p agent-bridge`                  | ContextStore get              | local bag                    | Some(bag)                                                                                                                                | passed |
+| S11      | Rust unit + service | `cargo test -p agent-bridge` / `core-service` | two BridgeState; remote ref   | bag on A, lookup on B        | None locally; `CONTEXT_REF_REMOTE`                                                                                                       | passed |
+| S12      | Rust unit + service | `cargo test -p agent-bridge` / `core-service` | explicit target list          | two tos                      | two plans / two delivered acks; no implicit mesh                                                                                         | passed |
+| S13      | Rust unit           | `cargo test -p atmos`                         | clap parse                    | argv                         | subcommands kebab; no crate dep                                                                                                          | passed |
+| S14      | Rust unit           | `cargo test -p atmos`                         | skill-dir local               | home mock if any             | path under `.system/atmos-agent-bridge`                                                                                                  | passed |
+| S15      | Rust unit           | `cargo test -p infra`                         | skill names                   | constants                    | name in `ALL_SYSTEM_SKILL_NAMES` + `repo_skill_root`                                                                                     | passed |
+| S16      | Bun                 | `bun test` slash files                        | structural                    | source + i18n                | id `agent-bridge`; skill insert; en+zh                                                                                                   | passed |
+| S17      | Service             | `cargo test -p core-service`                  | foreign server_id             | to.server_id other           | `CROSS_MACHINE_CONNECT`; mailbox empty                                                                                                   | passed |
+| S18      | Rust unit           | `cargo test -p agent-bridge`                  | isolated states               | two BridgeState              | A's mail not in B                                                                                                                        | passed |
 
 ## Scenarios
 
@@ -54,13 +54,13 @@ Protocol lives in a pure crate — unit tests there are the source of truth for 
 - **Then**: client-filled `"local"` / empty matches this Computer's id; Server identity `"local"` does **not** match an explicit foreign `to.server_id`; catalog `provider_id` uses Chat ids, not `claude_code`.
 - **Signals**: assertions on match and field names.
 
-### S2 — List is presence on this Computer
+### S2 — List is a paginated Chat session directory
 
 - **Level**: Service
-- **Given**: native/custom/registry stubs and optionally zero live chats.
-- **When**: `list`.
-- **Then**: output `server_id` is local; entries are this Computer only; no drain.
-- **Signals**: JSON/shape of `CatalogEntry`.
+- **Given**: live Chat index rows (and AgentService installs that would previously appear as Native/Registry/Custom/Terminal).
+- **When**: `list` with no filter; with `provider_id`/`agent`; with `workspace_id`; with `limit` + `cursor`.
+- **Then**: entries are `kind=chat` only, each with `chat_id`, real `title`/`display_name` (never `chat {id}`), occupancy, and activity timestamps; `--provider` and `--workspace` filter; page 2 via `next_cursor` works; occupancy is computed only for the page; no drain.
+- **Signals**: `list_returns_connected_computer_chats`, `list_omits_provider_install_directory_rows`, `list_filters_by_provider_and_workspace`, `list_pages_and_occupancy_only_the_page`; clap `list --provider/--limit/--cursor`.
 
 ### S3 — Idle send delivers
 
@@ -192,7 +192,7 @@ Protocol lives in a pure crate — unit tests there are the source of truth for 
 
 ## Performance & load budgets
 
-- `list` is in-process catalog merge; no extra network. No hot-path budget beyond existing Chat list.
+- `list` is in-process chat-index + paged occupancy; default page 20, max 100. No extra network.
 - `wait` polls at 200ms and is bounded by `ttl_ms` (default 30s).
 
 ## Regression checklist

@@ -21,7 +21,10 @@ pub use address::{
     is_foreign_server, is_local_wildcard, server_ids_match, AgentAddress, LOCAL_SERVER_ID,
 };
 pub use busy::{plan_delivery, BusyPolicy, DeliveryPlan, Occupancy};
-pub use catalog::{terminal_provider_id, CatalogEntry, CatalogKind, ListResponse};
+pub use catalog::{
+    list_cursor, normalize_list_limit, page_live_sessions, split_list_cursor, terminal_provider_id,
+    CatalogEntry, CatalogKind, ListResponse, LIST_DEFAULT_LIMIT, LIST_MAX_LIMIT,
+};
 pub use context::{
     parse_context_ref, ContextBag, ContextBagSlices, ContextStore, ParsedContextRef,
 };

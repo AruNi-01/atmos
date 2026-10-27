@@ -49,7 +49,37 @@ pub struct LiveSession {
     pub provider_id: String,
     pub chat_id: String,
     pub workspace_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_activity_at: Option<String>,
     pub occupancy_busy: bool,
+}
+
+impl LiveSession {
+    pub fn new(provider_id: impl Into<String>, chat_id: impl Into<String>) -> Self {
+        Self {
+            provider_id: provider_id.into(),
+            chat_id: chat_id.into(),
+            workspace_id: None,
+            project_id: None,
+            title: None,
+            updated_at: None,
+            last_activity_at: None,
+            occupancy_busy: false,
+        }
+    }
+
+    pub fn activity_at(&self) -> &str {
+        self.last_activity_at
+            .as_deref()
+            .or(self.updated_at.as_deref())
+            .unwrap_or("")
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -109,12 +139,7 @@ mod tests {
     use crate::address::AgentAddress;
 
     fn sess(provider: &str, chat: &str) -> LiveSession {
-        LiveSession {
-            provider_id: provider.into(),
-            chat_id: chat.into(),
-            workspace_id: None,
-            occupancy_busy: false,
-        }
+        LiveSession::new(provider, chat)
     }
 
     #[test]

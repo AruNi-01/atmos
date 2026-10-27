@@ -5,11 +5,11 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use agent_bridge::{
-    format_inject, is_foreign_server, plan_delivery, resolve_live_targets, terminal_provider_id,
-    AgentAddress, BridgeError, BridgeMessage, BridgeState, BusyPolicy, CatalogEntry, CatalogKind,
-    ContextBag, ContextBagSlices, DeliveryAck, DeliveryPlan, DeliveryStatus, ListRequest,
-    ListResponse, LiveSession, MessageKind, Occupancy, ReplyRequest, SendRequest, StatusRequest,
-    TargetResolution, DEFAULT_TTL_MS, LOCAL_SERVER_ID,
+    format_inject, is_foreign_server, normalize_list_limit, page_live_sessions, plan_delivery,
+    resolve_live_targets, terminal_provider_id, AgentAddress, BridgeError, BridgeMessage,
+    BridgeState, BusyPolicy, CatalogEntry, ContextBag, ContextBagSlices, DeliveryAck, DeliveryPlan,
+    DeliveryStatus, ListRequest, ListResponse, LiveSession, MessageKind, Occupancy, ReplyRequest,
+    SendRequest, StatusRequest, TargetResolution, DEFAULT_TTL_MS, LOCAL_SERVER_ID,
 };
 use async_trait::async_trait;
 use parking_lot::Mutex;
@@ -76,11 +76,19 @@ impl BridgeChatHost for AgentChatBridgeHost {
         Ok(rows
             .into_iter()
             .filter(|row| !row.deleted)
-            .map(|row| LiveSession {
-                provider_id: row.provider_id,
-                chat_id: row.id,
-                workspace_id: row.workspace_id,
-                occupancy_busy: false,
+            .map(|row| {
+                let updated_at = row.updated_at.to_rfc3339();
+                let last_activity_at = row.last_message_at.unwrap_or(row.updated_at).to_rfc3339();
+                LiveSession {
+                    provider_id: row.provider_id,
+                    chat_id: row.id,
+                    workspace_id: row.workspace_id,
+                    project_id: row.project_id,
+                    title: row.title,
+                    updated_at: Some(updated_at),
+                    last_activity_at: Some(last_activity_at),
+                    occupancy_busy: false,
+                }
             })
             .collect())
     }
@@ -142,10 +150,30 @@ impl AgentBridgeService {
     }
 
     pub async fn list(&self, req: ListRequest) -> Result<ListResponse> {
-        let entries = self.gather_catalog(req.workspace_id.as_deref()).await?;
+        let mut sessions = self.host.list_chats()?;
+        if let Some(workspace_id) = nonempty_opt(req.workspace_id.as_deref()) {
+            sessions.retain(|row| row.workspace_id.as_deref() == Some(workspace_id));
+        }
+        if let Some(provider_id) = req.provider_filter() {
+            sessions.retain(|row| row.provider_id == provider_id);
+        }
+        let limit = normalize_list_limit(req.limit);
+        let (page, next_cursor, has_more) =
+            page_live_sessions(sessions, req.cursor.as_deref(), limit);
+        let mut entries = Vec::with_capacity(page.len());
+        for session in &page {
+            let occupancy = self.host.occupancy(&session.chat_id).await;
+            entries.push(CatalogEntry::from_live_session(
+                session,
+                &self.server_id,
+                occupancy,
+            ));
+        }
         Ok(ListResponse {
             server_id: self.server_id.clone(),
             entries,
+            next_cursor,
+            has_more,
         })
     }
 
@@ -434,72 +462,10 @@ impl AgentBridgeService {
     }
 
     async fn gather_catalog(&self, workspace_id: Option<&str>) -> Result<Vec<CatalogEntry>> {
-        let mut entries = Vec::new();
-        let sid = self.server_id.clone();
-        if self.known_providers.is_some() {
-            return self.chat_catalog_entries(workspace_id).await;
-        }
-        if let Ok(native) = self.agent.list_native_chat_agents() {
-            for row in native {
-                entries.push(CatalogEntry {
-                    kind: CatalogKind::Native,
-                    provider_id: row.id.clone(),
-                    display_name: row.name,
-                    server_id: sid.clone(),
-                    chat_id: None,
-                    workspace_id: None,
-                    occupancy: Occupancy::Unknown,
-                    enabled: Some(row.enabled),
-                });
-            }
-        }
-        if let Ok(custom) = self.agent.list_custom_agents() {
-            for row in custom {
-                entries.push(CatalogEntry {
-                    kind: CatalogKind::Custom,
-                    provider_id: row.name.clone(),
-                    display_name: row.display_name.unwrap_or_else(|| row.name.clone()),
-                    server_id: sid.clone(),
-                    chat_id: None,
-                    workspace_id: None,
-                    occupancy: Occupancy::Unknown,
-                    enabled: Some(row.enabled),
-                });
-            }
-        }
-        if let Ok(registry) = self.agent.list_registry_agents(false).await {
-            for row in registry {
-                entries.push(CatalogEntry {
-                    kind: CatalogKind::Registry,
-                    provider_id: row.id.clone(),
-                    display_name: row.name,
-                    server_id: sid.clone(),
-                    chat_id: None,
-                    workspace_id: None,
-                    occupancy: Occupancy::Unknown,
-                    enabled: Some(row.enabled),
-                });
-            }
-        }
-        for row in self.agent.list_agents() {
-            let provider_id = terminal_provider_id(&row.registry_id).to_string();
-            entries.push(CatalogEntry {
-                kind: CatalogKind::Terminal,
-                provider_id,
-                display_name: row.name,
-                server_id: sid.clone(),
-                chat_id: None,
-                workspace_id: None,
-                occupancy: Occupancy::Unknown,
-                enabled: Some(row.installed),
-            });
-        }
-        entries.extend(self.chat_catalog_entries(workspace_id).await?);
-        Ok(entries)
+        self.chat_catalog_entries(workspace_id).await
     }
 
     async fn chat_catalog_entries(&self, workspace_id: Option<&str>) -> Result<Vec<CatalogEntry>> {
-        let sid = self.server_id.clone();
         let mut entries = Vec::new();
         let chats = self.host.list_chats()?;
         for chat in chats {
@@ -509,16 +475,11 @@ impl AgentBridgeService {
                 }
             }
             let occupancy = self.host.occupancy(&chat.chat_id).await;
-            entries.push(CatalogEntry {
-                kind: CatalogKind::Chat,
-                provider_id: chat.provider_id,
-                display_name: format!("chat {}", chat.chat_id),
-                server_id: sid.clone(),
-                chat_id: Some(chat.chat_id),
-                workspace_id: chat.workspace_id,
+            entries.push(CatalogEntry::from_live_session(
+                &chat,
+                &self.server_id,
                 occupancy,
-                enabled: None,
-            });
+            ));
         }
         Ok(entries)
     }
@@ -527,8 +488,41 @@ impl AgentBridgeService {
         if let Some(set) = &self.known_providers {
             return Ok(set.contains(provider_id));
         }
-        let entries = self.gather_catalog(None).await?;
-        Ok(entries.iter().any(|e| e.provider_id == provider_id))
+        if self
+            .host
+            .list_chats()?
+            .iter()
+            .any(|chat| chat.provider_id == provider_id)
+        {
+            return Ok(true);
+        }
+        Ok(self.install_provider_ids().await?.contains(provider_id))
+    }
+
+    async fn install_provider_ids(&self) -> Result<HashSet<String>> {
+        let mut ids = HashSet::new();
+        if let Ok(native) = self.agent.list_native_chat_agents() {
+            ids.extend(native.into_iter().map(|row| row.id));
+        }
+        if let Ok(custom) = self.agent.list_custom_agents() {
+            ids.extend(custom.into_iter().map(|row| row.name));
+        }
+        if let Ok(registry) = self.agent.list_registry_agents(false).await {
+            ids.extend(registry.into_iter().map(|row| row.id));
+        }
+        for row in self.agent.list_agents() {
+            ids.insert(terminal_provider_id(&row.registry_id).to_string());
+        }
+        Ok(ids)
+    }
+}
+
+fn nonempty_opt(value: Option<&str>) -> Option<&str> {
+    let trimmed = value?.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed)
     }
 }
 
@@ -558,6 +552,7 @@ mod tests {
     struct MockHost {
         chats: Mutex<Vec<LiveSession>>,
         occupancy: Mutex<std::collections::HashMap<String, Occupancy>>,
+        occupancy_calls: Mutex<usize>,
         inject_failures: Mutex<usize>,
         injected: Mutex<Vec<(String, String)>>,
     }
@@ -567,6 +562,7 @@ mod tests {
             Arc::new(Self {
                 chats: Mutex::new(chats),
                 occupancy: Mutex::new(std::collections::HashMap::new()),
+                occupancy_calls: Mutex::new(0),
                 inject_failures: Mutex::new(0),
                 injected: Mutex::new(Vec::new()),
             })
@@ -588,6 +584,7 @@ mod tests {
         }
 
         async fn occupancy(&self, chat_id: &str) -> Occupancy {
+            *self.occupancy_calls.lock() += 1;
             self.occupancy
                 .lock()
                 .get(chat_id)
@@ -634,12 +631,15 @@ mod tests {
     }
 
     fn live(provider: &str, chat: &str) -> LiveSession {
-        LiveSession {
-            provider_id: provider.into(),
-            chat_id: chat.into(),
-            workspace_id: None,
-            occupancy_busy: false,
-        }
+        LiveSession::new(provider, chat)
+    }
+
+    fn live_at(provider: &str, chat: &str, at: &str) -> LiveSession {
+        let mut session = LiveSession::new(provider, chat);
+        session.title = Some(format!("{provider} {chat}"));
+        session.updated_at = Some(at.into());
+        session.last_activity_at = Some(at.into());
+        session
     }
 
     fn send_to(provider: &str, chat: Option<&str>, body: &str) -> SendRequest {
@@ -773,8 +773,94 @@ mod tests {
         assert_eq!(listed.entries.len(), 1);
         assert_eq!(listed.entries[0].kind, CatalogKind::Chat);
         assert_eq!(listed.entries[0].provider_id, "claude");
+        assert_eq!(listed.entries[0].chat_id.as_deref(), Some("c1"));
+        assert_eq!(listed.entries[0].display_name, "claude");
+        assert!(!listed.entries[0].display_name.starts_with("chat "));
         assert_eq!(listed.entries[0].occupancy, Occupancy::Idle);
+        assert!(!listed.has_more);
+        assert!(listed.next_cursor.is_none());
         assert!(svc.state.lock().mailbox.is_empty());
+    }
+
+    #[tokio::test]
+    async fn list_omits_provider_install_directory_rows() {
+        let host = MockHost::new(vec![live("claude", "c1")]);
+        let svc = AgentBridgeService {
+            agent: Arc::new(AgentService::new()),
+            host,
+            state: Mutex::new(BridgeState::new()),
+            server_id: "srv-local".into(),
+            known_providers: None,
+        };
+        let listed = svc.list(ListRequest::default()).await.unwrap();
+        assert!(listed
+            .entries
+            .iter()
+            .all(|entry| entry.kind == CatalogKind::Chat && entry.chat_id.is_some()));
+        assert_eq!(listed.entries.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn list_filters_by_provider_and_workspace() {
+        let mut a = live_at("claude", "c1", "2026-10-27T12:00:00Z");
+        a.workspace_id = Some("ws-a".into());
+        let mut b = live_at("codex", "c2", "2026-10-27T11:00:00Z");
+        b.workspace_id = Some("ws-b".into());
+        let host = MockHost::new(vec![a, b]);
+        let svc = service(host, &["claude", "codex"]);
+        let by_agent = svc
+            .list(ListRequest {
+                agent: Some("codex".into()),
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+        assert_eq!(by_agent.entries.len(), 1);
+        assert_eq!(by_agent.entries[0].provider_id, "codex");
+        assert_eq!(by_agent.entries[0].title.as_deref(), Some("codex c2"));
+        let by_ws = svc
+            .list(ListRequest {
+                workspace_id: Some("ws-a".into()),
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+        assert_eq!(by_ws.entries.len(), 1);
+        assert_eq!(by_ws.entries[0].chat_id.as_deref(), Some("c1"));
+    }
+
+    #[tokio::test]
+    async fn list_pages_and_occupancy_only_the_page() {
+        let host = MockHost::new(vec![
+            live_at("claude", "c1", "2026-10-27T12:00:00Z"),
+            live_at("claude", "c2", "2026-10-27T11:00:00Z"),
+            live_at("codex", "c3", "2026-10-27T10:00:00Z"),
+        ]);
+        let svc = service(host.clone(), &["claude", "codex"]);
+        let page1 = svc
+            .list(ListRequest {
+                limit: Some(2),
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+        assert!(page1.has_more);
+        assert_eq!(page1.entries.len(), 2);
+        assert_eq!(page1.entries[0].chat_id.as_deref(), Some("c1"));
+        assert_eq!(page1.entries[1].chat_id.as_deref(), Some("c2"));
+        assert_eq!(*host.occupancy_calls.lock(), 2);
+        let page2 = svc
+            .list(ListRequest {
+                limit: Some(2),
+                cursor: page1.next_cursor.clone(),
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+        assert!(!page2.has_more);
+        assert_eq!(page2.entries.len(), 1);
+        assert_eq!(page2.entries[0].chat_id.as_deref(), Some("c3"));
+        assert_eq!(*host.occupancy_calls.lock(), 3);
     }
 
     #[tokio::test]

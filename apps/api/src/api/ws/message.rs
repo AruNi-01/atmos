@@ -921,7 +921,7 @@ pub enum WsAction {
     AgentSessionArchive,
 
     // ===== Agent Bridge (APP-084) =====
-    /// Directory / presence on the connected Computer
+    /// Paginated Chat session directory on the connected Computer
     AgentBridgeList,
     /// Send a Bridge envelope (optional explicit target list)
     AgentBridgeSend,

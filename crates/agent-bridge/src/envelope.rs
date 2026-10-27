@@ -114,6 +114,31 @@ pub struct ReplyRequest {
 pub struct ListRequest {
     #[serde(default)]
     pub workspace_id: Option<String>,
+    #[serde(default)]
+    pub provider_id: Option<String>,
+    /// Alias of `provider_id` for agents that pass `agent`.
+    #[serde(default)]
+    pub agent: Option<String>,
+    #[serde(default)]
+    pub limit: Option<u32>,
+    #[serde(default)]
+    pub cursor: Option<String>,
+}
+
+impl ListRequest {
+    pub fn provider_filter(&self) -> Option<&str> {
+        nonempty_filter(self.provider_id.as_deref())
+            .or_else(|| nonempty_filter(self.agent.as_deref()))
+    }
+}
+
+fn nonempty_filter(value: Option<&str>) -> Option<&str> {
+    let trimmed = value?.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed)
+    }
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -158,5 +183,17 @@ mod tests {
         );
         assert_eq!(msg.busy, BusyPolicy::default());
         assert_eq!(msg.ttl_ms, DEFAULT_TTL_MS);
+    }
+
+    #[test]
+    fn list_request_agent_alias_filters_provider() {
+        let via_agent: ListRequest =
+            serde_json::from_str(r#"{"agent":"codex","limit":2}"#).unwrap();
+        assert_eq!(via_agent.provider_filter(), Some("codex"));
+        assert_eq!(via_agent.limit, Some(2));
+        let via_id: ListRequest =
+            serde_json::from_str(r#"{"provider_id":"claude","workspace_id":"ws-1"}"#).unwrap();
+        assert_eq!(via_id.provider_filter(), Some("claude"));
+        assert_eq!(via_id.workspace_id.as_deref(), Some("ws-1"));
     }
 }

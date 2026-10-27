@@ -27,7 +27,7 @@ Naming lock: **Relay** = remote tunnel passthrough. **Bridge** = agent↔agent d
 
 ## User Stories
 
-- As an agent, I want a directory of addressable peers on this Computer, so I can pick a `provider_id` / `chat_id` instead of guessing.
+- As an agent, I want a paginated directory of Chat sessions on this Computer, so I can pick a `chat_id` / `provider_id` instead of guessing or dumping every installed provider.
 - As an agent, I want to send or request with a busy policy, so a busy peer does not drop work by default.
 - As an agent, I want to reply and ack with a correlation id, so a request is not a fire-and-forget paste.
 - As an agent, I want `/agent-bridge` to insert the system skill, so I do not need MCP or a Settings page.
@@ -37,7 +37,7 @@ Naming lock: **Relay** = remote tunnel passthrough. **Bridge** = agent↔agent d
 
 ### Must Have
 
-- **M1 Directory**: `atmos agent-bridge list` returns providers and live Chat sessions on the **connected** Computer, with occupancy (`idle` / `running` / `permission_request`) when known. `provider_id` is Chat/registry/custom id (`claude`, `codex-acp`, …), never the terminal install enum (`claude_code`).
+- **M1 Directory**: `atmos agent-bridge list` returns **Chat sessions** on the **connected** Computer (not Native/Registry/Custom/Terminal install rows), with occupancy (`idle` / `running` / `permission_request`) when known, real titles (never `chat {id}`), `chat_id`, `provider_id`, `workspace_id`, and chat-index `updated_at` / last activity. Paginate with `limit` (default 20, max 100) + `cursor` → `next_cursor` / `has_more`. Filter with `provider_id` / `agent` and `workspace_id`. Send addressing still uses `provider_id`; `UNKNOWN_PROVIDER` may check known chats or installed providers internally. `provider_id` is Chat/registry/custom id (`claude`, `codex-acp`, …), never the terminal install enum (`claude_code`).
 - **M2 Send / request / reply**: Same-Computer delivery of a structured envelope (kind, from, to, body, optional correlation, optional context bag). Inject into an idle matching Agent Chat via the existing Chat send path. No live Chat → park in an in-memory mailbox and ack `offline`. Several matching live Chats without `chat_id` → `AMBIGUOUS_TARGET`.
 - **M3 Busy policy**: Default `queue`. Per-message override `wait` | `queue` | `fail_fast`. Acks: `delivered` | `queued_busy` | `offline` | `timeout` | `rejected` | `accepted`.
 - **M4 Status**: `atmos agent-bridge status` is read-only presence plus optional lookup of a message id or `context_ref`. Send/request/reply/status may drain queued mail for now-idle targets; `list` does not drain.

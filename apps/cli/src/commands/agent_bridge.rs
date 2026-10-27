@@ -13,10 +13,19 @@ use crate::server_invoke::{invoke, wrap_ok, InvokeError};
 
 #[derive(Debug, Subcommand)]
 pub enum AgentBridgeCommand {
-    /// List addressable agents on the connected Computer
+    /// List Chat sessions on the connected Computer (not provider installs)
     List {
         #[arg(long)]
         workspace: Option<String>,
+        /// Filter by Chat/registry/custom `provider_id` (`claude`, not `claude_code`)
+        #[arg(long, visible_alias = "agent")]
+        provider: Option<String>,
+        /// Page size. Default 20, max 100.
+        #[arg(long)]
+        limit: Option<u32>,
+        /// Opaque cursor from the previous page's `next_cursor`
+        #[arg(long)]
+        cursor: Option<String>,
     },
     /// Send a Bridge message (same Computer; explicit `--to` list = MVP broadcast)
     Send(SendArgs),
@@ -101,10 +110,24 @@ pub struct StatusArgs {
 
 pub async fn execute_agent_bridge(api: ApiClientArgs, command: AgentBridgeCommand) -> CliEnvelope {
     match command {
-        AgentBridgeCommand::List { workspace } => {
+        AgentBridgeCommand::List {
+            workspace,
+            provider,
+            limit,
+            cursor,
+        } => {
             let mut data = Map::new();
             if let Some(ws) = workspace {
                 data.insert("workspace_id".into(), json!(ws));
+            }
+            if let Some(provider) = provider {
+                data.insert("provider_id".into(), json!(provider));
+            }
+            if let Some(limit) = limit {
+                data.insert("limit".into(), json!(limit));
+            }
+            if let Some(cursor) = cursor {
+                data.insert("cursor".into(), json!(cursor));
             }
             invoke_env(
                 &api,
@@ -113,8 +136,12 @@ pub async fn execute_agent_bridge(api: ApiClientArgs, command: AgentBridgeComman
                 Value::Object(data),
                 vec![
                     next(
-                        "atmos agent-bridge send --to-provider <id> --body ...",
-                        "Send to a listed provider",
+                        "atmos agent-bridge send --to-provider <id> --to-chat <id> --body ...",
+                        "Send to a listed chat",
+                    ),
+                    next(
+                        "atmos agent-bridge list --cursor <next_cursor>",
+                        "Load the next page of sessions",
                     ),
                     next("atmos agent-bridge status", "Read presence / pull a bag"),
                 ],
@@ -326,10 +353,10 @@ fn collect_targets(
             "atmos agent-bridge",
             "INVALID_BRIDGE",
             "pass --to-provider or --to JSON",
-            "List peers first: atmos agent-bridge list",
+            "List sessions first: atmos agent-bridge list",
             vec![next(
                 "atmos agent-bridge list",
-                "List agents on the connected Computer",
+                "List Chat sessions on the connected Computer",
             )],
         )));
     }
@@ -425,16 +452,15 @@ fn bridge_invoke_error(command: &str, err: InvokeError) -> CliEnvelope {
                 )],
             )
         }
-        InvokeError::Action { code, message } if code == "AMBIGUOUS_TARGET" => CliEnvelope::failure(
-            command,
-            code,
-            message,
-            "Pass --to-chat with the chat id from `atmos agent-bridge list`",
-            vec![next(
-                "atmos agent-bridge list",
-                "See live chat_id values",
-            )],
-        ),
+        InvokeError::Action { code, message } if code == "AMBIGUOUS_TARGET" => {
+            CliEnvelope::failure(
+                command,
+                code,
+                message,
+                "Pass --to-chat with the chat id from `atmos agent-bridge list`",
+                vec![next("atmos agent-bridge list", "See live chat_id values")],
+            )
+        }
         other => other.to_envelope(command),
     }
 }
@@ -458,7 +484,36 @@ mod tests {
 
     #[test]
     fn parses_kebab_verbs() {
-        assert!(matches!(parse(&["list"]), AgentBridgeCommand::List { .. }));
+        match parse(&[
+            "list",
+            "--provider",
+            "claude",
+            "--workspace",
+            "ws-1",
+            "--limit",
+            "20",
+            "--cursor",
+            "2026-10-27T12:00:00Z\nc1",
+        ]) {
+            AgentBridgeCommand::List {
+                workspace,
+                provider,
+                limit,
+                cursor,
+            } => {
+                assert_eq!(workspace.as_deref(), Some("ws-1"));
+                assert_eq!(provider.as_deref(), Some("claude"));
+                assert_eq!(limit, Some(20));
+                assert_eq!(cursor.as_deref(), Some("2026-10-27T12:00:00Z\nc1"));
+            }
+            other => panic!("{other:?}"),
+        }
+        match parse(&["list", "--agent", "codex"]) {
+            AgentBridgeCommand::List { provider, .. } => {
+                assert_eq!(provider.as_deref(), Some("codex"));
+            }
+            other => panic!("{other:?}"),
+        }
         assert!(matches!(
             parse(&["skill-dir"]),
             AgentBridgeCommand::SkillDir

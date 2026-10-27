@@ -15,12 +15,13 @@ agent / human
        ▼
 apps/api  WsAction agent_bridge_*
        ▼
-core-service AgentBridgeService   (catalog gather, busy, inject, drain)
+core-service AgentBridgeService   (session directory, busy, inject, drain)
        ▼
 crates/agent-bridge               (envelope, address, mailbox, bag, plan)
+       ├── AgentChatService.list  (Chat sessions; title, workspace, activity)
        ├── AgentChatService.send  (idle inject)
-       ├── AgentService lists     (native / registry / custom / terminal)
-       └── AgentStatusService     (occupancy)
+       ├── AgentService lists     (UNKNOWN_PROVIDER only; not list output)
+       └── AgentStatusService     (occupancy on the current page)
 
 V1 remote Computer: CLI already resolves --api-url / client-session.json /
 runtime_manifest.json. That HTTP hits the other Server. Relay stays
@@ -57,13 +58,13 @@ New `service/agent_bridge/`:
 
 - `AgentBridgeService` holds `Arc<AgentService>`, `Arc<AgentChatService>`, `Arc<AgentStatusService>`, `Mutex<BridgeState>`, local `server_id`.
 - Local `server_id`: `runtime_manager::read_server_identity()?.map(|i| i.server_id)` else `"local"`.
-- Catalog gather (M1):
-  - `agent_service.list_native_chat_agents()` → `provider_id` = native `id` (`claude`, `codex`, `opencode`, `pi`, `grok`)
-  - `list_registry_agents(false)` → registry `id`
-  - `list_custom_agents()` → custom `name`
-  - `list_agents()` terminal installs → **`registry_id`**, never `AgentId::ClaudeCode` / `claude_code`
-  - `agent_chat.list(None, None, None, true, None)` live index (`provider_id`, `workspace_id`, `id` as `chat_id`)
+- Catalog gather (M1) — **Chat sessions only**:
+  - `agent_chat.list(None, None, None, true, None)` live index: `id` → `chat_id`, `provider_id`, real `title` (untitled → `provider_id`, never `chat {id}`), `workspace_id`, `project_id`, `updated_at`, `last_message_at` as `last_activity_at`
+  - Do **not** emit Native / Registry / Custom / Terminal install rows from `list`
+  - Filter: `workspace_id` and `provider_id` (wire alias `agent`)
+  - Page: `limit` default 20, max 100; `cursor` is previous page last `{last_activity_at}\n{chat_id}`; response `next_cursor` / `has_more`. Occupancy is resolved **only for the page**
   - occupancy: `AgentStatusService::get_all_sessions()` keyed `chat:{chat_id}` mapped to `idle` / `running` / `permission_request` (never flatten busy → `running`); folded `WaitingPermission` counts as `permission_request`; live-turn busy counts as `running`
+  - `UNKNOWN_PROVIDER` on send still checks live chats plus internal AgentService native/registry/custom/terminal ids (`registry_id`, never `claude_code`)
 - Delivery (M2–M3): crate `plan_delivery`; idle → inject only when occupancy is idle (do not call `agent_chat.send` on `WaitingPermission`); inject `Err` / `Rejected` re-enqueues; busy+queue → mailbox; busy+fail_fast → `rejected`; busy+wait → poll occupancy until idle or `ttl_ms` (default 30_000, poll 200ms) then `delivered` or `timeout`. Drain pops **one** matching message; failure inserts it back.
 - No `chat_id`: exactly one matching live Chat on this Computer → deliver; zero → `offline` + mailbox; many → `AMBIGUOUS_TARGET`.
 - Foreign `to.server_id` that does not `server_ids_match` local → `CROSS_MACHINE_CONNECT` (do not enqueue locally).
@@ -170,8 +171,13 @@ No SQL table. Mailbox + bags are process memory on that Server.
 ### WebSocket / CLI invoke
 
 ```text
-agent_bridge_list     input: { workspace_id?: string }
-                      output: { server_id, entries: CatalogEntry[] }
+agent_bridge_list     input: { workspace_id?: string, provider_id?: string, agent?: string,
+                               limit?: number, cursor?: string }
+                      output: { server_id, entries: CatalogEntry[], next_cursor?: string,
+                                has_more: boolean }
+                      CatalogEntry is a Chat session row (kind=chat): chat_id, provider_id,
+                      title/display_name, workspace_id, project_id?, occupancy,
+                      updated_at, last_activity_at. List never emits install-directory kinds.
 
 agent_bridge_send     input: { to: AgentAddress | AgentAddress[], from?: AgentAddress,
                                body: string, busy?: BusyPolicy, ttl_ms?: number,
