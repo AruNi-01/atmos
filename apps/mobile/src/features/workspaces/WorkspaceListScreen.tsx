@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Platform, Pressable, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { activeComputers } from "@atmos/relay-client";
 import { Button, Host } from "@expo/ui";
-import { fillMaxWidth } from "@expo/ui/jetpack-compose/modifiers";
-import { buttonBorderShape, controlSize, frame } from "@expo/ui/swift-ui/modifiers";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
 import type { ProjectWorkspaceBootstrapResponse } from "@/api/types";
 import { wsActions } from "@/api/ws-actions";
 import { getAutoConnectComputerId } from "@/features/computers/computer-selection";
+import { NoComputerSelected } from "@/features/computers/NoComputerSelected";
 import { workspaceHomePhase } from "@/features/workspaces/home-connection";
 import { workspaceHomeFilterCount } from "@/features/workspaces/workspace-home-list";
 import { WorkspaceHomeList } from "@/features/workspaces/WorkspaceHomeList";
@@ -33,10 +32,7 @@ import {
   workspaceFilterHeaderItem,
 } from "@/ui/navigation/home-header-items";
 import { nativeLargeTitleOptions } from "@/ui/navigation/native-screen-options";
-import {
-  EXPO_UI_FRAME_INFINITY,
-  expoUiButtonStretchModifiers,
-} from "@/ui/primitives/expo-ui-button-modifiers";
+import { expoUiButtonStretchModifiers } from "@/ui/primitives/expo-ui-button-modifiers";
 import { expoUiButtonHostStyle, expoUiPrimaryStyle } from "@/ui/primitives/expo-ui-button-styles";
 
 function workspaceHeaderRightItems({
@@ -346,24 +342,6 @@ function SingleComputerFailure({
   );
 }
 
-/**
- * The shared stretch frame is leading-aligned, so this control sat on the left.
- * A negative radius is the iOS 26 container-concentric corner.
- */
-const chooseComputerButtonModifiers = Platform.select({
-  ios: [
-    frame({
-      alignment: "center",
-      maxWidth: EXPO_UI_FRAME_INFINITY,
-      minHeight: 52,
-    }),
-    controlSize("large"),
-    buttonBorderShape("roundedRectangle", -1),
-  ],
-  android: [fillMaxWidth()],
-  default: undefined,
-});
-
 function ChooseComputerPrompt({
   message,
   onPress,
@@ -371,38 +349,11 @@ function ChooseComputerPrompt({
   message?: string | null;
   onPress: () => void;
 }) {
-  const theme = useMobileTheme();
-  const button = expoUiPrimaryStyle(theme.colors);
-
   return (
-    <View
-      style={{
-        alignItems: "center",
-        backgroundColor: theme.colors.background,
-        flex: 1,
-        justifyContent: "center",
-        paddingHorizontal: spacing.screenX,
-      }}
-    >
-      <View style={{ alignSelf: "stretch", gap: 20, paddingHorizontal: 8 }}>
-        <EmptyState message="Choose a Computer to see workspaces." title="No Computer selected" />
-        <View style={{ alignItems: "center", alignSelf: "stretch" }}>
-          <Host
-            colorScheme={theme.colorScheme}
-            matchContents={{ vertical: true }}
-            seedColor={button.seedColor}
-            style={expoUiButtonHostStyle}
-          >
-            <Button
-              label="Choose a Computer"
-              modifiers={chooseComputerButtonModifiers}
-              onPress={onPress}
-              variant={button.variant}
-            />
-          </Host>
-        </View>
-        <InlineError message={message} />
-      </View>
-    </View>
+    <NoComputerSelected
+      detail={message}
+      message="Choose a Computer to see workspaces."
+      onPress={onPress}
+    />
   );
 }

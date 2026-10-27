@@ -38,6 +38,7 @@ pub async fn get_computer_status(
     let identity = read_server_identity().map_err(ApiError::BadRequest)?;
     let relay_connected = state.relay_supervisor.is_upstream_connected().await;
     let relay_last_error = state.relay_supervisor.last_error().await;
+    let relay_error_code = state.relay_supervisor.last_error_code().await;
 
     let mut body = json!({
         "hostname": hostname,
@@ -45,6 +46,7 @@ pub async fn get_computer_status(
         "registered": identity.is_some(),
         "relay_connected": relay_connected,
         "relay_last_error": relay_last_error,
+        "relay_error_code": relay_error_code,
         "server_id": identity.as_ref().map(|i| i.server_id.clone()),
         "app_device_id": app_device_id().ok(),
         "relay_url": identity
@@ -170,6 +172,7 @@ pub async fn register_local_computer(
         .relay_supervisor
         .wait_upstream(std::time::Duration::from_secs(8))
         .await;
+    let relay_error_code = state.relay_supervisor.last_error_code().await;
 
     Ok(Json(ApiResponse::success(json!({
         "ok": true,
@@ -179,6 +182,7 @@ pub async fn register_local_computer(
         "relay_ws_url": relay_ws_url,
         "relay_connected": relay_connected,
         "relay_last_error": relay_last_error,
+        "relay_error_code": relay_error_code,
     }))))
 }
 
@@ -188,11 +192,13 @@ pub async fn sync_relay_connection(
 ) -> ApiResult<Json<ApiResponse<Value>>> {
     let (relay_connected, relay_last_error) =
         state.relay_supervisor.sync_from_disk(state.clone()).await;
+    let relay_error_code = state.relay_supervisor.last_error_code().await;
 
     Ok(Json(ApiResponse::success(json!({
         "ok": true,
         "relay_connected": relay_connected,
         "relay_last_error": relay_last_error,
+        "relay_error_code": relay_error_code,
     }))))
 }
 

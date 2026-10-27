@@ -5,14 +5,17 @@ import { useTranslations } from "next-intl";
 import { Badge, Button, Input, toastManager, cn } from "@workspace/ui";
 import { Laptop, LoaderCircle, LogIn, RotateCw, Trash2 } from "lucide-react";
 import { getWebRelayClient } from "@/features/connection/lib/create-web-relay-client";
-import { createHostedRemoteSession } from "@/features/connection/lib/hosted-connection";
+import {
+  createHostedRemoteSession,
+  reregisterLocalComputer,
+  relayNeedsReregister,
+} from "@/features/connection/lib/hosted-connection";
 import {
   activateCurrentLocalConnection,
   activateHostedRemoteConnection,
 } from "@/features/connection/lib/hosted-connection-actions";
 import {
   loadLocalComputerStatus,
-  registerLocalComputer,
   syncRelayConnection,
   unregisterLocalComputer,
   type LocalComputerStatus,
@@ -106,6 +109,7 @@ export function AtmosComputerSection() {
 
   const [busy, setBusy] = useState<string | null>(null);
   const [listRefreshing, setListRefreshing] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
   const [relayUrlDraft, setRelayUrlDraft] = useState(relayUrl);
   const [relaySecretDraft, setRelaySecretDraft] = useState(relaySecretKey);
   const [localStatus, setLocalStatus] = useState<LocalComputerStatus | null>(null);
@@ -138,6 +142,7 @@ export function AtmosComputerSection() {
         return;
       }
       setListRefreshing(true);
+      setListError(null);
       try {
         const computers = await getWebRelayClient({
           relayUrl: url,
@@ -146,13 +151,13 @@ export function AtmosComputerSection() {
           .withDeviceCredential(token)
           .listComputers();
         setComputers(computers);
-      } catch {
-        /* keep previous list on transient relay errors */
+      } catch (err) {
+        setListError(err instanceof Error ? err.message : t("panels.myComputers.loadError"));
       } finally {
         setListRefreshing(false);
       }
     },
-    [accessTokenConfigured, relayUrl, relaySecretKey, setComputers],
+    [accessTokenConfigured, relayUrl, relaySecretKey, setComputers, t],
   );
 
   const refreshComputerList = useCallback(async () => {
@@ -170,6 +175,7 @@ export function AtmosComputerSection() {
           ...status,
           relay_connected: sync.relay_connected,
           relay_last_error: sync.relay_last_error ?? null,
+          relay_error_code: sync.relay_error_code ?? null,
         });
       }
       await refreshComputerList();
@@ -189,7 +195,14 @@ export function AtmosComputerSection() {
     } catch (err) {
       const description = err instanceof Error ? err.message : t("toasts.ensureAtmosRunning");
       setLocalStatus((prev) =>
-        prev ? { ...prev, relay_connected: false, relay_last_error: description } : prev,
+        prev
+          ? {
+              ...prev,
+              relay_connected: false,
+              relay_last_error: description,
+              relay_error_code: null,
+            }
+          : prev,
       );
       toastManager.add({
         title: t("toasts.couldNotConnectRelay"),
@@ -278,6 +291,7 @@ export function AtmosComputerSection() {
             ...status,
             relay_connected: sync.relay_connected,
             relay_last_error: sync.relay_last_error ?? null,
+            relay_error_code: sync.relay_error_code ?? null,
           });
         }
         await refreshComputerList();
@@ -337,28 +351,13 @@ export function AtmosComputerSection() {
         const displayName =
           localStatus?.computer_name ?? localStatus?.hostname ?? t("fallbacks.myComputer");
 
-        let registerToken: string;
-        try {
-          const tokenData = await getWebRelayClient({ relayUrl, relaySecretKey })
-            .withDeviceCredential(accessToken)
-            .createRegisterToken();
-          registerToken = tokenData.register_token;
-        } catch (err) {
-          toastManager.add({
-            title: t("toasts.couldNotStartRegistration"),
-            description: err instanceof Error ? err.message : t("toasts.tryAgain"),
-            type: "error",
-          });
-          return;
-        }
-
-        const reg = await registerLocalComputer(
-          registerToken,
+        const reg = await reregisterLocalComputer({
+          accessToken,
           displayName,
-          relayUrl,
+          registrationMeta: await buildRegistrationMeta(),
           relaySecretKey,
-          await buildRegistrationMeta(),
-        );
+          relayUrl,
+        });
         setLocalServerId(reg.server_id);
         setLocalStatus((prev) => ({
           hostname: prev?.hostname ?? localStatus?.hostname ?? null,
@@ -366,6 +365,7 @@ export function AtmosComputerSection() {
           registered: true,
           relay_connected: reg.relay_connected ?? false,
           relay_last_error: reg.relay_last_error ?? null,
+          relay_error_code: reg.relay_error_code ?? null,
           server_id: reg.server_id,
           relay_url: prev?.relay_url ?? localStatus?.relay_url ?? relayUrl,
           relay_ws_url: prev?.relay_ws_url ?? localStatus?.relay_ws_url ?? null,
@@ -515,10 +515,15 @@ export function AtmosComputerSection() {
   const isLocalRegistered =
     Boolean(localStatus?.registered && currentServerId) ||
     Boolean(localServerId && currentServerId === localServerId);
-  /** Local API is authoritative; relay `online` is a fallback while relay is reconnecting. */
+  /** Local API is authoritative once it has loaded. A stale relay `online`
+   * flag (any historical `last_seen_at`) must not paint this machine Online
+   * after the outbound relay socket has already failed. */
   const isCurrentRelayReachable =
-    Boolean(localStatus?.relay_connected) || Boolean(currentComputerRow?.online);
+    localStatus != null
+      ? Boolean(localStatus.relay_connected)
+      : Boolean(currentComputerRow?.online);
   const relayLastError = localStatus?.relay_last_error?.trim() || null;
+  const credentialsRejected = relayNeedsReregister(localStatus?.relay_error_code);
   const showRelayReconnect = isLocalRegistered && !isCurrentRelayReachable;
   const currentDeviceName =
     localStatus?.computer_name?.trim() ||
@@ -628,22 +633,32 @@ export function AtmosComputerSection() {
         {showRelayReconnect ? (
           <SettingsGroupRow
             wide
-            title={t("panels.thisComputer.reconnectTitle")}
-            description={relayLastError || t("panels.thisComputer.reconnectHelper")}
+            title={
+              credentialsRejected
+                ? t("panels.thisComputer.reregisterTitle")
+                : t("panels.thisComputer.reconnectTitle")
+            }
+            description={
+              credentialsRejected
+                ? t("panels.thisComputer.reregisterHelper")
+                : relayLastError || t("panels.thisComputer.reconnectHelper")
+            }
           >
             <Button
               type="button"
               size="sm"
-              variant="outline"
-              disabled={busy !== null}
-              onClick={() => void onRelayReconnect()}
+              variant="default"
+              disabled={busy !== null || !hasConfiguredKey}
+              onClick={() => void (credentialsRejected ? onRemoteToggle(true) : onRelayReconnect())}
             >
-              {busy === "relay-sync" ? (
+              {busy === "remote" || busy === "relay-sync" ? (
                 <LoaderCircle className="mr-2 size-4 animate-spin" />
-              ) : (
+              ) : credentialsRejected ? null : (
                 <RotateCw className="mr-2 size-4" />
               )}
-              {t("panels.thisComputer.reconnectButton")}
+              {credentialsRejected
+                ? t("panels.thisComputer.reregisterButton")
+                : t("panels.thisComputer.reconnectButton")}
             </Button>
           </SettingsGroupRow>
         ) : null}
@@ -715,6 +730,9 @@ export function AtmosComputerSection() {
                         ? t("panels.myComputers.online")
                         : t("panels.myComputers.offline")}
                     </span>
+                    {isCurrent && listError ? (
+                      <span className="text-xs font-normal text-destructive">{listError}</span>
+                    ) : null}
                   </span>
                 }
                 description={null}
@@ -723,16 +741,20 @@ export function AtmosComputerSection() {
                   {isCurrent && showRelayReconnect ? (
                     <Button
                       size="sm"
-                      variant="outline"
-                      disabled={busy !== null}
-                      onClick={() => void onRelayReconnect()}
+                      variant="default"
+                      disabled={busy !== null || (credentialsRejected && !hasConfiguredKey)}
+                      onClick={() =>
+                        void (credentialsRejected ? onRemoteToggle(true) : onRelayReconnect())
+                      }
                     >
-                      {busy === "relay-sync" ? (
+                      {busy === "relay-sync" || (credentialsRejected && busy === "remote") ? (
                         <LoaderCircle className="size-4 animate-spin" />
                       ) : (
                         <>
-                          <RotateCw className="mr-2 size-4" />
-                          {t("panels.myComputers.reconnect")}
+                          {credentialsRejected ? null : <RotateCw className="mr-2 size-4" />}
+                          {credentialsRejected
+                            ? t("panels.thisComputer.reregisterButton")
+                            : t("panels.myComputers.reconnect")}
                         </>
                       )}
                     </Button>

@@ -38,9 +38,23 @@ import {
 import { SessionRowList } from "./session-row-list";
 import { type SessionDeleteChoice } from "./session-row-actions";
 import { useSessionInbox } from "./use-session-inbox";
+import { NoComputerSelected } from "@/features/computers/NoComputerSelected";
+import { useHomeComputerPhase } from "@/features/computers/use-home-computer-phase";
 
 const DISCONNECTED_TITLE = "Computer not connected";
 const DISCONNECTED_MESSAGE = "This phone is not connected to a Computer.";
+
+function SessionDisconnected() {
+  const phase = useHomeComputerPhase();
+  if (phase === "choose-computer") {
+    return <NoComputerSelected message="Choose a Computer to see sessions." />;
+  }
+  return (
+    <AppScreen>
+      <EmptyState message={DISCONNECTED_MESSAGE} title={DISCONNECTED_TITLE} />
+    </AppScreen>
+  );
+}
 
 export function SessionHomeScreen() {
   const router = useRouter();
@@ -52,11 +66,7 @@ export function SessionHomeScreen() {
   const { onRefresh, refreshing } = usePullRefresh(inbox.refresh);
 
   if (!inbox.connected) {
-    return (
-      <AppScreen>
-        <EmptyState message={DISCONNECTED_MESSAGE} title={DISCONNECTED_TITLE} />
-      </AppScreen>
-    );
+    return <SessionDisconnected />;
   }
 
   return (
@@ -131,11 +141,7 @@ export function SessionBucketScreen({ bucket }: { bucket: string | undefined }) 
     (rows.length > reveal.shown || inbox.hasNextPage);
 
   if (!inbox.connected) {
-    return (
-      <AppScreen>
-        <EmptyState message={DISCONNECTED_MESSAGE} title={DISCONNECTED_TITLE} />
-      </AppScreen>
-    );
+    return <SessionDisconnected />;
   }
 
   return (

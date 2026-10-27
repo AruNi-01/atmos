@@ -19,6 +19,7 @@ use runtime_manager::ServerIdentity;
 use serde::Deserialize;
 use tokio::sync::{mpsc, RwLock};
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
+use tokio_tungstenite::tungstenite::error::Error as WsError;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
 use tokio_util::sync::CancellationToken;
@@ -114,32 +115,63 @@ where
 pub struct RelayLifecycle {
     upstream_connected: Arc<AtomicBool>,
     last_error: Arc<tokio::sync::Mutex<Option<String>>>,
+    last_error_code: Arc<tokio::sync::Mutex<Option<String>>>,
 }
 
 impl RelayLifecycle {
     pub fn new(
         upstream_connected: Arc<AtomicBool>,
         last_error: Arc<tokio::sync::Mutex<Option<String>>>,
+        last_error_code: Arc<tokio::sync::Mutex<Option<String>>>,
     ) -> Self {
         Self {
             upstream_connected,
             last_error,
+            last_error_code,
         }
     }
 
     fn set_connected(&self) {
         self.upstream_connected.store(true, Ordering::SeqCst);
+        if let Ok(mut guard) = self.last_error_code.try_lock() {
+            *guard = None;
+        }
     }
 
-    fn set_failed(&self, message: impl Into<String>) {
+    fn set_failed(&self, message: impl Into<String>, code: Option<String>) {
         self.upstream_connected.store(false, Ordering::SeqCst);
         if let Ok(mut guard) = self.last_error.try_lock() {
             *guard = Some(message.into());
+        }
+        if let Ok(mut guard) = self.last_error_code.try_lock() {
+            *guard = code;
         }
     }
 
     fn clear_connected(&self) {
         self.upstream_connected.store(false, Ordering::SeqCst);
+    }
+}
+
+/// Relay `error` values that mean this machine's saved server secret is no
+/// longer accepted. Reconnect cannot fix them; the computer must register again.
+pub fn relay_error_needs_reregister(code: &str) -> bool {
+    matches!(code, "bad_server_credentials" | "computer_revoked")
+}
+
+#[derive(Deserialize)]
+struct RelayHttpErrorBody {
+    error: Option<String>,
+}
+
+fn relay_error_code_from_http(body: &Option<Vec<u8>>) -> Option<String> {
+    let bytes = body.as_ref()?;
+    let parsed: RelayHttpErrorBody = serde_json::from_slice(bytes).ok()?;
+    let code = parsed.error?.trim().to_string();
+    if code.is_empty() {
+        None
+    } else {
+        Some(code)
     }
 }
 
@@ -168,7 +200,7 @@ pub async fn run(
         Ok(u) => u,
         Err(e) => {
             let msg = format!("relay_ws_url parse: {e}");
-            lifecycle.set_failed(&msg);
+            lifecycle.set_failed(&msg, None);
             return RunOutcome::Terminal(msg);
         }
     };
@@ -181,7 +213,7 @@ pub async fn run(
         Ok(r) => r,
         Err(e) => {
             let msg = format!("relay client request: {e}");
-            lifecycle.set_failed(&msg);
+            lifecycle.set_failed(&msg, None);
             return RunOutcome::Terminal(msg);
         }
     };
@@ -189,7 +221,7 @@ pub async fn run(
         Ok(v) => v,
         Err(e) => {
             let msg = format!("authorization header: {e}");
-            lifecycle.set_failed(&msg);
+            lifecycle.set_failed(&msg, None);
             return RunOutcome::Terminal(msg);
         }
     };
@@ -201,8 +233,19 @@ pub async fn run(
     } {
         Ok(pair) => pair,
         Err(e) => {
-            let msg = format!("WebSocket connect failed: {e}");
-            lifecycle.set_failed(&msg);
+            let code = match &e {
+                WsError::Http(response) => relay_error_code_from_http(response.body()),
+                _ => None,
+            };
+            let msg = match code.as_deref() {
+                Some(code) => format!("Relay rejected the computer ({code})"),
+                None => format!("WebSocket connect failed: {e}"),
+            };
+            let terminal = code.as_deref().is_some_and(relay_error_needs_reregister);
+            lifecycle.set_failed(&msg, code);
+            if terminal {
+                return RunOutcome::Terminal(msg);
+            }
             return RunOutcome::Disconnected { established: false };
         }
     };
@@ -211,7 +254,7 @@ pub async fn run(
     if response.status() != StatusCode::SWITCHING_PROTOCOLS {
         let status = response.status();
         let msg = format!("Relay rejected connection (HTTP {})", status.as_u16());
-        lifecycle.set_failed(&msg);
+        lifecycle.set_failed(&msg, None);
         // 401/403 = credential problem; retrying won't help without user action.
         if status == StatusCode::UNAUTHORIZED || status == StatusCode::FORBIDDEN {
             return RunOutcome::Terminal(msg);
@@ -675,5 +718,21 @@ mod tests {
                 .map(|s| s.conn_id.as_str()),
             Some("conn-b")
         );
+    }
+
+    #[test]
+    fn http_rejection_uses_the_relay_error_code() {
+        let body = Some(br#"{"error":"bad_server_credentials"}"#.to_vec());
+        assert_eq!(
+            super::relay_error_code_from_http(&body).as_deref(),
+            Some("bad_server_credentials")
+        );
+        assert!(super::relay_error_needs_reregister(
+            "bad_server_credentials"
+        ));
+        assert!(super::relay_error_needs_reregister("computer_revoked"));
+        assert!(!super::relay_error_needs_reregister("invalid_relay_secret"));
+        assert!(super::relay_error_code_from_http(&None).is_none());
+        assert!(super::relay_error_code_from_http(&Some(b"forbidden".to_vec())).is_none());
     }
 }

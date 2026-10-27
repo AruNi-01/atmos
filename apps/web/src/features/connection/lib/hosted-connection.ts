@@ -15,6 +15,7 @@ import {
   type ApiConfig,
 } from "@/shared/lib/desktop-runtime";
 import type { LocalComputerStatus } from "@/features/connection/lib/atmos-computer-local";
+import { registerLocalComputer } from "@/features/connection/lib/atmos-computer-local";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
 import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh.json";
@@ -95,6 +96,39 @@ async function fetchLoopbackJson<T>(cfg: ApiConfig, path: string): Promise<T> {
   }
 
   return envelope.data;
+}
+
+export function relayNeedsReregister(code: string | null | undefined): boolean {
+  return code === "bad_server_credentials" || code === "computer_revoked";
+}
+
+/** Mint a register token and register this machine again so Relay stores a new secret. */
+export async function reregisterLocalComputer(input: {
+  accessToken: string;
+  relayUrl: string;
+  relaySecretKey?: string;
+  displayName: string;
+  registrationMeta?: Record<string, unknown>;
+}): Promise<{
+  server_id: string;
+  display_name: string;
+  relay_connected?: boolean;
+  relay_last_error?: string | null;
+  relay_error_code?: string | null;
+}> {
+  const tokenData = await getWebRelayClient({
+    relayUrl: input.relayUrl,
+    relaySecretKey: input.relaySecretKey,
+  })
+    .withDeviceCredential(input.accessToken)
+    .createRegisterToken();
+  return registerLocalComputer(
+    tokenData.register_token,
+    input.displayName,
+    input.relayUrl,
+    input.relaySecretKey,
+    input.registrationMeta,
+  );
 }
 
 export async function detectHostedLocalServer(): Promise<{

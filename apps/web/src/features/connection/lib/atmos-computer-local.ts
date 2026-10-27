@@ -15,8 +15,10 @@ export interface LocalComputerStatus {
   registered: boolean;
   /** Outbound WSS to Cloudflare relay is active on this API process. */
   relay_connected: boolean;
-  /** Last relay connect failure from the local API, if any. */
+  /** Last relay connect failure from the local API, if any. Display only. */
   relay_last_error?: string | null;
+  /** Stable Relay `error` code. Never localized. */
+  relay_error_code?: string | null;
   server_id: string | null;
   app_device_id?: string | null;
   relay_url: string;
@@ -168,6 +170,7 @@ export async function loadLocalComputerStatus(
     registered: Boolean(knownServerId),
     relay_connected: false,
     relay_last_error: null,
+    relay_error_code: null,
     server_id: knownServerId ?? null,
     app_device_id: null,
     relay_url: DEFAULT_RELAY,
@@ -222,6 +225,7 @@ export async function registerLocalComputer(
   display_name: string;
   relay_connected?: boolean;
   relay_last_error?: string | null;
+  relay_error_code?: string | null;
 }> {
   const result = await localFetch<{
     server_id: string;
@@ -254,6 +258,7 @@ export async function unregisterLocalComputer(): Promise<{ removed: boolean; hin
 export interface RelaySyncResult {
   relay_connected: boolean;
   relay_last_error?: string | null;
+  relay_error_code?: string | null;
 }
 
 /** Ask the local API to (re)open the outbound relay WebSocket from disk identity. */
