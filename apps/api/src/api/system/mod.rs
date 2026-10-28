@@ -92,6 +92,10 @@ pub fn destructive_routes() -> Router<AppState> {
             post(computer::register_local_computer),
         )
         .route(
+            "/computer/identity",
+            post(computer::install_local_computer_identity),
+        )
+        .route(
             "/computer/unregister",
             post(computer::unregister_local_computer),
         )

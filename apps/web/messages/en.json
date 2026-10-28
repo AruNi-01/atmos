@@ -2955,6 +2955,7 @@
           "accessKeyTooShort": "Sign in required before connecting to a remote computer.",
           "couldNotSaveAccessKey": "Could not save the account device on this computer.",
           "couldNotConnectComputer": "Could not connect to that computer.",
+          "relayBlockedThisRequest": "This request was blocked before it reached Relay.",
           "remoteRelayUnreachable": "Remote computer is not reachable through relay.",
           "remoteRelayUnreachableWithReason": "Remote computer is not reachable through relay: {message}"
         }

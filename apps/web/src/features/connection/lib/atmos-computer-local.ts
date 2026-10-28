@@ -246,6 +246,41 @@ export async function registerLocalComputer(
   return result;
 }
 
+export async function installLocalComputerIdentity(input: {
+  serverId: string;
+  serverSecret: string;
+  relayWsUrl: string;
+  relayUrl?: string | null;
+  displayName?: string | null;
+  registrationMeta?: Record<string, unknown> | null;
+}): Promise<{
+  server_id: string;
+  display_name: string;
+  relay_connected?: boolean;
+  relay_last_error?: string | null;
+  relay_error_code?: string | null;
+}> {
+  const result = await localFetch<{
+    server_id: string;
+    display_name: string;
+    relay_connected?: boolean;
+    relay_last_error?: string | null;
+    relay_error_code?: string | null;
+  }>("/api/system/computer/identity", {
+    method: "POST",
+    body: JSON.stringify({
+      server_id: input.serverId,
+      server_secret: input.serverSecret,
+      relay_ws_url: input.relayWsUrl,
+      relay_url: input.relayUrl ?? null,
+      display_name: input.displayName ?? null,
+      registration_meta: input.registrationMeta ?? null,
+    }),
+  });
+  invalidateLocalComputerStatusCache();
+  return result;
+}
+
 export async function unregisterLocalComputer(): Promise<{ removed: boolean; hint?: string }> {
   const result = await localFetch<{ removed: boolean; hint?: string }>(
     "/api/system/computer/unregister",

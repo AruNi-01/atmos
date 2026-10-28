@@ -3,6 +3,8 @@
 import { createTranslator } from "next-intl";
 import {
   isPlausibleDeviceCredential,
+  normalizeRelayUrl,
+  RELAY_SECRET_HEADER,
   type ComputerRow,
   type RelayClientKind,
 } from "@atmos/relay-client";
@@ -14,8 +16,16 @@ import {
   httpBase,
   type ApiConfig,
 } from "@/shared/lib/desktop-runtime";
-import type { LocalComputerStatus } from "@/features/connection/lib/atmos-computer-local";
-import { registerLocalComputer } from "@/features/connection/lib/atmos-computer-local";
+import {
+  fetchLocalComputerStatus,
+  installLocalComputerIdentity,
+  registerLocalComputer,
+  type LocalComputerStatus,
+} from "@/features/connection/lib/atmos-computer-local";
+import {
+  parseRelayJsonBody,
+  responseNeverReachedRelay,
+} from "@/features/connection/lib/relay-proxy-body";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
 import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh.json";
@@ -122,13 +132,118 @@ export async function reregisterLocalComputer(input: {
   })
     .withDeviceCredential(input.accessToken)
     .createRegisterToken();
-  return registerLocalComputer(
-    tokenData.register_token,
-    input.displayName,
-    input.relayUrl,
-    input.relaySecretKey,
-    input.registrationMeta,
-  );
+  try {
+    return await registerLocalComputer(
+      tokenData.register_token,
+      input.displayName,
+      input.relayUrl,
+      input.relaySecretKey,
+      input.registrationMeta,
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (!responseNeverReachedRelay(message)) {
+      throw err;
+    }
+    // The local server's HTTP client received a challenge page. Register from
+    // this page, then hand the identity back to the server to store.
+    return registerComputerFromPage({
+      registerToken: tokenData.register_token,
+      relayUrl: input.relayUrl,
+      relaySecretKey: input.relaySecretKey,
+      displayName: input.displayName,
+      registrationMeta: input.registrationMeta,
+    });
+  }
+}
+
+async function registerComputerFromPage(input: {
+  registerToken: string;
+  relayUrl: string;
+  relaySecretKey?: string;
+  displayName: string;
+  registrationMeta?: Record<string, unknown>;
+}): Promise<{
+  server_id: string;
+  display_name: string;
+  relay_connected?: boolean;
+  relay_last_error?: string | null;
+  relay_error_code?: string | null;
+}> {
+  const status = await fetchLocalComputerStatus();
+  const appDeviceId = status.app_device_id?.trim();
+  if (!appDeviceId) {
+    throw new Error(runtimeT("hostedConnection.errors.computerApiUnavailable"));
+  }
+
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    "Content-Type": "application/json",
+  };
+  const relaySecretKey = input.relaySecretKey?.trim();
+  if (relaySecretKey) {
+    headers[RELAY_SECRET_HEADER] = relaySecretKey;
+  }
+
+  const response = await fetch(`${normalizeRelayUrl(input.relayUrl)}/v1/computers/register`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      register_token: input.registerToken,
+      display_name: input.displayName,
+      ...(input.registrationMeta ? { registration_meta: input.registrationMeta } : {}),
+      device: { app_device_id: appDeviceId },
+    }),
+  });
+  const raw = await response.text();
+  const parsed = parseRelayJsonBody(raw);
+  if (!response.ok || !parsed || typeof parsed !== "object") {
+    throw new Error(relayHttpFailureMessage(response.status, raw));
+  }
+  const body = parsed as {
+    server_id?: unknown;
+    server_secret?: unknown;
+    relay_ws_url?: unknown;
+    relay_url?: unknown;
+    display_name?: unknown;
+    registration_meta?: unknown;
+  };
+  if (
+    typeof body.server_id !== "string" ||
+    typeof body.server_secret !== "string" ||
+    typeof body.relay_ws_url !== "string"
+  ) {
+    throw new Error(runtimeT("hostedConnection.errors.couldNotConnectComputer"));
+  }
+
+  const registrationMeta =
+    body.registration_meta && typeof body.registration_meta === "object"
+      ? (body.registration_meta as Record<string, unknown>)
+      : input.registrationMeta;
+
+  return installLocalComputerIdentity({
+    serverId: body.server_id,
+    serverSecret: body.server_secret,
+    relayWsUrl: body.relay_ws_url,
+    relayUrl: typeof body.relay_url === "string" ? body.relay_url : input.relayUrl,
+    displayName: typeof body.display_name === "string" ? body.display_name : input.displayName,
+    registrationMeta,
+  });
+}
+
+function relayHttpFailureMessage(status: number, raw: string): string {
+  const parsed = parseRelayJsonBody(raw);
+  if (parsed && typeof parsed === "object") {
+    const payload = parsed as { error?: unknown; message?: unknown };
+    if (typeof payload.error === "string" && payload.error.trim()) return payload.error.trim();
+    if (typeof payload.message === "string" && payload.message.trim()) {
+      return payload.message.trim().slice(0, 180);
+    }
+  }
+  if (responseNeverReachedRelay(raw)) {
+    return runtimeT("hostedConnection.errors.relayBlockedThisRequest");
+  }
+  return `HTTP ${status}`;
 }
 
 export async function detectHostedLocalServer(): Promise<{

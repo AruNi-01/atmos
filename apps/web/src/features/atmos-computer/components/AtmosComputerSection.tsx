@@ -488,8 +488,12 @@ export function AtmosComputerSection() {
         await getWebRelayClient({ relayUrl, relaySecretKey })
           .withDeviceCredential(accessToken)
           .revokeComputer(serverId);
-      } catch {
-        toastManager.add({ title: t("toasts.couldNotRemove"), type: "error" });
+      } catch (err) {
+        toastManager.add({
+          title: t("toasts.couldNotRemove"),
+          description: err instanceof Error ? err.message : t("toasts.tryAgain"),
+          type: "error",
+        });
         return;
       }
       const isLocal = serverId === (localStatus?.server_id ?? localServerId);

@@ -2955,6 +2955,7 @@
           "accessKeyTooShort": "连接远程 Computer 前需要先登录。",
           "couldNotSaveAccessKey": "无法在这台 Computer 上保存账号设备凭证。",
           "couldNotConnectComputer": "无法连接到该电脑。",
+          "relayBlockedThisRequest": "这次请求在到达 Relay 之前被拦住了。",
           "remoteRelayUnreachable": "无法通过 relay 访问远程电脑。",
           "remoteRelayUnreachableWithReason": "无法通过 relay 访问远程电脑：{message}"
         }
