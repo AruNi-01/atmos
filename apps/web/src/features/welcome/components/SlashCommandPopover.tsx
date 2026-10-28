@@ -118,7 +118,7 @@ function SlashCommandSection({
               setItemRef(navIndex, el);
             }}
             className={cn(
-              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left hover:bg-muted",
+              "flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-left hover:bg-muted",
               navIndex === activeIndex && "bg-muted",
             )}
             onMouseDown={(event) => {
@@ -145,7 +145,7 @@ function SlashCommandSection({
             setItemRef(startIndex + visibleCommands.length, el);
           }}
           className={cn(
-            "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[11px] text-muted-foreground hover:bg-muted",
+            "flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-left text-[11px] text-muted-foreground hover:bg-muted",
             startIndex + visibleCommands.length === activeIndex && "bg-muted",
           )}
           onMouseDown={(event) => {
@@ -396,7 +396,7 @@ export function SlashCommandPopover({
                         disabled={isDisabled}
                         aria-disabled={isDisabled}
                         className={cn(
-                          "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left",
+                          "flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-left",
                           isDisabled
                             ? "cursor-default text-muted-foreground opacity-80"
                             : "hover:bg-muted",
@@ -438,7 +438,7 @@ export function SlashCommandPopover({
                         setItemRef(skillsStartIndex + skillsCount, el);
                       }}
                       className={cn(
-                        "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[11px] text-muted-foreground hover:bg-muted",
+                        "flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-left text-[11px] text-muted-foreground hover:bg-muted",
                         skillsStartIndex + skillsCount === activeIndex && "bg-muted",
                       )}
                       onMouseDown={(event) => {
@@ -475,7 +475,7 @@ export function SlashCommandPopover({
                           setItemRef(navIndex, el);
                         }}
                         className={cn(
-                          "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left hover:bg-muted",
+                          "flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-left hover:bg-muted",
                           navIndex === activeIndex && "bg-muted",
                         )}
                         onMouseDown={(event) => {
@@ -495,7 +495,7 @@ export function SlashCommandPopover({
                         setItemRef(projectsStartIndex + projectsCount, el);
                       }}
                       className={cn(
-                        "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[11px] text-muted-foreground hover:bg-muted",
+                        "flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-left text-[11px] text-muted-foreground hover:bg-muted",
                         projectsStartIndex + projectsCount === activeIndex && "bg-muted",
                       )}
                       onMouseDown={(event) => {
@@ -532,7 +532,7 @@ export function SlashCommandPopover({
                           setItemRef(navIndex, el);
                         }}
                         className={cn(
-                          "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left hover:bg-muted",
+                          "flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-left hover:bg-muted",
                           navIndex === activeIndex && "bg-muted",
                         )}
                         onMouseDown={(event) => {
@@ -558,7 +558,7 @@ export function SlashCommandPopover({
                         setItemRef(agentsStartIndex + Math.min(filteredAgents.length, 3), el);
                       }}
                       className={cn(
-                        "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[11px] text-muted-foreground hover:bg-muted",
+                        "flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-left text-[11px] text-muted-foreground hover:bg-muted",
                         agentsStartIndex + Math.min(filteredAgents.length, 3) === activeIndex &&
                           "bg-muted",
                       )}
@@ -656,7 +656,7 @@ export function SlashCommandPopover({
                     role="option"
                     aria-selected={isActive}
                     className={cn(
-                      "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5",
+                      "flex cursor-pointer items-center gap-2 rounded-xl px-2 py-1.5",
                       isActive ? "bg-muted" : "hover:bg-muted/60",
                     )}
                     onMouseEnter={() => setDisableActiveIndex(index)}

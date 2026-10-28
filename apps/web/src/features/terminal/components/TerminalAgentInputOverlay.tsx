@@ -36,6 +36,7 @@ import {
 } from "@/features/welcome/components/WelcomeMentionPopover";
 import { useWelcomeComposerAttachments } from "@/features/welcome/hooks/use-welcome-composer-attachments";
 import { useWelcomeMentionSearch } from "@/features/welcome/hooks/use-welcome-mention-search";
+import { useAgentSessionMentions } from "@/features/agent/hooks/use-agent-session-mentions";
 import {
   COLLAPSED_SLASH_SECTIONS,
   useWelcomeSlashNavigation,
@@ -543,6 +544,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     (item: MentionNavItem) => {
       const popover = mentionPopover;
       if (!popover) return;
+      if (item.type === "agent-sessions") return;
       if (item.type === "file") {
         selectMentionFile(item.file);
         return;
@@ -556,20 +558,6 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     [mentionPopover, selectMentionFile],
   );
 
-  const {
-    activeMentionFileIndex,
-    isMentionFilesLoading,
-    mentionFiles,
-    mentionPopoverListRef,
-    setMentionItemRef,
-  } = useWelcomeMentionSearch({
-    issuePreview: null,
-    onSelectNavItem: selectMentionNavItem,
-    popover: mentionPopover,
-    prPreview: null,
-    selectedProjectPath: localPath ?? null,
-  });
-
   const { allSkills, filteredAgents, filteredProjects, filteredSkills, isSkillsLoading } =
     useWelcomeSlashSearch({
       availableAgents: [],
@@ -577,6 +565,36 @@ export const TerminalAgentInputOverlay = React.forwardRef<
       popover: slashPopover,
       projects: [],
     });
+
+  const agentSessions = useAgentSessionMentions({
+    composerRef,
+    enabled: true,
+    mentionPopover,
+    onCloseMention: () => setMentionPopover(null),
+    skills: allSkills,
+  });
+  const selectMentionWithSessions = React.useCallback(
+    (item: MentionNavItem) => {
+      if (agentSessions.consumeNavItem(item)) return;
+      selectMentionNavItem(item);
+    },
+    [agentSessions, selectMentionNavItem],
+  );
+  const {
+    activeMentionFileIndex,
+    isMentionFilesLoading,
+    mentionFiles,
+    mentionPopoverListRef,
+    setMentionItemRef,
+  } = useWelcomeMentionSearch({
+    includeAgentSessions: agentSessions.includeInNav,
+    issuePreview: null,
+    keyboardEnabled: agentSessions.keyboardEnabled,
+    onSelectNavItem: selectMentionWithSessions,
+    popover: mentionPopover,
+    prPreview: null,
+    selectedProjectPath: localPath ?? null,
+  });
 
   const selectSlashSkill = React.useCallback(
     (skill: { path: string; name: string; status?: string }) => {
@@ -1424,14 +1442,19 @@ export const TerminalAgentInputOverlay = React.forwardRef<
           filteredSkills={filteredSkills}
           isMentionFilesLoading={isMentionFilesLoading}
           isSkillsLoading={isSkillsLoading}
+          agentSessions={agentSessions.state}
           mentionFiles={mentionFiles}
           mentionPopover={mentionPopover}
           mentionPopoverListRef={mentionPopoverListRef}
           onBackFromDisableSkills={backFromDisableSkills}
-          onCloseMention={() => setMentionPopover(null)}
+          onCloseMention={() => {
+            agentSessions.close();
+            setMentionPopover(null);
+          }}
           onCloseSlash={closeSlashPopover}
           onSelectMentionFile={selectMentionFile}
-          onSelectMentionNavItem={selectMentionNavItem}
+          onSelectMentionNavItem={selectMentionWithSessions}
+          showAgentSessions={agentSessions.includeInNav}
           onSelectSlashAgent={() => {
             setSlashPopover(null);
             setSlashPopoverView("menu");

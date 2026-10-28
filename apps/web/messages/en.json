@@ -4591,6 +4591,20 @@
       },
       "mentionPopover": {
         "github": "GitHub",
+        "agentSessions": "Agent Sessions",
+        "agentSessionsHint": "Send this message to other sessions",
+        "back": "Back",
+        "recentSessions": "Recent sessions",
+        "loadingSessions": "Loading sessions...",
+        "noSessions": "No other sessions",
+        "noSessionMatches": "No matching sessions",
+        "loadMoreSessions": "Load more",
+        "sessionStatus": {
+          "permission": "Needs permission",
+          "attention": "Needs you",
+          "running": "Running",
+          "done": "Idle"
+        },
         "files": "Files",
         "searchingFiles": "Searching files...",
         "noFiles": "No files",

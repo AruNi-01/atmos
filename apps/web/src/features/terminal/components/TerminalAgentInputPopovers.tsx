@@ -25,6 +25,7 @@ type ImagePreviewAttachment = {
 export function TerminalAgentInputPopovers({
   activeMentionFileIndex,
   activeSlashItemIndex,
+  agentSessions = null,
   disableSkills,
   expandedSections,
   filteredAgents,
@@ -53,10 +54,12 @@ export function TerminalAgentInputPopovers({
   setSlashItemRef,
   slashPopover,
   slashPopoverListRef,
+  showAgentSessions = false,
   slashPopoverView = "menu",
 }: {
   activeMentionFileIndex: number;
   activeSlashItemIndex: number;
+  agentSessions?: React.ComponentProps<typeof WelcomeMentionPopover>["agentSessions"];
   disableSkills?: SlashDisableSkillsState | null;
   expandedSections: React.ComponentProps<typeof SlashCommandPopover>["expandedSections"];
   filteredAgents: React.ComponentProps<typeof SlashCommandPopover>["filteredAgents"];
@@ -85,13 +88,16 @@ export function TerminalAgentInputPopovers({
   setSlashItemRef: React.ComponentProps<typeof SlashCommandPopover>["setItemRef"];
   slashPopover: WelcomeSlashPopoverState;
   slashPopoverListRef: React.ComponentProps<typeof SlashCommandPopover>["listRef"];
+  showAgentSessions?: boolean;
   slashPopoverView?: SlashPopoverView;
 }) {
   return (
     <>
       <WelcomeMentionPopover
         activeIndex={activeMentionFileIndex}
+        agentSessions={agentSessions}
         issuePreview={null}
+        showAgentSessions={showAgentSessions}
         isLoading={isMentionFilesLoading}
         listRef={mentionPopoverListRef}
         mentionFiles={mentionFiles}

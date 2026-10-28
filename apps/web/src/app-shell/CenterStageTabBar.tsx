@@ -1736,7 +1736,7 @@ function CenterStageNewTabMenu({
                   {onCreateOverview && !overviewAlreadyOpen ? (
                     <button
                       type="button"
-                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                      className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
                       onClick={() => {
                         onCreateOverview();
                         setOpen(false);
@@ -1750,7 +1750,7 @@ function CenterStageNewTabMenu({
                   <button
                     type="button"
                     id="create-terminal"
-                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
                     onClick={() => {
                       onCreateTerminal();
                       setOpen(false);
@@ -1763,7 +1763,7 @@ function CenterStageNewTabMenu({
                   <button
                     type="button"
                     id="create-agent-chat"
-                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
                     onClick={() => {
                       onCreateAgentChat();
                       setOpen(false);
@@ -1775,7 +1775,7 @@ function CenterStageNewTabMenu({
                   {onCreateMarkdownNote && markdownLabel ? (
                     <button
                       type="button"
-                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                      className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
                       onClick={() => {
                         onCreateMarkdownNote();
                         setOpen(false);
@@ -1787,7 +1787,7 @@ function CenterStageNewTabMenu({
                   ) : null}
                   <button
                     type="button"
-                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
                     onClick={() => {
                       onCreateBrowser();
                       setOpen(false);
@@ -1798,7 +1798,7 @@ function CenterStageNewTabMenu({
                   </button>
                   <button
                     type="button"
-                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
                     onClick={() => {
                       onCreateToolTab("files");
                       setOpen(false);
@@ -1810,7 +1810,7 @@ function CenterStageNewTabMenu({
                   {hideGitChrome ? null : (
                     <button
                       type="button"
-                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                      className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
                       onClick={() => {
                         onCreateToolTab("changes");
                         setOpen(false);
@@ -1823,7 +1823,7 @@ function CenterStageNewTabMenu({
                   {hideGitChrome ? null : (
                     <button
                       type="button"
-                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                      className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
                       onClick={() => {
                         onCreateToolTab("review");
                         setOpen(false);
@@ -1835,7 +1835,7 @@ function CenterStageNewTabMenu({
                   )}
                   <button
                     type="button"
-                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
                     onClick={() => {
                       onCreateToolTab("run");
                       setOpen(false);
@@ -1847,7 +1847,7 @@ function CenterStageNewTabMenu({
                   {hideGitChrome || !GITHUB_HUB_CENTER_TAB_VISIBLE ? null : (
                     <button
                       type="button"
-                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                      className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
                       onClick={() => {
                         onCreateToolTab("github");
                         setOpen(false);
@@ -1859,7 +1859,7 @@ function CenterStageNewTabMenu({
                   )}
                   <button
                     type="button"
-                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
                     onClick={() => {
                       onCreateToolTab("pt-design");
                       setOpen(false);
@@ -1870,7 +1870,7 @@ function CenterStageNewTabMenu({
                   </button>
                   <button
                     type="button"
-                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
                     onClick={() => {
                       onCreateSimulator();
                       setOpen(false);
@@ -1888,7 +1888,7 @@ function CenterStageNewTabMenu({
                       <PopoverTrigger asChild>
                         <button
                           type="button"
-                          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground"
+                          className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground"
                           aria-haspopup="menu"
                           aria-expanded={layoutsSubOpen}
                           onMouseEnter={() => {
@@ -1941,7 +1941,7 @@ function CenterStageNewTabMenu({
                         {onSaveLayout ? (
                           <button
                             type="button"
-                            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                            className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
                             onClick={openSaveDialog}
                           >
                             <Plus className="size-3.5 shrink-0 text-muted-foreground" />
@@ -1955,7 +1955,7 @@ function CenterStageNewTabMenu({
                           <button
                             key={layout.id}
                             type="button"
-                            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                            className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
                             onClick={() => requestApplyLayout(layout.id)}
                           >
                             <span className="min-w-0 flex-1 truncate">{layout.name}</span>
@@ -1970,7 +1970,7 @@ function CenterStageNewTabMenu({
                   {onSplitRight ? (
                     <button
                       type="button"
-                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                      className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
                       onClick={() => {
                         onSplitRight();
                         setOpen(false);
@@ -1983,7 +1983,7 @@ function CenterStageNewTabMenu({
                   {onSplitDown ? (
                     <button
                       type="button"
-                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                      className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
                       onClick={() => {
                         onSplitDown();
                         setOpen(false);
@@ -1996,7 +1996,7 @@ function CenterStageNewTabMenu({
                   {onCreateSpace && newSpaceLabel ? (
                     <button
                       type="button"
-                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                      className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
                       onClick={openSpaceDialog}
                     >
                       <Layers className="size-3.5 shrink-0 text-muted-foreground" />
@@ -2007,7 +2007,7 @@ function CenterStageNewTabMenu({
                     <button
                       type="button"
                       aria-pressed={isCenterFullscreen}
-                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                      className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
                       onClick={() => {
                         toggleCenterFullscreen(paneId);
                         setOpen(false);

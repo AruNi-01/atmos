@@ -21,13 +21,19 @@ import {
 } from "@/features/welcome/lib/popover-list-scroll";
 
 export function useWelcomeMentionSearch({
+  includeAgentSessions = false,
   issuePreview,
+  keyboardEnabled = true,
   onSelectNavItem,
   popover,
   prPreview,
   selectedProjectPath,
 }: {
+  /** Prepend the Agent Sessions drill-in so keyboard order matches the popover. */
+  includeAgentSessions?: boolean;
   issuePreview: GithubIssuePayload | null;
+  /** False while the sessions page is showing, so file keys do not steal input. */
+  keyboardEnabled?: boolean;
   onSelectNavItem: (item: MentionNavItem) => void;
   popover: MentionPopoverState;
   prPreview: GithubPrPayload | null;
@@ -83,11 +89,12 @@ export function useWelcomeMentionSearch({
 
   const mentionNavItems = React.useMemo<MentionNavItem[]>(() => {
     const items: MentionNavItem[] = [];
+    if (includeAgentSessions) items.push({ type: "agent-sessions" });
     if (issuePreview) items.push({ type: "issue", issue: issuePreview });
     if (prPreview) items.push({ type: "pr", pr: prPreview });
     for (const file of mentionFiles) items.push({ type: "file", file });
     return items;
-  }, [issuePreview, prPreview, mentionFiles]);
+  }, [includeAgentSessions, issuePreview, prPreview, mentionFiles]);
 
   React.useEffect(() => {
     setActiveMentionFileIndex(0);
@@ -101,7 +108,7 @@ export function useWelcomeMentionSearch({
   }, [activeMentionFileIndex, popover]);
 
   React.useEffect(() => {
-    if (!popover) return;
+    if (!popover || !keyboardEnabled) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "ArrowDown") {
         if (mentionNavItems.length === 0) return;
@@ -129,7 +136,7 @@ export function useWelcomeMentionSearch({
     };
     document.addEventListener("keydown", handleKeyDown, { capture: true });
     return () => document.removeEventListener("keydown", handleKeyDown, { capture: true });
-  }, [activeMentionFileIndex, mentionNavItems, onSelectNavItem, popover]);
+  }, [activeMentionFileIndex, keyboardEnabled, mentionNavItems, onSelectNavItem, popover]);
 
   return {
     activeMentionFileIndex,

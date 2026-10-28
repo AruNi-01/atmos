@@ -652,6 +652,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
     activeProjectId: sessionProjectId,
     sessionWorkspaceId,
     agentName: activeAgent?.name,
+    chatId,
   });
 
   useEffect(() => {

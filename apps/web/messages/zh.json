@@ -4591,6 +4591,20 @@
       },
       "mentionPopover": {
         "github": "GitHub",
+        "agentSessions": "Agent 会话",
+        "agentSessionsHint": "把这条消息发给其他会话",
+        "back": "返回",
+        "recentSessions": "最近的会话",
+        "loadingSessions": "正在加载会话...",
+        "noSessions": "没有其他会话",
+        "noSessionMatches": "没有匹配的会话",
+        "loadMoreSessions": "加载更多",
+        "sessionStatus": {
+          "permission": "需要权限",
+          "attention": "需要你",
+          "running": "进行中",
+          "done": "空闲"
+        },
         "files": "文件",
         "searchingFiles": "正在搜索文件...",
         "noFiles": "没有文件",

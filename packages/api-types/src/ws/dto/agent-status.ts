@@ -23,6 +23,8 @@ export type AgentSessionStatusSnapshot = {
   surface: AgentSessionSurface;
   surface_id: string | null;
   tool: AgentSessionTool | null;
+  /** Chat provider id for Agent Bridge (`claude`). Absent on terminal rows. */
+  provider_id?: string | null;
   group_key: AgentSessionGroupKey;
   updated_at: string;
   project_path: string | null;

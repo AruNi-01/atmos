@@ -48,6 +48,10 @@ pub struct AgentSessionStatusSnapshot {
     pub surface: AgentSurface,
     pub surface_id: Option<String>,
     pub tool: Option<AgentToolType>,
+    /// Chat `provider_id` used by Agent Bridge (`claude`, not the tool slug `claude-code`).
+    /// Terminal rows leave this empty.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_id: Option<String>,
     pub group_key: WorkspaceAgentGroupKey,
     pub updated_at: String,
     pub project_path: Option<String>,
@@ -400,6 +404,7 @@ impl AgentStatusService {
                     surface,
                     surface_id: surface_id_for(&row.session_id, surface, None),
                     tool: row.tool.as_deref().and_then(parse_tool),
+                    provider_id: None,
                     group_key: WorkspaceAgentGroupKey::Done,
                     updated_at: row.updated_at,
                     project_path: none_if_empty(row.project_path),
@@ -439,6 +444,7 @@ impl AgentStatusService {
                         session.surface_id.clone(),
                     ),
                     tool,
+                    provider_id: previous.as_ref().and_then(|row| row.provider_id.clone()),
                     group_key: resolve_workspace_agent_group_key(
                         session.state,
                         latch.map(|item| item.reason),
@@ -491,6 +497,7 @@ impl AgentStatusService {
                     surface,
                     surface_id: surface_id_for(&latch.stable_pane_id, surface, None),
                     tool,
+                    provider_id: previous.as_ref().and_then(|row| row.provider_id.clone()),
                     group_key: resolve_workspace_agent_group_key(
                         AgentOccupancy::Idle,
                         Some(latch.reason),
@@ -560,6 +567,7 @@ impl AgentStatusService {
                     row.surface_id = Some(chat.id.clone());
                 }
                 kept_chats.insert(chat.id.clone());
+                row.provider_id = Some(chat.provider_id.clone());
                 row.title = chat.title.clone();
                 rows.push(row);
                 continue;
@@ -626,6 +634,7 @@ impl AgentStatusService {
                 surface: AgentSurface::Chat,
                 surface_id: Some(chat.id.clone()),
                 tool: Some(super::provider_to_tool(&chat.provider_id)),
+                provider_id: Some(chat.provider_id.clone()),
                 group_key: WorkspaceAgentGroupKey::Done,
                 updated_at: chat.updated_at.clone(),
                 project_path: none_if_empty(Some(chat.cwd.clone())),
@@ -1288,6 +1297,10 @@ mod tests {
             session_by_id(&listed, "chat:chat-1").title.as_deref(),
             Some("Fix login")
         );
+        assert_eq!(
+            session_by_id(&listed, "chat:chat-1").provider_id.as_deref(),
+            Some("codex")
+        );
 
         service.flush_catalog().await;
         assert!(AgentSessionCatalogRepo::new(&test_db.db)
@@ -1467,6 +1480,7 @@ mod tests {
             surface: AgentSurface::Chat,
             surface_id: None,
             tool: None,
+            provider_id: None,
             group_key,
             updated_at: updated_at.to_string(),
             project_path: None,

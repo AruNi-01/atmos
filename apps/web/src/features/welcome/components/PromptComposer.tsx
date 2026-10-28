@@ -75,13 +75,19 @@ import {
 } from "@/features/welcome/lib/slash-command-visual";
 import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh.json";
+import {
+  agentSessionMentionToken,
+  decodeAgentSessionMention,
+  type AgentSessionMentionTarget,
+} from "@/features/agent/lib/agent-session-mention";
 
 export type MentionRef =
   | { kind: "issue" | "pr"; number: number }
   | { kind: "file"; relativePath: string }
   | { kind: "skill"; absolutePath: string; name: string }
   | { kind: "command"; name: string }
-  | { kind: "side"; contextId: string };
+  | { kind: "side"; contextId: string }
+  | { kind: "agent-sessions"; skillPath: string; targets: AgentSessionMentionTarget[] };
 
 export interface AtTriggerContext {
   caretRect: DOMRect;
@@ -174,7 +180,7 @@ interface PromptComposerProps extends ComposerCallbacks {
   disabled?: boolean;
 }
 
-const CHIP_TOKEN_PATTERN = String.raw`@(?:issue|pr)#\d+|@file:[^\s]+|\/skill:[^\s]+|\/cmd:[^\s]+|atmos:\/\/terminal-selection\/[a-zA-Z0-9_.:-]+|atmos:\/\/side-chat\/[a-zA-Z0-9_.:-]+|atmos:\/\/spawn\/[a-zA-Z0-9_.:-]+|atmos:\/\/skill-disable|\[#img-\d+\]|\[#appshot:\d{13}\]|\[#ctx:[a-z0-9-]+:[a-zA-Z0-9_-]+\]|${PASTE_TOKEN_SOURCE}|${URL_TOKEN_SOURCE}`;
+const CHIP_TOKEN_PATTERN = String.raw`@agent-sessions:[^\s]+|@(?:issue|pr)#\d+|@file:[^\s]+|\/skill:[^\s]+|\/cmd:[^\s]+|atmos:\/\/terminal-selection\/[a-zA-Z0-9_.:-]+|atmos:\/\/side-chat\/[a-zA-Z0-9_.:-]+|atmos:\/\/spawn\/[a-zA-Z0-9_.:-]+|atmos:\/\/skill-disable|\[#img-\d+\]|\[#appshot:\d{13}\]|\[#ctx:[a-z0-9-]+:[a-zA-Z0-9_-]+\]|${PASTE_TOKEN_SOURCE}|${URL_TOKEN_SOURCE}`;
 const TOKEN_REGEX = new RegExp(`(${CHIP_TOKEN_PATTERN})`, "g");
 const BACKSPACE_CHIP_REGEX = new RegExp(`(${CHIP_TOKEN_PATTERN})\\u00A0?$`);
 const DELETE_CHIP_REGEX = new RegExp(`^(${CHIP_TOKEN_PATTERN})\\u00A0?`);
@@ -383,6 +389,12 @@ function aiContextToneClassName(tone: AiContextChipTone): string {
 }
 
 function tokenForMention(mention: MentionRef): string {
+  if (mention.kind === "agent-sessions") {
+    return agentSessionMentionToken({
+      skillPath: mention.skillPath,
+      targets: mention.targets,
+    });
+  }
   if (mention.kind === "file") {
     return `@file:${mention.relativePath}`;
   }
@@ -405,7 +417,24 @@ function buildChipNode(token: string): HTMLSpanElement {
   span.className = COMPOSER_CHIP_CLASS;
   applyComposerChipLineMetrics(span);
 
-  if (token.startsWith("@issue#")) {
+  if (token.startsWith("@agent-sessions:")) {
+    const decoded = decodeAgentSessionMention(token);
+    const title = decoded?.targets[0]?.title || decoded?.targets[0]?.provider || "";
+    span.dataset.kind = "agent-sessions";
+    span.dataset.tooltip = title;
+    span.className += " border-border/70 bg-muted/60 text-foreground";
+    span.style.maxWidth = "160px";
+    span.appendChild(
+      buildStrokeIcon([
+        "M16 10a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 14.286V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z",
+        "M20 9a2 2 0 0 1 2 2v10.286a.71.71 0 0 1-1.212.502l-2.202-2.202A2 2 0 0 0 17.172 19H10a2 2 0 0 1-2-2v-1",
+      ]),
+    );
+    const label = document.createElement("span");
+    label.className = "min-w-0 truncate";
+    label.textContent = title;
+    span.appendChild(label);
+  } else if (token.startsWith("@issue#")) {
     span.dataset.kind = "issue";
     const n = token.split("#")[1];
     span.dataset.tooltip = `Issue #${n}`;
