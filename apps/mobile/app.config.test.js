@@ -6,7 +6,7 @@ const base = {
   plugins: [
     "expo-router",
     ["expo-dev-client", { skipOnboarding: true }],
-    "./plugins/with-ios-clear-tab-bar.js",
+    "./plugins/with-ios-scene-lifecycle.js",
   ],
   autolinking: { exclude: ["already-excluded"] },
 };
@@ -36,7 +36,7 @@ describe("applyParityPreviewConfig", () => {
       const next = applyParityPreviewConfig({ config: structuredClone(base) });
       expect(pluginNames(next)).not.toContain("expo-dev-client");
       expect(pluginNames(next)).toContain("expo-router");
-      expect(pluginNames(next)).toContain("./plugins/with-ios-clear-tab-bar.js");
+      expect(pluginNames(next)).toContain("./plugins/with-ios-scene-lifecycle.js");
       expect(next.autolinking.exclude).toEqual(
         expect.arrayContaining([
           "already-excluded",
@@ -55,7 +55,6 @@ describe("applyParityPreviewConfig", () => {
   test("keeps a scene manifest for parity preview builds", () => {
     const withScene = {
       ...base,
-      plugins: [...base.plugins, "./plugins/with-ios-scene-lifecycle.js"],
       ios: {
         infoPlist: {
           UIApplicationSceneManifest: { UISceneDelegateClassName: "Atmos.SceneDelegate" },

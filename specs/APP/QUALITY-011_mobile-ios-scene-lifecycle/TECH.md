@@ -49,8 +49,7 @@ SDK 56's `ExpoReactNativeFactory` inherits `startReactNative(withModuleName:in:l
 
 ```text
 app.json plugins
-  plugins/with-ios-clear-tab-bar.js          (unchanged; still patches didFinishLaunching)
-  plugins/with-ios-scene-lifecycle.js        (new)
+  plugins/with-ios-scene-lifecycle.js
         │
         ▼
 expo prebuild --platform ios
@@ -70,7 +69,7 @@ expo prebuild --platform ios
 
 The scene class lives in `AppDelegate.swift` so the Xcode project does not gain a file reference. `PRODUCT_NAME` is `Atmos`, so the expanded class name is `Atmos.SceneDelegate`. The Swift type must stay `class SceneDelegate` with no custom `@objc` name.
 
-`with-ios-clear-tab-bar.js` keeps injecting `HomeTabBarClearGlass.install()` at the start of `didFinishLaunchingWithOptions`. The scene plugin only deletes the `UIWindow(frame:)` / `startReactNative` block.
+The scene plugin only deletes the `UIWindow(frame:)` / `startReactNative` block. Home tabs use Expo Router NativeTabs system Liquid Glass; they do not swizzle `UITabBar`.
 
 Parity preview (`EXPO_PUBLIC_PARITY_PREVIEW=1`) still drops `expo-dev-client`. It must not drop the scene manifest. Window creation no longer happens in the app delegate, so a preview build without a scene would have no window on every iOS version.
 
@@ -247,3 +246,11 @@ Linux can run `judge-prebuilt`, `judge-cold`, `list-ips`, and `parse-launch-pid`
 ## Open questions
 
 - None for this fix. Whether to move the whole app to Expo SDK 58 is a separate upgrade.
+
+## Implementation Delta (2026-10-29)
+
+The home tab bar no longer pins Liquid Glass to `UIGlassEffect.Style.clear` via a private `_glassEffect` / `_style` swizzle. Expo Router NativeTabs on iOS 26 draws system Liquid Glass and ignores public background props, so Atmos keeps the system default instead of poking UIKit ivars.
+
+- `apps/mobile/plugins/with-ios-clear-tab-bar.js` is removed.
+- `with-ios-scene-lifecycle.js` still only rewrites the Expo window / `startReactNative` block. It does not depend on `HomeTabBarClearGlass.install()`.
+- `script/verify-ios-scene-lifecycle.sh structural` fails if `HomeTabBarClearGlass` returns in `AppDelegate.swift`.

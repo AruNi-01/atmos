@@ -23,8 +23,6 @@ class AppDelegate: ExpoAppDelegate {
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
-    HomeTabBarClearGlass.install()
-
     let delegate = ReactNativeDelegate()
     let factory = ExpoReactNativeFactory(delegate: delegate)
     delegate.dependencyProvider = RCTAppDependencyProvider()
@@ -121,7 +119,7 @@ describe("ensureSceneLifecycle", () => {
     const next = ensureSceneLifecycle(FIXTURE);
     const launch = launchBody(next);
 
-    expect(launch).toContain("HomeTabBarClearGlass.install()");
+    expect(launch).not.toContain("HomeTabBarClearGlass");
     expect(launch).not.toContain("factory.startReactNative");
     expect(launch).not.toContain("UIWindow(frame:");
     expect(next).toContain("class SceneDelegate: UIResponder, UIWindowSceneDelegate");
@@ -162,7 +160,7 @@ describe("ensureSceneLifecycle", () => {
       "AtmosSceneLifecycle delivered userActivity to RCTLinkingManager",
     );
     expect(next.match(/startReactNative\(/g)).toHaveLength(1);
-    expect(launch.indexOf("HomeTabBarClearGlass.install()")).toBeLessThan(
+    expect(launch.indexOf("let delegate = ReactNativeDelegate()")).toBeLessThan(
       launch.indexOf("return super.application"),
     );
   });

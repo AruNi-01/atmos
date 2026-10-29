@@ -45,7 +45,7 @@ The crash is inside UIKit on a simulator this Linux environment cannot boot. CI 
 ### S1 — Prebuild rewrite removes the app-delegate window
 
 - **Level**: Unit
-- **Given**: the Swift `AppDelegate` Expo SDK 56 emits, including `HomeTabBarClearGlass.install()` and the `UIWindow(frame: UIScreen.main.bounds)` block.
+- **Given**: the Swift `AppDelegate` Expo SDK 56 emits, including the `UIWindow(frame: UIScreen.main.bounds)` block. The private `HomeTabBarClearGlass` swizzle is gone; the fixture is the stock Expo delegate.
 - **When**: `ensureSceneLifecycle` runs once, then again.
 - **Then**: `didFinishLaunchingWithOptions` no longer calls `startReactNative` or constructs `UIWindow(frame:)`. `class SceneDelegate` calls `startReactNative` with a `UIWindow(windowScene:)`. The second call returns the same string. A source that still contains both the marker and `UIWindow(frame:` throws.
 - **Signals**: assertions in `plugins/with-ios-scene-lifecycle.test.js`.
@@ -55,7 +55,7 @@ The crash is inside UIKit on a simulator this Linux environment cannot boot. CI 
 - **Level**: Structural
 - **Given**: a clean `expo prebuild --platform ios --no-install`.
 - **When**: `verify-ios-scene-lifecycle.sh structural` runs.
-- **Then**: `ios/Atmos/Info.plist` has one application scene role, `UIApplicationSupportsMultipleScenes` false, and `UISceneDelegateClassName` equal to `$(PRODUCT_MODULE_NAME).SceneDelegate`. `ios/Atmos/AppDelegate.swift` defines `class SceneDelegate` and does not use `@objc(SceneDelegate)`.
+- **Then**: `ios/Atmos/Info.plist` has one application scene role, `UIApplicationSupportsMultipleScenes` false, and `UISceneDelegateClassName` equal to `$(PRODUCT_MODULE_NAME).SceneDelegate`. `ios/Atmos/AppDelegate.swift` defines `class SceneDelegate`, does not use `@objc(SceneDelegate)`, and does not contain `HomeTabBarClearGlass`.
 - **Signals**: script exit 0. Exit non-zero if the class or the plist key is missing.
 
 ### S3 — iOS 26.5 parity build still uses the scene class
@@ -129,7 +129,7 @@ None. Scene connection replaces the old window allocation. No extra JavaScript w
 
 ## Regression checklist
 
-- [ ] `HomeTabBarClearGlass.install()` still runs inside `didFinishLaunchingWithOptions`.
+- [x] `HomeTabBarClearGlass` is absent from the generated AppDelegate. NativeTabs uses the system iOS 26 glass default. The scene plugin still moves window setup out of `didFinishLaunchingWithOptions`.
 - [ ] Parity preview still excludes `expo-dev-client` / `expo-dev-launcher` / `expo-dev-menu` / `expo-dev-menu-interface`.
 - [ ] Generated URL schemes `atmos`, `land.atmos.mobile`, and `exp+atmos-mobile` are unchanged.
 - [ ] The scene delegate does not log the URL or the user-activity webpage.

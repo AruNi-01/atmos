@@ -134,8 +134,8 @@ check_swift() {
     echo "didFinishLaunchingWithOptions still starts React Native" >&2
     exit 1
   fi
-  if ! grep -q 'HomeTabBarClearGlass.install()' <<<"$launch"; then
-    echo "clear tab bar install was dropped from didFinishLaunchingWithOptions" >&2
+  if grep -q 'HomeTabBarClearGlass' "$swift"; then
+    echo "private tab bar glass swizzle must not return in $swift" >&2
     exit 1
   fi
   if ! grep -q 'class SceneDelegate: UIResponder, UIWindowSceneDelegate' "$swift"; then
