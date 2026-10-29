@@ -324,7 +324,7 @@ export function FileTreeContextMenu({
                   type="button"
                   disabled={isMutating}
                   className={cn(
-                    "relative flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none",
+                    "relative flex w-full cursor-default items-center gap-2 rounded-lg px-2 py-1.5 text-sm outline-hidden select-none",
                     "text-destructive hover:bg-accent/60 focus:bg-accent focus:text-destructive disabled:pointer-events-none disabled:opacity-50 data-[state=open]:bg-accent data-[state=open]:text-destructive",
                   )}
                   onPointerMove={() => {

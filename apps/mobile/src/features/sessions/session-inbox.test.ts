@@ -344,6 +344,45 @@ describe("session inbox", () => {
     expect(inbox.recent).toHaveLength(1);
   });
 
+  test("fills a chat agent from the chat list when the snapshot has no tool", () => {
+    const inbox = buildSessionInbox({
+      candidates: [],
+      snapshots: [
+        snapshot({
+          session_id: "chat:abc",
+          surface: "chat",
+          group_key: "done",
+          context_id: "ws",
+          title: "Fix login",
+        }),
+      ],
+      workspaces: [{ id: "ws", projectName: "Atmos", workspaceName: "api", branch: "main" }],
+      chatProviders: { abc: "codex" },
+    });
+
+    expect(inbox.rows.find((row) => row.id === "chat:abc")?.agentId).toBe("codex");
+  });
+
+  test("keeps the snapshot tool when the chat list also has a provider", () => {
+    const inbox = buildSessionInbox({
+      candidates: [],
+      snapshots: [
+        snapshot({
+          session_id: "chat:abc",
+          surface: "chat",
+          group_key: "done",
+          context_id: "ws",
+          title: "Fix login",
+          tool: "claude-code",
+        }),
+      ],
+      workspaces: [{ id: "ws", projectName: "Atmos", workspaceName: "api", branch: "main" }],
+      chatProviders: { abc: "codex" },
+    });
+
+    expect(inbox.rows.find((row) => row.id === "chat:abc")?.agentId).toBe("claude-code");
+  });
+
   test("drops a chat whose context is neither a workspace nor a project", () => {
     const inbox = buildSessionInbox({
       candidates: [],

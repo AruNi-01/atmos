@@ -23,6 +23,8 @@ export type AgentSessionStatusSnapshot = {
   surface: AgentSessionSurface;
   surface_id: string | null;
   tool: AgentSessionTool | null;
+  /** Chat provider id for Agent Bridge (`claude`). Absent on terminal rows. */
+  provider_id?: string | null;
   group_key: AgentSessionGroupKey;
   updated_at: string;
   project_path: string | null;
@@ -44,6 +46,15 @@ export type AgentSessionStatusListRequest = {
   group_key?: string | null;
   /** Exact workspace id. Blank means every workspace. */
   context_id?: string | null;
+  /** Enabled agent ids. Empty means every agent. Narrows the page and totals. */
+  provider_ids?: string[] | null;
+  /** Filter sheet: enabled agents only, without scanning the session list. */
+  agents_only?: boolean | null;
+};
+
+export type SessionAgentOption = {
+  id: string;
+  label: string;
 };
 
 export type AgentSessionStatusListResponse = {
@@ -51,6 +62,8 @@ export type AgentSessionStatusListResponse = {
   next_cursor: string | null;
   total: number;
   counts: AgentSessionStatusCounts;
+  /** Enabled terminal agents. Independent of the current page and provider filter. */
+  agents?: SessionAgentOption[] | null;
 };
 
 export type AgentSessionArchiveRequest = {

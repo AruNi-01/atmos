@@ -140,7 +140,7 @@ describe("device-preview agent prompt", () => {
     const labeled = presentAiContextChip("device-preview", formatDevicePreviewPrompt(claim));
     expect(labeled.label).toBe("Pixel 8");
     expect(labeled.tone).toBe("cyan");
-    expect(labeled.icon).toBe("layout");
+    expect(labeled.icon).toBe("smartphone");
     expect(presentAiContextChip("device-preview", formatDevicePreviewListPrompt([])).label).toBe(
       "Simulator Device Use",
     );

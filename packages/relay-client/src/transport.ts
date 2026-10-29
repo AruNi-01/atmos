@@ -35,7 +35,15 @@ export function createFetchTransport(
       body: req.body,
     });
 
-    const json = (await response.json().catch(() => ({}))) as unknown;
+    const text = await response.text();
+    let json: unknown = {};
+    if (text.trim()) {
+      try {
+        json = JSON.parse(text) as unknown;
+      } catch {
+        json = { message: text.trim().slice(0, 180) };
+      }
+    }
     return { status: response.status, json };
   };
 }

@@ -37,6 +37,12 @@ import {
   resolveBrowserUseSkillRef,
 } from "@/features/welcome/lib/slash-browser-use";
 import {
+  AGENT_BRIDGE_SLASH_COMMAND_ID,
+  buildAgentBridgeSlashCommand,
+  matchesAgentBridgeSlashQuery,
+  resolveAgentBridgeSkillRef,
+} from "@/features/welcome/lib/slash-agent-bridge";
+import {
   buildDesktopUseSlashCommand,
   DESKTOP_USE_SLASH_COMMAND_ID,
   matchesDesktopUseSlashQuery,
@@ -65,6 +71,7 @@ import {
 } from "@/features/skills/lib/skill-disable-protocol";
 import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
 import { useContextParams } from "@/shared/hooks/use-context-params";
+import { useAgentSessionMentions } from "@/features/agent/hooks/use-agent-session-mentions";
 
 function matchesDynamicSkillsSlashQuery(query: string): boolean {
   const q = query.trim().toLowerCase();
@@ -85,6 +92,7 @@ export function useAgentComposerPopovers({
   composerRef,
   activeProjectId = null,
   agentName = null,
+  chatId = null,
   sessionWorkspaceId = null,
 }: {
   availableCommands: AgentChatSlashCommand[];
@@ -92,6 +100,7 @@ export function useAgentComposerPopovers({
   composerRef: React.RefObject<ComposerHandle | null>;
   activeProjectId?: string | null;
   agentName?: string | null;
+  chatId?: string | null;
   sessionWorkspaceId?: string | null;
 }) {
   const t = useTranslations("Welcome.components");
@@ -146,6 +155,7 @@ export function useAgentComposerPopovers({
     (item: MentionNavItem) => {
       const popover = mentionPopover;
       if (!popover) return;
+      if (item.type === "agent-sessions") return;
       if (item.type === "file") {
         selectMentionFile(item.file);
         return;
@@ -159,6 +169,28 @@ export function useAgentComposerPopovers({
     [composerRef, mentionPopover, selectMentionFile],
   );
 
+  const { allSkills, filteredSkills, isSkillsLoading } = useWelcomeSlashSearch({
+    availableAgents: [],
+    activeProjectId,
+    popover: slashPopover,
+    projects: [],
+  });
+
+  const agentSessions = useAgentSessionMentions({
+    chatId,
+    composerRef,
+    enabled: true,
+    mentionPopover,
+    onCloseMention: () => setMentionPopover(null),
+    skills: allSkills,
+  });
+  const selectMentionWithSessions = React.useCallback(
+    (item: MentionNavItem) => {
+      if (agentSessions.consumeNavItem(item)) return;
+      selectMentionNavItem(item);
+    },
+    [agentSessions, selectMentionNavItem],
+  );
   const {
     activeMentionFileIndex,
     isMentionFilesLoading,
@@ -166,18 +198,13 @@ export function useAgentComposerPopovers({
     mentionPopoverListRef,
     setMentionItemRef,
   } = useWelcomeMentionSearch({
+    includeAgentSessions: agentSessions.includeInNav,
     issuePreview: null,
-    onSelectNavItem: selectMentionNavItem,
+    keyboardEnabled: agentSessions.keyboardEnabled,
+    onSelectNavItem: selectMentionWithSessions,
     popover: mentionPopover,
     prPreview: null,
     selectedProjectPath: projectPath,
-  });
-
-  const { allSkills, filteredSkills, isSkillsLoading } = useWelcomeSlashSearch({
-    availableAgents: [],
-    activeProjectId,
-    popover: slashPopover,
-    projects: [],
   });
 
   const filteredAtmosCommands = React.useMemo<SlashCommandOption[]>(() => {
@@ -196,6 +223,14 @@ export function useAgentComposerPopovers({
         buildDesktopUseSlashCommand({
           label: t("slashPopover.desktopUse.label"),
           description: t("slashPopover.desktopUse.description"),
+        }),
+      );
+    }
+    if (matchesAgentBridgeSlashQuery(query)) {
+      commands.push(
+        buildAgentBridgeSlashCommand({
+          label: t("slashPopover.agentBridge.label"),
+          description: t("slashPopover.agentBridge.description"),
         }),
       );
     }
@@ -403,6 +438,22 @@ export function useAgentComposerPopovers({
         );
         return;
       }
+      if (command.id === AGENT_BRIDGE_SLASH_COMMAND_ID) {
+        const skill = resolveAgentBridgeSkillRef(allSkills);
+        if (skill.status === "disabled") {
+          setSlashPopover(null);
+          setSlashPopoverView("menu");
+          return;
+        }
+        setSlashPopover(null);
+        setSlashPopoverView("menu");
+        composerRef.current?.applySlashAtRange(popover.slashOffset, popover.query.length, {
+          kind: "skill",
+          absolutePath: skill.absolutePath,
+          name: skill.name,
+        });
+        return;
+      }
       const matched = availableCommands.find((item) => item.name === command.id);
       if (matched) {
         composerRef.current?.applySlashAtRange(popover.slashOffset, popover.query.length, {
@@ -499,8 +550,9 @@ export function useAgentComposerPopovers({
   }, [closeSlashPopover]);
 
   const onAtCancel = React.useCallback(() => {
+    agentSessions.close();
     setMentionPopover(null);
-  }, []);
+  }, [agentSessions]);
 
   const onSlashCancel = React.useCallback(() => {
     if (suppressSlashCancelRef.current) return;
@@ -512,14 +564,19 @@ export function useAgentComposerPopovers({
     <>
       <WelcomeMentionPopover
         activeIndex={activeMentionFileIndex}
+        agentSessions={agentSessions.state}
         issuePreview={null}
         isLoading={isMentionFilesLoading}
         listRef={mentionPopoverListRef}
         mentionFiles={mentionFiles}
-        onClose={() => setMentionPopover(null)}
+        onClose={() => {
+          agentSessions.close();
+          setMentionPopover(null);
+        }}
         onSelectFile={selectMentionFile}
-        onSelectNavItem={selectMentionNavItem}
+        onSelectNavItem={selectMentionWithSessions}
         onSetItemRef={setMentionItemRef}
+        showAgentSessions={agentSessions.includeInNav}
         popover={mentionPopover}
         prPreview={null}
       />

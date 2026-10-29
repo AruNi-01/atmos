@@ -296,6 +296,8 @@
       "inUse": "In use",
       "useLocally": "Use locally",
       "connect": "Connect",
+      "registerAgain": "Register again",
+      "registerAgainHint": "Relay rejected this computer's key. Register again to restore the connection.",
       "manageComputers": "Manage Computers",
       "recently": "recently",
       "browserReady": "Browser access is ready",
@@ -2953,6 +2955,7 @@
           "accessKeyTooShort": "Sign in required before connecting to a remote computer.",
           "couldNotSaveAccessKey": "Could not save the account device on this computer.",
           "couldNotConnectComputer": "Could not connect to that computer.",
+          "relayBlockedThisRequest": "This request was blocked before it reached Relay.",
           "remoteRelayUnreachable": "Remote computer is not reachable through relay.",
           "remoteRelayUnreachableWithReason": "Remote computer is not reachable through relay: {message}"
         }
@@ -4588,6 +4591,20 @@
       },
       "mentionPopover": {
         "github": "GitHub",
+        "agentSessions": "Agent Sessions",
+        "agentSessionsHint": "Send this message to other sessions",
+        "back": "Back",
+        "recentSessions": "Recent sessions",
+        "loadingSessions": "Loading sessions...",
+        "noSessions": "No other sessions",
+        "noSessionMatches": "No matching sessions",
+        "loadMoreSessions": "Load more",
+        "sessionStatus": {
+          "permission": "Needs permission",
+          "attention": "Needs you",
+          "running": "Running",
+          "done": "Idle"
+        },
         "files": "Files",
         "searchingFiles": "Searching files...",
         "noFiles": "No files",
@@ -4635,6 +4652,10 @@
         "desktopUse": {
           "label": "Desktop Use",
           "description": "Capture and control the local desktop (screenshot, click, type)"
+        },
+        "agentBridge": {
+          "label": "Agent Bridge",
+          "description": "Address other agents on this Computer (list, send, request)"
         },
         "viewRunLogs": {
           "label": "View Run Logs",
@@ -10418,6 +10439,9 @@
           "reconnectTitle": "Offline for Atmos Computer connections",
           "reconnectButton": "Reconnect",
           "reconnectHelper": "Other computers cannot connect yet. Tap Reconnect to try again.",
+          "reregisterTitle": "Relay no longer accepts this computer",
+          "reregisterButton": "Register again",
+          "reregisterHelper": "The saved key does not match Relay. Register again to restore the connection. Reconnect keeps failing.",
           "useLocalTitle": "Use this computer locally",
           "useLocalDescription": "Switch back from the selected remote Computer to the local Desktop runtime.",
           "useLocalButton": "Use locally",
@@ -10429,6 +10453,7 @@
           "refresh": "Refresh",
           "signInPrompt": "Sign in to see your computers.",
           "empty": "No computers yet. Register this computer, or add another remote computer under the same account.",
+          "loadError": "Could not refresh the computer list.",
           "connected": "Connected",
           "fallbackName": "Computer",
           "current": "Current",
@@ -10755,6 +10780,10 @@
       "desktopUseCommand": {
         "label": "Desktop Use",
         "description": "Capture and control the local desktop (screenshot, click, type)"
+      },
+      "agentBridgeCommand": {
+        "label": "Agent Bridge",
+        "description": "Address other agents on this Computer (list, send, request)"
       },
       "viewRunLogsCommand": {
         "label": "View Run Logs",

@@ -48,6 +48,10 @@ pub struct AgentSessionStatusSnapshot {
     pub surface: AgentSurface,
     pub surface_id: Option<String>,
     pub tool: Option<AgentToolType>,
+    /// Chat `provider_id` used by Agent Bridge (`claude`, not the tool slug `claude-code`).
+    /// Terminal rows leave this empty.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_id: Option<String>,
     pub group_key: WorkspaceAgentGroupKey,
     pub updated_at: String,
     pub project_path: Option<String>,
@@ -58,11 +62,14 @@ pub struct AgentSessionStatusSnapshot {
 pub const AGENT_SESSION_PAGE_LIMIT: usize = 100;
 
 /// Optional page filter. Blank fields mean the full catalog.
-/// `counts` and `total` stay catalog-wide either way.
-#[derive(Debug, Clone, Copy, Default)]
+/// `counts` and `total` stay catalog-wide for bucket and workspace filters.
+/// A non-empty `provider_ids` narrows both the page and those totals to the
+/// matching agents. The enabled-agent catalog is not part of this filter.
+#[derive(Debug, Clone, Copy)]
 pub struct AgentSessionListFilter<'a> {
     pub group_key: Option<&'a str>,
     pub context_id: Option<&'a str>,
+    pub provider_ids: &'a [&'a str],
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -82,6 +89,7 @@ pub struct AgentSessionStatusPage {
 
 /// Newest first. `cursor` is the previous page's last `updated_at` and `session_id`.
 /// A non-blank `group_key` or `context_id` filters the page after totals are counted.
+/// `provider_ids` is applied first and changes `counts` / `total`.
 /// An unknown group returns no rows. `idle` matches `done`.
 pub fn page_agent_sessions(
     sessions: Vec<AgentSessionStatusSnapshot>,
@@ -89,9 +97,19 @@ pub fn page_agent_sessions(
     limit: usize,
     filter: AgentSessionListFilter<'_>,
 ) -> AgentSessionStatusPage {
-    let counts = count_agent_sessions(&sessions);
-    let total = sessions.len() as u64;
     let mut ordered = sessions;
+    let providers: Vec<&str> = filter
+        .provider_ids
+        .iter()
+        .copied()
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+        .collect();
+    if !providers.is_empty() {
+        ordered.retain(|row| session_matches_providers(row.tool, &providers));
+    }
+    let counts = count_agent_sessions(&ordered);
+    let total = ordered.len() as u64;
     if let Some(context_id) = nonempty_filter(filter.context_id) {
         ordered.retain(|row| row.context_id.as_deref() == Some(context_id));
     }
@@ -127,6 +145,22 @@ pub fn page_agent_sessions(
         total,
         counts,
     }
+}
+
+fn session_matches_providers(tool: Option<super::AgentToolType>, providers: &[&str]) -> bool {
+    let Some(tool) = tool else {
+        return false;
+    };
+    providers.iter().any(|id| {
+        if tool.to_string().eq_ignore_ascii_case(id) {
+            return true;
+        }
+        let mapped = super::provider_to_tool(id);
+        if mapped == super::AgentToolType::Agent {
+            return tool == super::AgentToolType::Agent && id.eq_ignore_ascii_case("agent");
+        }
+        mapped == tool
+    })
 }
 
 fn nonempty_filter(value: Option<&str>) -> Option<&str> {
@@ -370,6 +404,7 @@ impl AgentStatusService {
                     surface,
                     surface_id: surface_id_for(&row.session_id, surface, None),
                     tool: row.tool.as_deref().and_then(parse_tool),
+                    provider_id: None,
                     group_key: WorkspaceAgentGroupKey::Done,
                     updated_at: row.updated_at,
                     project_path: none_if_empty(row.project_path),
@@ -409,6 +444,7 @@ impl AgentStatusService {
                         session.surface_id.clone(),
                     ),
                     tool,
+                    provider_id: previous.as_ref().and_then(|row| row.provider_id.clone()),
                     group_key: resolve_workspace_agent_group_key(
                         session.state,
                         latch.map(|item| item.reason),
@@ -461,6 +497,7 @@ impl AgentStatusService {
                     surface,
                     surface_id: surface_id_for(&latch.stable_pane_id, surface, None),
                     tool,
+                    provider_id: previous.as_ref().and_then(|row| row.provider_id.clone()),
                     group_key: resolve_workspace_agent_group_key(
                         AgentOccupancy::Idle,
                         Some(latch.reason),
@@ -530,6 +567,7 @@ impl AgentStatusService {
                     row.surface_id = Some(chat.id.clone());
                 }
                 kept_chats.insert(chat.id.clone());
+                row.provider_id = Some(chat.provider_id.clone());
                 row.title = chat.title.clone();
                 rows.push(row);
                 continue;
@@ -596,6 +634,7 @@ impl AgentStatusService {
                 surface: AgentSurface::Chat,
                 surface_id: Some(chat.id.clone()),
                 tool: Some(super::provider_to_tool(&chat.provider_id)),
+                provider_id: Some(chat.provider_id.clone()),
                 group_key: WorkspaceAgentGroupKey::Done,
                 updated_at: chat.updated_at.clone(),
                 project_path: none_if_empty(Some(chat.cwd.clone())),
@@ -1258,6 +1297,10 @@ mod tests {
             session_by_id(&listed, "chat:chat-1").title.as_deref(),
             Some("Fix login")
         );
+        assert_eq!(
+            session_by_id(&listed, "chat:chat-1").provider_id.as_deref(),
+            Some("codex")
+        );
 
         service.flush_catalog().await;
         assert!(AgentSessionCatalogRepo::new(&test_db.db)
@@ -1437,6 +1480,7 @@ mod tests {
             surface: AgentSurface::Chat,
             surface_id: None,
             tool: None,
+            provider_id: None,
             group_key,
             updated_at: updated_at.to_string(),
             project_path: None,
@@ -1475,6 +1519,7 @@ mod tests {
         let running = AgentSessionListFilter {
             group_key: Some("running"),
             context_id: Some("ws-1"),
+            provider_ids: &[],
         };
         let page = page_agent_sessions(snaps.clone(), None, 1, running);
         assert_eq!(page.sessions.len(), 1);
@@ -1504,6 +1549,7 @@ mod tests {
             AgentSessionListFilter {
                 group_key: Some("nope"),
                 context_id: Some("ws-1"),
+                provider_ids: &[],
             },
         );
         assert!(unknown.sessions.is_empty());
@@ -1517,6 +1563,7 @@ mod tests {
             AgentSessionListFilter {
                 group_key: Some("idle"),
                 context_id: Some("ws-1"),
+                provider_ids: &[],
             },
         );
         assert_eq!(idle.sessions.len(), 1);
@@ -1529,9 +1576,49 @@ mod tests {
             AgentSessionListFilter {
                 group_key: Some("  "),
                 context_id: None,
+                provider_ids: &[],
             },
         );
         assert_eq!(blank.sessions[0].session_id, "d");
         assert_eq!(blank.total, 4);
+    }
+
+    #[test]
+    fn page_agent_sessions_provider_filter_narrows_counts() {
+        let mut claude = status_snapshot(
+            "claude-row",
+            Some("ws-1"),
+            WorkspaceAgentGroupKey::Running,
+            "2026-01-02T00:00:00Z",
+        );
+        claude.tool = Some(super::AgentToolType::ClaudeCode);
+        let mut codex = status_snapshot(
+            "codex-row",
+            Some("ws-1"),
+            WorkspaceAgentGroupKey::Done,
+            "2026-01-03T00:00:00Z",
+        );
+        codex.tool = Some(super::AgentToolType::Codex);
+        let snaps = vec![claude, codex];
+        let page = page_agent_sessions(
+            snaps,
+            None,
+            20,
+            AgentSessionListFilter {
+                group_key: None,
+                context_id: None,
+                provider_ids: &["claude"],
+            },
+        );
+        assert_eq!(
+            page.sessions
+                .iter()
+                .map(|row| row.session_id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["claude-row"]
+        );
+        assert_eq!(page.total, 1);
+        assert_eq!(page.counts.running, 1);
+        assert_eq!(page.counts.done, 0);
     }
 }

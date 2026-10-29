@@ -24,6 +24,9 @@ pub enum ServiceError {
 
     #[error("{0}")]
     DeviceControl(#[from] DeviceControlError),
+
+    #[error("{0}")]
+    AgentBridge(#[from] agent_bridge::BridgeError),
 }
 
 impl From<agent::manager::AgentError> for ServiceError {

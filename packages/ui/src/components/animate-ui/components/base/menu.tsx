@@ -82,7 +82,7 @@ function MenuPanel({
             className,
           )}
         >
-          <MenuHighlightPrimitive className="absolute inset-0 z-0 rounded-sm bg-accent">
+          <MenuHighlightPrimitive className="absolute inset-0 z-0 rounded-lg bg-accent">
             {children}
           </MenuHighlightPrimitive>
         </MenuPopupPrimitive>
@@ -127,7 +127,7 @@ function MenuItem({ className, inset, variant = "default", disabled, ...props }:
         data-inset={inset}
         data-variant={variant}
         className={cn(
-          "relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none focus:text-accent-foreground data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-[inset]:pl-8 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:text-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground data-[variant=destructive]:*:[svg]:!text-destructive",
+          "relative flex cursor-default items-center gap-2 rounded-lg px-2 py-1.5 text-sm outline-hidden select-none focus:text-accent-foreground data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-[inset]:pl-8 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:text-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground data-[variant=destructive]:*:[svg]:!text-destructive",
           className,
         )}
         {...props}
@@ -150,7 +150,7 @@ function MenuCheckboxItem({
       <MenuCheckboxItemPrimitive
         disabled={disabled}
         className={cn(
-          "relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-8 text-sm outline-hidden select-none focus:text-accent-foreground data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+          "relative flex cursor-default items-center gap-2 rounded-lg py-1.5 pr-2 pl-8 text-sm outline-hidden select-none focus:text-accent-foreground data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
           className,
         )}
         checked={checked}
@@ -184,7 +184,7 @@ function MenuRadioItem({ className, children, disabled, ...props }: MenuRadioIte
       <MenuRadioItemPrimitive
         disabled={disabled}
         className={cn(
-          "relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-8 text-sm outline-hidden select-none focus:text-accent-foreground data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+          "relative flex cursor-default items-center gap-2 rounded-lg py-1.5 pr-2 pl-8 text-sm outline-hidden select-none focus:text-accent-foreground data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
           className,
         )}
         {...props}
@@ -249,7 +249,7 @@ function MenuSubmenuTrigger({
         disabled={disabled}
         data-inset={inset}
         className={cn(
-          "flex cursor-default items-center rounded-sm px-2 py-1.5 text-sm outline-hidden select-none focus:text-accent-foreground data-[inset]:pl-8 data-[state=open]:text-accent-foreground",
+          "flex cursor-default items-center rounded-lg px-2 py-1.5 text-sm outline-hidden select-none focus:text-accent-foreground data-[inset]:pl-8 data-[state=open]:text-accent-foreground",
           "[&_[data-slot=chevron]]:transition-transform [&_[data-slot=chevron]]:duration-300 [&_[data-slot=chevron]]:ease-in-out aria-[expanded=true]:[&_[data-slot=chevron]]:rotate-90",
           className,
         )}

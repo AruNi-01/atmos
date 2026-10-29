@@ -33,6 +33,12 @@ import {
 import { AtmosWordmark } from "@/shared/components/ui/AtmosWordmark";
 import { useContextParams } from "@/shared/hooks/use-context-params";
 import {
+  AGENT_BRIDGE_SLASH_COMMAND_ID,
+  buildAgentBridgeSlashCommand,
+  matchesAgentBridgeSlashQuery,
+  resolveAgentBridgeSkillRef,
+} from "@/features/welcome/lib/slash-agent-bridge";
+import {
   buildDesktopUseSlashCommand,
   DESKTOP_USE_SLASH_COMMAND_ID,
   matchesDesktopUseSlashQuery,
@@ -302,6 +308,14 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
         buildDesktopUseSlashCommand({
           label: t("slashPopover.desktopUse.label"),
           description: t("slashPopover.desktopUse.description"),
+        }),
+      );
+    }
+    if (matchesAgentBridgeSlashQuery(query)) {
+      commands.push(
+        buildAgentBridgeSlashCommand({
+          label: t("slashPopover.agentBridge.label"),
+          description: t("slashPopover.agentBridge.description"),
         }),
       );
     }
@@ -720,6 +734,22 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
             });
           },
         );
+        return;
+      }
+      if (command.id === AGENT_BRIDGE_SLASH_COMMAND_ID) {
+        const popover = slashPopover;
+        if (!popover) return;
+        const skill = resolveAgentBridgeSkillRef(allSkills);
+        if (skill.status === "disabled") {
+          setSlashPopover(null);
+          return;
+        }
+        setSlashPopover(null);
+        composerRef.current?.applySlashAtRange(popover.slashOffset, popover.query.length, {
+          kind: "skill",
+          absolutePath: skill.absolutePath,
+          name: skill.name,
+        });
         return;
       }
     },

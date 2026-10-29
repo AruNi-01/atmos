@@ -55,6 +55,8 @@ import {
 } from "@/features/token-usage/capture-usage-image";
 import { ShareSheet } from "@/features/token-usage/ShareSheet";
 import { StatArt, type StatArtKind } from "@/features/token-usage/stat-art";
+import { NoComputerSelected } from "@/features/computers/NoComputerSelected";
+import { useHomeComputerPhase } from "@/features/computers/use-home-computer-phase";
 import { useTokenUsageOverview } from "@/features/token-usage/use-token-usage-overview";
 import { UsageModelIcon } from "@/features/token-usage/UsageModelIcon";
 import { useMeterWidth } from "@/features/usage/use-meter-width";
@@ -117,6 +119,7 @@ export function TokenUsageScreen() {
     showSelect,
     wsUrl,
   } = useTokenUsageOverview();
+  const computerPhase = useHomeComputerPhase();
   const [metric, setMetric] = useState<UsageMetric>("tokens");
   const [dimension, setDimension] = useState<UsageDimension>("agent");
   const [resolution, setResolution] = useState<Resolution>("month");
@@ -246,12 +249,14 @@ export function TokenUsageScreen() {
       connectionState === "reconnecting" ||
       (connectionState === "idle" && wsUrl != null));
 
+  const choosingComputer = computerPhase === "choose-computer" && isCurrentScope;
+
   // Keep this identity stable while a share capture is open.
   // A navigation-option change while the sheet is presented dismisses it and restarts the loader.
   const screenOptions = useMemo(
     () => ({
       ...nativeLargeTitleOptions("Token usage", theme.colors),
-      headerShown: !loadingPage,
+      headerShown: choosingComputer || !loadingPage,
       headerTintColor: navigationBarTint(theme.colors.label),
       ...(process.env.EXPO_OS === "ios"
         ? {
@@ -401,6 +406,7 @@ export function TokenUsageScreen() {
           }),
     }),
     [
+      choosingComputer,
       devices,
       dimension,
       isAll,
@@ -417,7 +423,9 @@ export function TokenUsageScreen() {
   return (
     <>
       <Stack.Screen options={screenOptions} />
-      {loadingPage ? (
+      {choosingComputer ? (
+        <NoComputerSelected message="Choose a Computer to see token usage." />
+      ) : loadingPage ? (
         <UsageLoading />
       ) : (
         <UsageCaptureFrame setFreezeRef={setFreezeRef}>

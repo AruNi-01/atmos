@@ -321,6 +321,18 @@ export const WORKSPACE_PRIORITY_FILTER_OPTIONS = [
 
 export type WorkspaceFilterKind = "group" | "label" | "priority" | "project" | "status";
 
+/** Selected workspace filters, matching the web filter badge count. */
+export function workspaceHomeFilterCount(filters: WorkspaceHomeFilters) {
+  return (
+    filters.groupIds.length +
+    filters.labelIds.length +
+    filters.priorities.length +
+    filters.projectIds.length +
+    filters.statuses.length +
+    (filters.showAutomation ? 1 : 0)
+  );
+}
+
 export function workspaceFilterKey(kind: WorkspaceFilterKind) {
   if (kind === "project") return "projectIds" as const;
   if (kind === "group") return "groupIds" as const;

@@ -60,6 +60,7 @@ pub struct RelaySupervisor {
     inner: Arc<Mutex<SupervisorInner>>,
     upstream_connected: Arc<AtomicBool>,
     last_error: Arc<Mutex<Option<String>>>,
+    last_error_code: Arc<Mutex<Option<String>>>,
 }
 
 impl RelaySupervisor {
@@ -71,6 +72,7 @@ impl RelaySupervisor {
             })),
             upstream_connected: Arc::new(AtomicBool::new(false)),
             last_error: Arc::new(Mutex::new(None)),
+            last_error_code: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -80,6 +82,11 @@ impl RelaySupervisor {
 
     pub async fn last_error(&self) -> Option<String> {
         self.last_error.lock().await.clone()
+    }
+
+    /// Stable Relay `error` code, never a translated message.
+    pub async fn last_error_code(&self) -> Option<String> {
+        self.last_error_code.lock().await.clone()
     }
 
     /// Stop the outbound relay connection and clean up relay-backed WS sessions.
@@ -113,11 +120,13 @@ impl RelaySupervisor {
         self.stop().await;
         self.upstream_connected.store(false, Ordering::SeqCst);
         *self.last_error.lock().await = None;
+        *self.last_error_code.lock().await = None;
 
         let cancel = CancellationToken::new();
         let task_cancel = cancel.clone();
         let upstream_connected = Arc::clone(&self.upstream_connected);
         let last_error = Arc::clone(&self.last_error);
+        let last_error_code = Arc::clone(&self.last_error_code);
 
         let handle = tokio::spawn(async move {
             let mut backoff = ReconnectBackoff::new();
@@ -127,8 +136,11 @@ impl RelaySupervisor {
                     break;
                 }
 
-                let lifecycle =
-                    RelayLifecycle::new(Arc::clone(&upstream_connected), Arc::clone(&last_error));
+                let lifecycle = RelayLifecycle::new(
+                    Arc::clone(&upstream_connected),
+                    Arc::clone(&last_error),
+                    Arc::clone(&last_error_code),
+                );
                 let attempt_state = state.clone();
                 let attempt_identity = identity.clone();
                 let attempt_cancel = task_cancel.clone();
@@ -182,6 +194,7 @@ impl RelaySupervisor {
             self.stop().await;
             let msg = "Relay is disabled (ATMOS_RELAY_DISABLE=1).".to_string();
             *self.last_error.lock().await = Some(msg.clone());
+            *self.last_error_code.lock().await = None;
             return (false, Some(msg));
         }
 
@@ -191,12 +204,14 @@ impl RelaySupervisor {
                 self.stop().await;
                 let msg = "This machine is not registered to remote.".to_string();
                 *self.last_error.lock().await = Some(msg.clone());
+                *self.last_error_code.lock().await = None;
                 return (false, Some(msg));
             }
             Err(e) => {
                 self.stop().await;
                 let msg = format!("Could not read relay identity: {e}");
                 *self.last_error.lock().await = Some(msg.clone());
+                *self.last_error_code.lock().await = None;
                 return (false, Some(msg));
             }
         };

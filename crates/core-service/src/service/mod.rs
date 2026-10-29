@@ -1,4 +1,5 @@
 pub mod agent;
+pub mod agent_bridge;
 pub mod agent_hooks;
 pub mod agent_status;
 

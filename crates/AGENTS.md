@@ -16,6 +16,7 @@
 | Capability | `quota-usage`         | [quota-usage/AGENTS.md](quota-usage/AGENTS.md)                                              |
 | Capability | `token-usage`         | [token-usage/AGENTS.md](token-usage/AGENTS.md)                                              |
 | Capability | `permission-access`   | [permission-access/AGENTS.md](permission-access/AGENTS.md)                                  |
+| Capability | `agent-bridge`        | [agent-bridge/AGENTS.md](agent-bridge/AGENTS.md) — agent↔agent bus (APP-084)                |
 | Capability | `local-model-runtime` | —                                                                                           |
 | Capability | `tunnel-connector`    | —                                                                                           |
 | Host       | `runtime-manager`     | [runtime-manager/AGENTS.md](runtime-manager/AGENTS.md)                                      |

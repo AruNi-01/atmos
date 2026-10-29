@@ -17,6 +17,7 @@ import {
   resolveRelayUrl,
   useAtmosComputerStore,
 } from "@/features/connection/lib/atmos-computer-store";
+import { parseRelayJsonBody } from "@/features/connection/lib/relay-proxy-body";
 import { isDesktopRuntime } from "@/shared/lib/desktop-runtime";
 
 export type CreateWebRelayClientOptions = {
@@ -28,6 +29,26 @@ export type CreateWebRelayClientOptions = {
    */
   preferLoopbackProxy?: boolean;
 };
+
+async function fetchRelayFromPage(req: Parameters<RelayTransport>[0]): Promise<{
+  status: number;
+  json: unknown;
+}> {
+  const response = await fetch(`${req.baseUrl}${req.path}`, {
+    method: req.method,
+    headers: req.headers,
+    body: req.body,
+  });
+  const text = await response.text();
+  const json = parseRelayJsonBody(text);
+  if (json !== null) {
+    return { status: response.status, json };
+  }
+  return {
+    status: response.status,
+    json: { message: text.trim().slice(0, 180) },
+  };
+}
 
 function createWebRelayTransport(opts: {
   relaySecretKey: string;
@@ -41,26 +62,18 @@ function createWebRelayTransport(opts: {
         relaySecretKey: opts.relaySecretKey || undefined,
       });
       if (proxied) {
-        let json: unknown = {};
-        try {
-          json = JSON.parse(proxied.body) as unknown;
-        } catch {
-          json = {};
+        const json = parseRelayJsonBody(proxied.body);
+        // HTML here is an edge challenge of the local server's HTTP client.
+        // The page itself can still reach Relay.
+        if (json !== null) {
+          return { status: proxied.status, json };
         }
-        return { status: proxied.status, json };
-      }
-      if (isDesktopRuntime()) {
+      } else if (isDesktopRuntime()) {
         throw new Error("Could not reach local Atmos Server to proxy Relay requests.");
       }
     }
 
-    const response = await fetch(`${req.baseUrl}${req.path}`, {
-      method: req.method,
-      headers: req.headers,
-      body: req.body,
-    });
-    const json = (await response.json().catch(() => ({}))) as unknown;
-    return { status: response.status, json };
+    return fetchRelayFromPage(req);
   };
 }
 

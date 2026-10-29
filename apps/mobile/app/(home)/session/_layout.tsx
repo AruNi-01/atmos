@@ -1,23 +1,35 @@
 import { useCallback, useMemo } from "react";
-import { Pressable } from "react-native";
+import { Pressable, View } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import { sessionBucketTitle } from "@/features/sessions/session-inbox";
+import { useSessionInboxStore } from "@/stores/session-inbox-store";
 import { useMobileTheme } from "@/theme/theme-store";
 import { SettingsIcon } from "@/ui/icons/lucide-native";
-import { navigationBarTint, settingsHeaderItem } from "@/ui/navigation/home-header-items";
+import { FilterHeaderButton, filterBadgeColors } from "@/ui/navigation/filter-header-button";
+import { navigationBarTint, sessionHeaderRightItems } from "@/ui/navigation/home-header-items";
 import { nativeLargeTitleOptions } from "@/ui/navigation/native-screen-options";
 
 export default function SessionTabStack() {
   const theme = useMobileTheme();
   const router = useRouter();
+  const openFilter = useCallback(() => router.push("/session-filters"), [router]);
   const openSettings = useCallback(() => router.push("/settings"), [router]);
+  const filterCount = useSessionInboxStore((state) => state.agentIds.length);
+  const badgeColors = useMemo(() => filterBadgeColors(theme.colors), [theme.colors]);
   const sessionTitleOptions = useMemo(
     () => nativeLargeTitleOptions("Session", theme.colors),
     [theme.colors],
   );
   const headerRightItems = useCallback(
-    () => [settingsHeaderItem(openSettings, theme.colors.label)],
-    [openSettings, theme.colors.label],
+    () =>
+      sessionHeaderRightItems(
+        openFilter,
+        openSettings,
+        theme.colors.label,
+        filterCount,
+        badgeColors,
+      ),
+    [badgeColors, filterCount, openFilter, openSettings, theme.colors.label],
   );
   const screenOptions = useMemo(
     () => ({
@@ -28,19 +40,33 @@ export default function SessionTabStack() {
       ...(process.env.EXPO_OS === "ios"
         ? { unstable_headerRightItems: headerRightItems }
         : {
-            headerLeft: () => (
-              <Pressable
-                accessibilityLabel="Settings"
-                accessibilityRole="button"
-                hitSlop={12}
-                onPress={openSettings}
-              >
-                <SettingsIcon color={theme.colors.label} size={22} strokeWidth={2.2} />
-              </Pressable>
+            headerRight: () => (
+              <View style={{ alignItems: "center", flexDirection: "row", gap: 16 }}>
+                <FilterHeaderButton
+                  count={filterCount}
+                  onPress={openFilter}
+                  tintColor={theme.colors.label}
+                />
+                <Pressable
+                  accessibilityLabel="Settings"
+                  accessibilityRole="button"
+                  hitSlop={12}
+                  onPress={openSettings}
+                >
+                  <SettingsIcon color={theme.colors.label} size={22} strokeWidth={2.2} />
+                </Pressable>
+              </View>
             ),
           }),
     }),
-    [headerRightItems, openSettings, theme.colors.background, theme.colors.label],
+    [
+      filterCount,
+      headerRightItems,
+      openFilter,
+      openSettings,
+      theme.colors.background,
+      theme.colors.label,
+    ],
   );
   const bucketOptions = useCallback(
     ({ route }: { route: { params?: { bucket?: string | string[] } } }) => {

@@ -1,3 +1,4 @@
+import { expandAgentSessionMentionTokens } from "@/features/agent/lib/agent-session-mention";
 import { resolvePromptPlaceholders } from "@/features/welcome/lib/welcome-page-helpers";
 import { stripSkillDisableSession } from "@/features/skills/lib/skill-disable-protocol";
 
@@ -13,9 +14,15 @@ export function composeAgentChatPrompt(
 
 export function expandAgentComposerText(text: string): string {
   return stripSkillDisableSession(
-    resolvePromptPlaceholders(text.replace(/\u00A0/g, " ").replace(/\/cmd:([^\s]+)/g, "/$1"), [], {
-      preserveFileMentions: true,
-    }),
+    expandAgentSessionMentionTokens(
+      resolvePromptPlaceholders(
+        text.replace(/\u00A0/g, " ").replace(/\/cmd:([^\s]+)/g, "/$1"),
+        [],
+        {
+          preserveFileMentions: true,
+        },
+      ),
+    ),
   ).trim();
 }
 

@@ -18,6 +18,7 @@
 | **Backend: Core Engine** (PTY, Git, FS)                             | [crates/core-engine/AGENTS.md](crates/core-engine/AGENTS.md)                                     |
 | **Backend: Business Logic** (Auth, Project, Workspace)              | [crates/core-service/AGENTS.md](crates/core-service/AGENTS.md)                                   |
 | **Backend: Agent Integration** (Chat providers, ACP, Agent Manager) | [crates/agent/AGENTS.md](crates/agent/AGENTS.md)                                                 |
+| **Backend: Agent Bridge** (agent↔agent bus; not Relay)              | [crates/agent-bridge/AGENTS.md](crates/agent-bridge/AGENTS.md)                                   |
 | **Backend: Quota Usage Tracking**                                   | [crates/quota-usage/AGENTS.md](crates/quota-usage/AGENTS.md)                                     |
 | **Backend: Token Usage Tracking**                                   | [crates/token-usage/AGENTS.md](crates/token-usage/AGENTS.md)                                     |
 | **Backend: Permission Access**                                      | [crates/permission-access/AGENTS.md](crates/permission-access/AGENTS.md)                         |
@@ -58,6 +59,7 @@ atmos/
 │   ├── core-engine/           # L2: Tech Capabilities (PTY, Git, FS)
 │   ├── core-service/          # L3: Business Rules
 │   ├── agent/                 # Agent Chat providers + ACP + Agent Manager
+│   ├── agent-bridge/          # Agent↔agent directory/bus (APP-084)
 │   ├── quota-usage/              # Quota Usage Tracking
 │   ├── token-usage/           # Token Usage Tracking
 │   ├── llm/                   # LLM capability

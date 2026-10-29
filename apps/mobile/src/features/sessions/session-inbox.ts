@@ -93,6 +93,8 @@ export type SessionInboxInput = {
   archivedWorkspaceIds?: string[];
   /** Saved chat titles keyed by chat id. */
   chatTitles?: Readonly<Record<string, string>>;
+  /** Chat provider ids keyed by chat id, used when the status snapshot has no tool. */
+  chatProviders?: Readonly<Record<string, string>>;
   /** True until the chat-title request has settled. Missing titles stay blank, not "Chat". */
   chatTitlesPending?: boolean;
 };
@@ -233,7 +235,7 @@ export function joinSessionRows(input: SessionInboxInput): SessionInboxRow[] {
         workspaceId: workspace?.id ?? null,
         terminalCandidateId: null,
         kind: "chat",
-        agentId: clean(snapshot.tool),
+        agentId: clean(snapshot.tool) ?? clean(input.chatProviders?.[chatId]),
         chatId,
         archiveSessionId: sessionId,
       });

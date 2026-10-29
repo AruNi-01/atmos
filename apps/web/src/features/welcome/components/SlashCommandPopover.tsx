@@ -2,30 +2,22 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { createPortal } from "react-dom";
 import { ScrollArea, Switch, cn } from "@workspace/ui";
-import {
-  ChevronLeft,
-  EyeOff,
-  Folder,
-  Loader2,
-  MessagesSquare,
-  Puzzle,
-  ScrollText,
-  Smartphone,
-  Zap,
-} from "lucide-react";
-import { BrowserUseIconStatic } from "@workspace/ui/components/icons/browser-use-icon-static";
-import { DesktopUseIconStatic } from "@workspace/ui/components/icons/desktop-use-icon-static";
+import { ChevronLeft, Folder, Loader2, Puzzle } from "lucide-react";
 
 import type { SkillInfo } from "@/api/ws-api";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
-import { VIEW_RUN_LOGS_SLASH_COMMAND_ID } from "@/features/browser/lib/run-log-context";
-import { DEVICE_PREVIEW_SLASH_COMMAND_ID } from "@/features/simulator/lib/device-preview-agent-prompt";
 import type {
   SlashCommandOption,
   SlashExpandedSections,
 } from "@/features/welcome/hooks/use-welcome-slash-navigation";
-import { BROWSER_USE_SLASH_COMMAND_ID } from "@/features/welcome/lib/slash-browser-use";
-import { DESKTOP_USE_SLASH_COMMAND_ID } from "@/features/welcome/lib/slash-desktop-use";
+import {
+  SlashCommandGlyph,
+  SlashCommandGlyphIcon,
+} from "@/features/welcome/lib/slash-command-glyph";
+import {
+  slashCommandListToneClass,
+  slashSkillVisual,
+} from "@/features/welcome/lib/slash-command-visual";
 import {
   isPopoverConfirmKey,
   scrollActiveListItemIntoView,
@@ -88,28 +80,6 @@ interface SlashCommandPopoverProps {
   view?: SlashPopoverView;
 }
 
-function SlashCommandGlyph({ commandId }: { commandId: string }) {
-  if (commandId === "spawn") {
-    return <MessagesSquare className="size-4 text-green-600 dark:text-green-400" />;
-  }
-  if (commandId === "dynamic-skills") {
-    return <EyeOff className="size-4 text-red-600 dark:text-red-400" />;
-  }
-  if (commandId === BROWSER_USE_SLASH_COMMAND_ID) {
-    return <BrowserUseIconStatic className="size-4 text-amber-600 dark:text-amber-400" />;
-  }
-  if (commandId === DESKTOP_USE_SLASH_COMMAND_ID) {
-    return <DesktopUseIconStatic className="size-4 text-violet-600 dark:text-violet-400" />;
-  }
-  if (commandId === VIEW_RUN_LOGS_SLASH_COMMAND_ID) {
-    return <ScrollText className="size-4 text-emerald-600 dark:text-emerald-400" />;
-  }
-  if (commandId === DEVICE_PREVIEW_SLASH_COMMAND_ID) {
-    return <Smartphone className="size-4 text-cyan-600 dark:text-cyan-400" />;
-  }
-  return <Zap className="size-4" />;
-}
-
 function SlashCommandSection({
   activeIndex,
   commands,
@@ -148,7 +118,7 @@ function SlashCommandSection({
               setItemRef(navIndex, el);
             }}
             className={cn(
-              "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left hover:bg-muted",
+              "flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-left hover:bg-muted",
               navIndex === activeIndex && "bg-muted",
             )}
             onMouseDown={(event) => {
@@ -175,7 +145,7 @@ function SlashCommandSection({
             setItemRef(startIndex + visibleCommands.length, el);
           }}
           className={cn(
-            "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[11px] text-muted-foreground hover:bg-muted",
+            "flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-left text-[11px] text-muted-foreground hover:bg-muted",
             startIndex + visibleCommands.length === activeIndex && "bg-muted",
           )}
           onMouseDown={(event) => {
@@ -415,14 +385,7 @@ export function SlashCommandPopover({
                   {visibleSkills.map((skill, index) => {
                     const isDisabled = skill.status === "disabled";
                     const navIndex = skillsStartIndex + index;
-                    const isBrowserUse =
-                      skill.name === "atmos-browser-use" ||
-                      skill.id === "atmos-browser-use" ||
-                      skill.path.includes("atmos-browser-use");
-                    const isDesktopUse =
-                      skill.name === "atmos-desktop-use" ||
-                      skill.id === "atmos-desktop-use" ||
-                      skill.path.includes("atmos-desktop-use");
+                    const skillVisual = slashSkillVisual(skill.path, skill.name || skill.id);
                     return (
                       <button
                         key={skill.id}
@@ -433,7 +396,7 @@ export function SlashCommandPopover({
                         disabled={isDisabled}
                         aria-disabled={isDisabled}
                         className={cn(
-                          "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left",
+                          "flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-left",
                           isDisabled
                             ? "cursor-default text-muted-foreground opacity-80"
                             : "hover:bg-muted",
@@ -445,10 +408,14 @@ export function SlashCommandPopover({
                           onSelectSkill(skill);
                         }}
                       >
-                        {isBrowserUse ? (
-                          <BrowserUseIconStatic className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
-                        ) : isDesktopUse ? (
-                          <DesktopUseIconStatic className="size-4 shrink-0 text-violet-600 dark:text-violet-400" />
+                        {skillVisual ? (
+                          <SlashCommandGlyphIcon
+                            glyph={skillVisual.glyph}
+                            className={cn(
+                              "size-4 shrink-0",
+                              slashCommandListToneClass(skillVisual.tone),
+                            )}
+                          />
                         ) : (
                           <Puzzle className="size-4 shrink-0 text-muted-foreground" />
                         )}
@@ -471,7 +438,7 @@ export function SlashCommandPopover({
                         setItemRef(skillsStartIndex + skillsCount, el);
                       }}
                       className={cn(
-                        "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[11px] text-muted-foreground hover:bg-muted",
+                        "flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-left text-[11px] text-muted-foreground hover:bg-muted",
                         skillsStartIndex + skillsCount === activeIndex && "bg-muted",
                       )}
                       onMouseDown={(event) => {
@@ -508,7 +475,7 @@ export function SlashCommandPopover({
                           setItemRef(navIndex, el);
                         }}
                         className={cn(
-                          "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left hover:bg-muted",
+                          "flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-left hover:bg-muted",
                           navIndex === activeIndex && "bg-muted",
                         )}
                         onMouseDown={(event) => {
@@ -528,7 +495,7 @@ export function SlashCommandPopover({
                         setItemRef(projectsStartIndex + projectsCount, el);
                       }}
                       className={cn(
-                        "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[11px] text-muted-foreground hover:bg-muted",
+                        "flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-left text-[11px] text-muted-foreground hover:bg-muted",
                         projectsStartIndex + projectsCount === activeIndex && "bg-muted",
                       )}
                       onMouseDown={(event) => {
@@ -565,7 +532,7 @@ export function SlashCommandPopover({
                           setItemRef(navIndex, el);
                         }}
                         className={cn(
-                          "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left hover:bg-muted",
+                          "flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-left hover:bg-muted",
                           navIndex === activeIndex && "bg-muted",
                         )}
                         onMouseDown={(event) => {
@@ -591,7 +558,7 @@ export function SlashCommandPopover({
                         setItemRef(agentsStartIndex + Math.min(filteredAgents.length, 3), el);
                       }}
                       className={cn(
-                        "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[11px] text-muted-foreground hover:bg-muted",
+                        "flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-left text-[11px] text-muted-foreground hover:bg-muted",
                         agentsStartIndex + Math.min(filteredAgents.length, 3) === activeIndex &&
                           "bg-muted",
                       )}
@@ -652,7 +619,7 @@ export function SlashCommandPopover({
       <div className="flex items-center gap-1 border-b border-border/70 px-2 py-2">
         <button
           type="button"
-          className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="inline-flex size-7 shrink-0 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground"
           aria-label={disableT("back")}
           onMouseDown={(event) => {
             event.preventDefault();
@@ -689,7 +656,7 @@ export function SlashCommandPopover({
                     role="option"
                     aria-selected={isActive}
                     className={cn(
-                      "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5",
+                      "flex cursor-pointer items-center gap-2 rounded-xl px-2 py-1.5",
                       isActive ? "bg-muted" : "hover:bg-muted/60",
                     )}
                     onMouseEnter={() => setDisableActiveIndex(index)}

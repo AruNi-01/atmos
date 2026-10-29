@@ -30,6 +30,8 @@ import {
   usageRows,
   type UsageRow,
 } from "@/features/quota-usage/quota-rows";
+import { NoComputerSelected } from "@/features/computers/NoComputerSelected";
+import { useHomeComputerPhase } from "@/features/computers/use-home-computer-phase";
 import { useQuotaOverview } from "@/features/quota-usage/use-quota-overview";
 import { ChevronDownIcon, SettingsIcon } from "@/ui/icons/lucide-native";
 import { ProviderGlyph } from "@/ui/icons/provider-glyph";
@@ -50,6 +52,7 @@ export function QuotaUsageScreen() {
   const theme = useMobileTheme();
   const router = useRouter();
   const { actionError, connected, overviewQuery, providers, refresh } = useQuotaOverview();
+  const computerPhase = useHomeComputerPhase();
   const [selectedId, setSelectedId] = useState(ALL);
   const openSettings = () => router.push("/quota-settings");
 
@@ -118,27 +121,33 @@ export function QuotaUsageScreen() {
               }),
         }}
       />
-      <UsageScroll
-        onRefresh={() => {
-          if (connected) refresh.mutate();
-        }}
-        refreshing={refresh.isPending || overviewQuery.isRefetching}
-      >
-        {widestLabel.probe}
-        {!connected ? (
-          <Text style={{ color: theme.colors.secondaryLabel }}>
-            Connect to a Computer to see AI quota usage.
-          </Text>
-        ) : null}
-        <InlineError
-          message={overviewQuery.error instanceof Error ? overviewQuery.error.message : actionError}
-        />
-        {activeId === ALL ? (
-          shown.map((provider) => <ProviderCard key={provider.id} provider={provider} />)
-        ) : selected ? (
-          <ProviderCard expanded provider={selected} />
-        ) : null}
-      </UsageScroll>
+      {computerPhase === "choose-computer" ? (
+        <NoComputerSelected message="Choose a Computer to see quota usage." />
+      ) : (
+        <UsageScroll
+          onRefresh={() => {
+            if (connected) refresh.mutate();
+          }}
+          refreshing={refresh.isPending || overviewQuery.isRefetching}
+        >
+          {widestLabel.probe}
+          {!connected ? (
+            <Text style={{ color: theme.colors.secondaryLabel }}>
+              Connect to a Computer to see AI quota usage.
+            </Text>
+          ) : null}
+          <InlineError
+            message={
+              overviewQuery.error instanceof Error ? overviewQuery.error.message : actionError
+            }
+          />
+          {activeId === ALL ? (
+            shown.map((provider) => <ProviderCard key={provider.id} provider={provider} />)
+          ) : selected ? (
+            <ProviderCard expanded provider={selected} />
+          ) : null}
+        </UsageScroll>
+      )}
     </>
   );
 }

@@ -49,6 +49,24 @@ describe("agent session status page", () => {
     expect(filtered.slice(0, 2)).toEqual(agentSessionStatusQueryKey({ serverId: SERVER }));
   });
 
+  test("a provider filter is its own page and stays off the unfiltered key", () => {
+    expect(
+      agentSessionStatusQueryKey({ serverId: SERVER, providerIds: ["codex", "claude"] }),
+    ).toEqual([
+      "agent-session-status-list",
+      SERVER,
+      null,
+      null,
+      UNFILTERED_SESSION_PAGE_LIMIT,
+      "claude\ncodex",
+    ]);
+    expect(agentSessionStatusListInput({ providerIds: [" codex ", "codex"] })).toEqual({
+      cursor: null,
+      limit: UNFILTERED_SESSION_PAGE_LIMIT,
+      provider_ids: ["codex"],
+    });
+  });
+
   test("hiding a session drops it from a filtered page", () => {
     const page = omitSessionFromStatusPages(
       {

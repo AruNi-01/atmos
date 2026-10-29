@@ -46,7 +46,10 @@ import { loadLocalComputerStatus } from "@/features/connection/lib/atmos-compute
 import {
   createHostedRemoteSession,
   listHostedRemoteComputers,
+  reregisterLocalComputer,
+  relayNeedsReregister,
 } from "@/features/connection/lib/hosted-connection";
+import { buildRegistrationMeta } from "@/features/connection/lib/registration-meta";
 import { ensureComputerClientSettingsHydrated } from "@/features/connection/lib/sync-computer-client-settings";
 import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-store";
 import { AppshotCapturePreview, AppshotsHeaderButton } from "@/features/appshot";
@@ -197,6 +200,7 @@ function AtmosComputerPopoverContent({
     computers,
     connectionMode,
     relayUrl,
+    relaySecretKey,
     localServerId,
     relayWebSocketUrl,
     selectedServerId,
@@ -206,6 +210,8 @@ function AtmosComputerPopoverContent({
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [localRelayConnected, setLocalRelayConnected] = React.useState<boolean | null>(null);
+  const [localRelayErrorCode, setLocalRelayErrorCode] = React.useState<string | null>(null);
 
   const hasAccessToken = accessToken.trim().length >= 32;
   const activeComputers = React.useMemo(() => activeComputerRows(computers), [computers]);
@@ -258,8 +264,15 @@ function AtmosComputerPopoverContent({
       }
       if (status?.server_id) {
         setLocalServerId(status.server_id);
+        setLocalRelayConnected(status.relay_connected);
+        setLocalRelayErrorCode(status.relay_error_code ?? null);
       } else if (status && !status.registered) {
         setLocalServerId(null);
+        setLocalRelayConnected(false);
+        setLocalRelayErrorCode(status.relay_error_code ?? null);
+      } else if (status) {
+        setLocalRelayConnected(status.relay_connected);
+        setLocalRelayErrorCode(status.relay_error_code ?? null);
       }
     })();
     return () => {
@@ -303,6 +316,55 @@ function AtmosComputerPopoverContent({
       toastManager.add({
         title: t("remoteAccess.connectErrorTitle"),
         description: err instanceof Error ? err.message : t("remoteAccess.connectErrorHint"),
+        type: "error",
+      });
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  const credentialsRejected =
+    localRelayConnected === false && relayNeedsReregister(localRelayErrorCode);
+
+  async function registerAgain() {
+    setBusyId("reregister");
+    setError(null);
+    try {
+      const status = await loadLocalComputerStatus(localServerId);
+      const displayName =
+        status?.computer_name?.trim() ||
+        status?.hostname?.replace(/\.local$/i, "") ||
+        t("remoteAccess.computerDefaultName");
+      const reg = await reregisterLocalComputer({
+        accessToken,
+        displayName,
+        registrationMeta: await buildRegistrationMeta(),
+        relaySecretKey,
+        relayUrl,
+      });
+      setLocalServerId(reg.server_id);
+      const next = await loadLocalComputerStatus(reg.server_id);
+      setLocalRelayConnected(next?.relay_connected ?? Boolean(reg.relay_connected));
+      setLocalRelayErrorCode(next?.relay_error_code ?? reg.relay_error_code ?? null);
+      await refreshComputers();
+      if (next?.relay_connected || reg.relay_connected) {
+        toastManager.add({ title: t("remoteAccess.connectedToastTitle"), type: "success" });
+      } else {
+        const message =
+          next?.relay_last_error ?? reg.relay_last_error ?? t("remoteAccess.connectErrorHint");
+        setError(message);
+        toastManager.add({
+          title: t("remoteAccess.connectErrorTitle"),
+          description: message,
+          type: "error",
+        });
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : t("remoteAccess.connectErrorMessage");
+      setError(message);
+      toastManager.add({
+        title: t("remoteAccess.connectErrorTitle"),
+        description: message,
         type: "error",
       });
     } finally {
@@ -388,6 +450,9 @@ function AtmosComputerPopoverContent({
               64,
             );
             const isLocal = isCurrentLocalComputer(computer, localServerId);
+            const relayOnline = isLocal
+              ? (localRelayConnected ?? Boolean(computer.online))
+              : Boolean(computer.online);
             const isUsingLocal = isLocal && connectionMode === "local";
             const isConnected = !isLocal && connectedServerId === computer.server_id;
             const isBusy = busyId === computer.server_id;
@@ -406,7 +471,7 @@ function AtmosComputerPopoverContent({
                       <span
                         className={cn(
                           "inline-flex items-center gap-1",
-                          computer.online
+                          relayOnline
                             ? "text-emerald-600 dark:text-emerald-400"
                             : "text-muted-foreground",
                         )}
@@ -414,10 +479,10 @@ function AtmosComputerPopoverContent({
                         <span
                           className={cn(
                             "size-1.5 rounded-full",
-                            computer.online ? "bg-emerald-500" : "bg-muted-foreground/50",
+                            relayOnline ? "bg-emerald-500" : "bg-muted-foreground/50",
                           )}
                         />
-                        {computer.online
+                        {relayOnline
                           ? t("remoteAccess.computerOnline")
                           : t("remoteAccess.computerOffline")}
                       </span>
@@ -456,6 +521,24 @@ function AtmosComputerPopoverContent({
       </div>
 
       {error ? <p className="px-1 text-xs leading-5 text-destructive">{error}</p> : null}
+      {credentialsRejected ? (
+        <div className="space-y-2 px-1">
+          <p className="text-xs leading-5 text-muted-foreground">
+            {t("remoteAccess.registerAgainHint")}
+          </p>
+          <Button
+            size="sm"
+            className="w-full cursor-pointer"
+            disabled={busyId !== null}
+            onClick={() => void registerAgain()}
+          >
+            {busyId === "reregister" ? (
+              <LoaderCircle className="mr-1.5 size-3.5 animate-spin" />
+            ) : null}
+            {t("remoteAccess.registerAgain")}
+          </Button>
+        </div>
+      ) : null}
       <div className="flex gap-2">
         {connectionMode === "relay" ? (
           <Button

@@ -10,8 +10,8 @@ use runtime_manager::{
     computer_client_settings_path, default_relay_url, local_computer_display_name,
     local_computer_display_name_opt, normalize_relay_url, read_computer_client_settings,
     read_runtime_manifest, read_server_identity, register_computer, resolve_relay_proxy_auth,
-    resolved_relay_url, write_computer_client_settings, ComputerClientSettings,
-    COMPUTER_CLIENT_SETTINGS_VERSION,
+    resolved_relay_url, write_computer_client_settings, write_server_identity,
+    ComputerClientSettings, ServerIdentity, COMPUTER_CLIENT_SETTINGS_VERSION,
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -38,6 +38,7 @@ pub async fn get_computer_status(
     let identity = read_server_identity().map_err(ApiError::BadRequest)?;
     let relay_connected = state.relay_supervisor.is_upstream_connected().await;
     let relay_last_error = state.relay_supervisor.last_error().await;
+    let relay_error_code = state.relay_supervisor.last_error_code().await;
 
     let mut body = json!({
         "hostname": hostname,
@@ -45,6 +46,7 @@ pub async fn get_computer_status(
         "registered": identity.is_some(),
         "relay_connected": relay_connected,
         "relay_last_error": relay_last_error,
+        "relay_error_code": relay_error_code,
         "server_id": identity.as_ref().map(|i| i.server_id.clone()),
         "app_device_id": app_device_id().ok(),
         "relay_url": identity
@@ -160,6 +162,78 @@ pub async fn register_local_computer(
     .await
     .map_err(ApiError::BadRequest)?;
 
+    publish_registered_computer(state, identity, display_name).await
+}
+
+#[derive(Deserialize)]
+pub struct InstallComputerIdentityPayload {
+    pub server_id: String,
+    pub server_secret: String,
+    pub relay_ws_url: String,
+    #[serde(default)]
+    pub relay_url: Option<String>,
+    #[serde(default)]
+    pub display_name: Option<String>,
+    #[serde(default)]
+    pub registration_meta: Option<Value>,
+}
+
+/// POST /api/system/computer/identity — save a registration the page already completed.
+///
+/// The desktop page calls Relay directly when the local HTTP client only receives
+/// an edge challenge page. The server secret stays on loopback.
+pub async fn install_local_computer_identity(
+    State(state): State<AppState>,
+    Json(payload): Json<InstallComputerIdentityPayload>,
+) -> ApiResult<Json<ApiResponse<Value>>> {
+    let (identity, display_name) =
+        identity_from_install_payload(payload).map_err(ApiError::BadRequest)?;
+    write_server_identity(&identity).map_err(ApiError::BadRequest)?;
+    publish_registered_computer(state, identity, display_name).await
+}
+
+fn identity_from_install_payload(
+    payload: InstallComputerIdentityPayload,
+) -> Result<(ServerIdentity, String), String> {
+    let server_id = payload.server_id.trim().to_string();
+    let server_secret = payload.server_secret.trim().to_string();
+    let relay_ws_url = payload.relay_ws_url.trim().to_string();
+    if server_id.is_empty() || server_secret.is_empty() || relay_ws_url.is_empty() {
+        return Err("server_id, server_secret, and relay_ws_url are required".into());
+    }
+    if !(relay_ws_url.starts_with("wss://") || relay_ws_url.starts_with("ws://")) {
+        return Err("relay_ws_url must be a WebSocket URL".into());
+    }
+    let relay_url = payload
+        .relay_url
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(normalize_relay_url);
+    let display_name = payload
+        .display_name
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(local_computer_display_name);
+    Ok((
+        ServerIdentity {
+            server_id,
+            server_secret,
+            relay_ws_url,
+            relay_url,
+            registration_meta: payload.registration_meta,
+        },
+        display_name,
+    ))
+}
+
+async fn publish_registered_computer(
+    state: AppState,
+    identity: ServerIdentity,
+    display_name: String,
+) -> ApiResult<Json<ApiResponse<Value>>> {
     let server_id = identity.server_id.clone();
     let relay_url = identity.relay_url.clone();
     let relay_ws_url = identity.relay_ws_url.clone();
@@ -168,8 +242,9 @@ pub async fn register_local_computer(
 
     let (relay_connected, relay_last_error) = state
         .relay_supervisor
-        .wait_upstream(std::time::Duration::from_secs(8))
+        .wait_upstream(Duration::from_secs(8))
         .await;
+    let relay_error_code = state.relay_supervisor.last_error_code().await;
 
     Ok(Json(ApiResponse::success(json!({
         "ok": true,
@@ -179,6 +254,7 @@ pub async fn register_local_computer(
         "relay_ws_url": relay_ws_url,
         "relay_connected": relay_connected,
         "relay_last_error": relay_last_error,
+        "relay_error_code": relay_error_code,
     }))))
 }
 
@@ -188,11 +264,13 @@ pub async fn sync_relay_connection(
 ) -> ApiResult<Json<ApiResponse<Value>>> {
     let (relay_connected, relay_last_error) =
         state.relay_supervisor.sync_from_disk(state.clone()).await;
+    let relay_error_code = state.relay_supervisor.last_error_code().await;
 
     Ok(Json(ApiResponse::success(json!({
         "ok": true,
         "relay_connected": relay_connected,
         "relay_last_error": relay_last_error,
+        "relay_error_code": relay_error_code,
     }))))
 }
 
@@ -474,4 +552,45 @@ pub async fn unregister_local_computer(
         "removed": removed,
         "relay_connected": false,
     }))))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn install_payload_requires_the_relay_identity() {
+        let err = identity_from_install_payload(InstallComputerIdentityPayload {
+            server_id: "  ".into(),
+            server_secret: "secret".into(),
+            relay_ws_url: "wss://relay.atmos.land/ws/server".into(),
+            relay_url: None,
+            display_name: Some("Air".into()),
+            registration_meta: None,
+        })
+        .unwrap_err();
+        assert!(err.contains("required"));
+    }
+
+    #[test]
+    fn install_payload_keeps_the_secret_and_websocket_url() {
+        let (identity, display_name) =
+            identity_from_install_payload(InstallComputerIdentityPayload {
+                server_id: " srv ".into(),
+                server_secret: " secret ".into(),
+                relay_ws_url: "wss://relay.atmos.land/ws/server".into(),
+                relay_url: Some("relay.atmos.land".into()),
+                display_name: Some("Air".into()),
+                registration_meta: None,
+            })
+            .unwrap();
+        assert_eq!(identity.server_id, "srv");
+        assert_eq!(identity.server_secret, "secret");
+        assert_eq!(identity.relay_ws_url, "wss://relay.atmos.land/ws/server");
+        assert_eq!(
+            identity.relay_url.as_deref(),
+            Some("https://relay.atmos.land")
+        );
+        assert_eq!(display_name, "Air");
+    }
 }

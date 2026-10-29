@@ -149,7 +149,7 @@ export function ImageCopyContextMenu({
         type="button"
         role="menuitem"
         data-image-preview-copy=""
-        className="relative flex w-full cursor-pointer items-center gap-1.5 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none hover:bg-accent hover:text-accent-foreground focus-visible:ring-1 focus-visible:ring-ring"
+        className="relative flex w-full cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm outline-hidden select-none hover:bg-accent hover:text-accent-foreground focus-visible:ring-1 focus-visible:ring-ring"
         onClick={handleCopyImage}
       >
         <Copy className="size-3.5 text-muted-foreground" />
@@ -159,7 +159,7 @@ export function ImageCopyContextMenu({
         type="button"
         role="menuitem"
         data-image-preview-save=""
-        className="relative flex w-full cursor-pointer items-center gap-1.5 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none hover:bg-accent hover:text-accent-foreground focus-visible:ring-1 focus-visible:ring-ring"
+        className="relative flex w-full cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm outline-hidden select-none hover:bg-accent hover:text-accent-foreground focus-visible:ring-1 focus-visible:ring-ring"
         onClick={handleSaveImage}
       >
         <Download className="size-3.5 text-muted-foreground" />

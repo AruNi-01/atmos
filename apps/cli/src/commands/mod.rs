@@ -1,3 +1,4 @@
+pub mod agent_bridge;
 pub mod automation;
 pub mod browser_use;
 pub mod canvas;
