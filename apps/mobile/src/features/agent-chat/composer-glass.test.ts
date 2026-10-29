@@ -192,13 +192,13 @@ describe("card lane glass chrome", () => {
       "utf8",
     );
     expect(buttons).toContain("export function GlassTextButton");
-    expect(buttons).toContain("disabled as disabledModifier");
     expect(buttons).toContain("iosGlassChipModifiers");
     expect(buttons).toContain("GLASS_CHIP_DISABLED_OPACITY");
     expect(buttons).toContain('buttonStyle("plain")');
     expect(buttons).toContain("glassEffect(");
     expect(buttons).toContain('controlSize("mini")');
-    expect(buttons).toContain('buttonStyle("glass")');
+    expect(buttons).not.toContain('buttonStyle("glass")');
+    expect(buttons).toContain("GlassEffectContainer");
     expect(buttons).toContain("foregroundStyle");
     expect(buttons).toMatch(/theme\.colors\.control(?!Border)/);
     expect(buttons).toContain("theme.colors.red");
@@ -208,7 +208,11 @@ describe("card lane glass chrome", () => {
     expect(buttons).toContain("onAccessibilityAction");
     expect(buttons).not.toContain('buttonStyle("bordered")');
     expect(buttons).not.toContain("tintColor");
-    expect(buttons).not.toContain("GlassEffectContainer");
+    expect(source("AgentChatComposer.tsx")).not.toContain("GlassContainer");
+    expect(source("AgentChatComposer.tsx")).not.toContain("GlassEffectContainer");
+    expect(source("composer-pill-row.tsx")).not.toContain("GlassContainer");
+    expect(source("composer-glass.ts")).toContain("glassEffect");
+    expect(source("composer-glass.ts")).not.toContain('buttonStyle("glass")');
     const permission = source("AgentChatPermissionCard.tsx");
     const sessionOp = source("AgentChatSessionOpCard.tsx");
     const queue = source("cards/queue-card.tsx");

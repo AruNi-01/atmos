@@ -36,6 +36,8 @@ mock.module("@expo/ui/swift-ui", () => ({
     createElement("div", { "data-host": "" }, children),
   HStack: ({ children }: { children?: ReactNode }) =>
     createElement("div", { "data-hstack": "" }, children),
+  GlassEffectContainer: ({ children }: { children?: ReactNode }) =>
+    createElement("div", { "data-glass-effect-container": "" }, children),
   Button: (props: { label?: string; modifiers?: unknown; onPress?: unknown; role?: string }) => {
     captured.push(props);
     return createElement("button", { type: "button" }, props.label);
@@ -199,7 +201,7 @@ describe("GlassTextButton render", () => {
     expect(html).toContain("data-disabled");
   });
 
-  test("GlassActionButtons still calls the disabled modifier, not a shadowed prop", () => {
+  test("GlassActionButtons uses the same glassEffect chips as GlassTextButton", () => {
     captured.length = 0;
     const html = renderToStaticMarkup(
       createElement(GlassActionButtons, {
@@ -211,8 +213,14 @@ describe("GlassTextButton render", () => {
     );
     expect(html).toContain("Turn off");
     expect(html).toContain("Publish");
+    expect(html).toContain("data-glass-effect-container");
     expect(captured).toHaveLength(2);
-    expect(captured[0]?.modifiers).toContainEqual({ type: "disabled", value: true });
-    expect(captured[1]?.modifiers).toContainEqual({ type: "disabled", value: false });
+    expect(captured[0]?.onPress).toBeUndefined();
+    const disabledMods = captured[0]?.modifiers as Array<{ type: string; value?: number }>;
+    expect(disabledMods.some((item) => item.type === "disabled")).toBe(false);
+    expect(disabledMods).toContainEqual({ type: "opacity", value: GLASS_CHIP_DISABLED_OPACITY });
+    expect(disabledMods).toContainEqual({ type: "buttonStyle", style: "plain" });
+    expect(disabledMods.some((item) => item.type === "glassEffect")).toBe(true);
+    expect(captured[1]?.modifiers).toContainEqual({ type: "opacity", value: 1 });
   });
 });
