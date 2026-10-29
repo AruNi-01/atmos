@@ -36,3 +36,19 @@ export {
   type FencePushResult,
 } from "./request/fence";
 export { nextUntitledMarkdownName } from "./untitled";
+export {
+  applyMdLiveEditOp,
+  isMdLiveDocumentTool,
+  isMdLiveMutatingTool,
+  isMdLiveReadTool,
+  mdLivePopoverAnchorStyle,
+  splitMarkdownStreamChunks,
+  MD_LIVE_MUTATING_TOOLS,
+  MD_LIVE_READ_TOOLS,
+  type MdLiveDocumentTool,
+  type MdLiveEditContext,
+  type MdLiveEditOp,
+  type MdLiveMutatingTool,
+  type MdLiveReadTool,
+  type MdLiveViewportRect,
+} from "./edit";

@@ -450,3 +450,12 @@ describe("footerTrailing slot", () => {
     expect(promptInput).toContain("{footerTrailing}");
   });
 });
+
+describe("compact one-line capsule", () => {
+  it("puts attach, editor, agent/model, and send on one row", () => {
+    expect(promptInput).toContain("compact?: boolean");
+    expect(promptInput).toContain('data-prompt-compact={compact ? "true" : undefined}');
+    expect(promptInput).toContain("flex min-h-8 items-end gap-1");
+    expect(promptInput).toMatch(/\{modeSelects\}\s*\{agentConfigMenu\}/);
+  });
+});

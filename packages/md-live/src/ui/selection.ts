@@ -10,6 +10,7 @@ const OVERLAY_CLOSE_SELECTOR = [
   "[data-md-live-slash]",
   "[data-md-live-toolbar]",
   "[data-md-live-table-chrome]",
+  "[data-md-live-agent-chat]",
   "em-emoji-picker",
 ].join(",");
 

@@ -127,6 +127,12 @@ describe("md-live ui chrome", () => {
     const types = readFileSync(join(here, "types.ts"), "utf8");
     expect(types).toContain("MdLiveFocusCaret");
     expect(types).toContain("focus: (options?: { caret?: MdLiveFocusCaret }) => void");
+    expect(types).toContain("getSelectionViewportRect");
+    expect(types).toContain("selectAll");
+    expect(MD_LIVE_COPY_EN.toolbarAsk).toBe("Chat");
+    const selection = readFileSync(join(here, "selection.ts"), "utf8");
+    expect(selection).toContain("[data-md-live-agent-chat]");
+    expect(actions).toContain("coordsAtPos");
     const tableChrome = readFileSync(join(here, "table-chrome.ts"), "utf8");
     expect(tableChrome).toContain("md-live-table-handle");
     expect(tableChrome).toContain("tableAddRowAbove");

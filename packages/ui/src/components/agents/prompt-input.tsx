@@ -163,6 +163,8 @@ export interface PromptInputProps extends Omit<
   menuSide?: "top" | "bottom";
   /** Embed the agent/model panel in-place instead of a trigger popover. */
   menuInline?: boolean;
+  /** One-line capsule: attach + editor + agent/model + send on a single row. */
+  compact?: boolean;
 }
 
 const PROMPT_SHELL_RADIUS: Record<PromptInputRadius, string> = {
@@ -261,6 +263,7 @@ export function PromptInput({
   configOnly = false,
   menuSide = "top",
   menuInline = false,
+  compact = false,
   disabled,
   placeholder = "Ask the agent to do something…",
   "aria-label": ariaLabel = "Prompt",
@@ -424,160 +427,189 @@ export function PromptInput({
     );
   }
 
+  const addActions = actions.length ? (
+    <MorphPopover open={actionsOpen} onOpenChange={setActionsOpen}>
+      <MorphPopoverTrigger>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          disabled={disabled || loading}
+          aria-label="Add to prompt"
+          className="size-8 rounded-full"
+        >
+          <motion.span
+            aria-hidden="true"
+            animate={{ rotate: actionsOpen ? 45 : 0 }}
+            transition={reduce ? { duration: 0 } : SPRING_SWAP}
+          >
+            <Plus className="size-4" />
+          </motion.span>
+        </Button>
+      </MorphPopoverTrigger>
+
+      <MorphPopoverContent
+        side="top"
+        align="start"
+        sideOffset={8}
+        radius={12}
+        className="w-56 p-1.5"
+      >
+        {actions.map((action) => (
+          <button
+            key={action.value}
+            type="button"
+            disabled={action.disabled}
+            onClick={() => {
+              onAction?.(action.value);
+              setActionsOpen(false);
+            }}
+            className="flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors outline-none hover:bg-muted focus-visible:bg-muted disabled:pointer-events-none disabled:opacity-50"
+          >
+            {action.icon ? (
+              <span className="mt-0.5 grid size-5 shrink-0 place-items-center text-muted-foreground [&_svg]:size-4">
+                {action.icon}
+              </span>
+            ) : null}
+            <span className="min-w-0">
+              <span className="block text-sm text-foreground">{action.label}</span>
+              {action.description ? (
+                <span className="mt-0.5 block text-xs leading-4 text-muted-foreground">
+                  {action.description}
+                </span>
+              ) : null}
+            </span>
+          </button>
+        ))}
+      </MorphPopoverContent>
+    </MorphPopover>
+  ) : null;
+
+  const modeSelects = (
+    <>
+      {modes.length ? (
+        <PromptOptionSelect
+          options={modes}
+          value={mode ?? ""}
+          onChange={onModeChange}
+          disabled={disabled || loading || modesLocked}
+          lockedHint={modesLocked ? labels.modeLocked : undefined}
+          placeholder={labels.chooseMode}
+          searchPlaceholder={labels.search}
+          emptyLabel={labels.noResults}
+          controlRadius={controlRadius}
+        />
+      ) : null}
+      {permissionModes.length ? (
+        <PromptOptionSelect
+          options={permissionModes}
+          value={permissionMode ?? ""}
+          onChange={onPermissionModeChange}
+          disabled={disabled || loading || permissionModesLocked}
+          lockedHint={permissionModesLocked ? labels.permissionLocked : undefined}
+          placeholder={labels.choosePermission}
+          searchPlaceholder={labels.search}
+          emptyLabel={labels.noResults}
+          controlRadius={controlRadius}
+        />
+      ) : null}
+    </>
+  );
+
+  const sendButton = (
+    <Button
+      type={loading ? "button" : "submit"}
+      size="icon"
+      disabled={loading ? !onStop : !canSubmit}
+      aria-label={loading ? "Stop generating" : "Send prompt"}
+      onClick={loading ? onStop : undefined}
+      className="size-8 rounded-full"
+    >
+      <AnimatePresence initial={false} mode="popLayout">
+        <motion.span
+          key={loading ? "stop" : "send"}
+          initial={reduce ? { opacity: 1 } : { opacity: 0, y: 3, scale: 0.8 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={reduce ? { opacity: 0 } : { opacity: 0, y: -3, scale: 0.8 }}
+          transition={reduce ? { duration: 0 } : SPRING_SWAP}
+          className="grid place-items-center"
+        >
+          {loading ? <Square className="size-3 fill-current" /> : <ArrowUp className="size-4" />}
+        </motion.span>
+      </AnimatePresence>
+    </Button>
+  );
+
+  const editorNode = editor ? (
+    <div className={cn(compact ? "min-w-0 flex-1 px-1 py-0.5" : "px-2 pt-1.5")}>{editor}</div>
+  ) : (
+    <>
+      <div
+        ref={measurementRef}
+        aria-hidden="true"
+        className="pointer-events-none invisible absolute inset-x-2 top-0 px-2 text-sm leading-6 [overflow-wrap:break-word] whitespace-pre-wrap"
+      >
+        {`${currentValue}\u200b`}
+      </div>
+      <textarea
+        ref={textareaRef}
+        value={currentValue}
+        disabled={disabled}
+        placeholder={placeholder}
+        aria-label={ariaLabel}
+        rows={minRows}
+        {...textareaProps}
+        onChange={(event) => setValue(event.target.value)}
+        onKeyDown={handleKeyDown}
+        className={cn(
+          "scrollbar-hide block w-full resize-none overflow-y-auto bg-transparent text-sm leading-6 text-foreground outline-none placeholder:text-muted-foreground/55",
+          compact ? "min-w-0 flex-1 px-1 py-1.5" : "px-2 pt-1.5",
+        )}
+      />
+    </>
+  );
+
   return (
     <form
       ref={formRef}
       onSubmit={submit}
+      data-prompt-compact={compact ? "true" : undefined}
       className={cn(
-        "relative w-full overflow-visible border border-foreground/10 bg-foreground/[0.04] p-2",
+        "relative w-full overflow-visible border border-foreground/10 bg-foreground/[0.04]",
+        compact ? "p-1" : "p-2",
         shellRadius,
         disabled && "opacity-60",
         className,
       )}
     >
       {header}
-      {editor ? (
-        <div className="px-2 pt-1.5">{editor}</div>
+      {compact ? (
+        <div className="flex min-h-8 items-end gap-1">
+          {addActions}
+          {leadingAction}
+          {editorNode}
+          <div className="ml-auto flex min-w-0 items-center gap-1">
+            {modeSelects}
+            {agentConfigMenu}
+            {footerTrailing}
+          </div>
+          {sendButton}
+        </div>
       ) : (
         <>
-          <div
-            ref={measurementRef}
-            aria-hidden="true"
-            className="pointer-events-none invisible absolute inset-x-2 top-0 px-2 text-sm leading-6 [overflow-wrap:break-word] whitespace-pre-wrap"
-          >
-            {`${currentValue}\u200b`}
+          {editorNode}
+          <div className="mt-1 flex min-h-8 items-center gap-1">
+            {addActions}
+            {leadingAction}
+            {modeSelects}
+            <div className="ml-auto flex min-w-0 items-center gap-1">
+              {agentConfigMenu}
+              {footerTrailing}
+            </div>
+            {sendButton}
           </div>
-          <textarea
-            ref={textareaRef}
-            value={currentValue}
-            disabled={disabled}
-            placeholder={placeholder}
-            aria-label={ariaLabel}
-            rows={minRows}
-            {...textareaProps}
-            onChange={(event) => setValue(event.target.value)}
-            onKeyDown={handleKeyDown}
-            className="scrollbar-hide block w-full resize-none overflow-y-auto bg-transparent px-2 pt-1.5 text-sm leading-6 text-foreground outline-none placeholder:text-muted-foreground/55"
-          />
         </>
       )}
-
-      <div className="mt-1 flex min-h-8 items-center gap-1">
-        {actions.length ? (
-          <MorphPopover open={actionsOpen} onOpenChange={setActionsOpen}>
-            <MorphPopoverTrigger>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                disabled={disabled || loading}
-                aria-label="Add to prompt"
-                className="size-8 rounded-full"
-              >
-                <motion.span
-                  aria-hidden="true"
-                  animate={{ rotate: actionsOpen ? 45 : 0 }}
-                  transition={reduce ? { duration: 0 } : SPRING_SWAP}
-                >
-                  <Plus className="size-4" />
-                </motion.span>
-              </Button>
-            </MorphPopoverTrigger>
-
-            <MorphPopoverContent
-              side="top"
-              align="start"
-              sideOffset={8}
-              radius={12}
-              className="w-56 p-1.5"
-            >
-              {actions.map((action) => (
-                <button
-                  key={action.value}
-                  type="button"
-                  disabled={action.disabled}
-                  onClick={() => {
-                    onAction?.(action.value);
-                    setActionsOpen(false);
-                  }}
-                  className="flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors outline-none hover:bg-muted focus-visible:bg-muted disabled:pointer-events-none disabled:opacity-50"
-                >
-                  {action.icon ? (
-                    <span className="mt-0.5 grid size-5 shrink-0 place-items-center text-muted-foreground [&_svg]:size-4">
-                      {action.icon}
-                    </span>
-                  ) : null}
-                  <span className="min-w-0">
-                    <span className="block text-sm text-foreground">{action.label}</span>
-                    {action.description ? (
-                      <span className="mt-0.5 block text-xs leading-4 text-muted-foreground">
-                        {action.description}
-                      </span>
-                    ) : null}
-                  </span>
-                </button>
-              ))}
-            </MorphPopoverContent>
-          </MorphPopover>
-        ) : null}
-        {leadingAction}
-        {modes.length ? (
-          <PromptOptionSelect
-            options={modes}
-            value={mode ?? ""}
-            onChange={onModeChange}
-            disabled={disabled || loading || modesLocked}
-            lockedHint={modesLocked ? labels.modeLocked : undefined}
-            placeholder={labels.chooseMode}
-            searchPlaceholder={labels.search}
-            emptyLabel={labels.noResults}
-            controlRadius={controlRadius}
-          />
-        ) : null}
-        {permissionModes.length ? (
-          <PromptOptionSelect
-            options={permissionModes}
-            value={permissionMode ?? ""}
-            onChange={onPermissionModeChange}
-            disabled={disabled || loading || permissionModesLocked}
-            lockedHint={permissionModesLocked ? labels.permissionLocked : undefined}
-            placeholder={labels.choosePermission}
-            searchPlaceholder={labels.search}
-            emptyLabel={labels.noResults}
-            controlRadius={controlRadius}
-          />
-        ) : null}
-        <div className="ml-auto flex min-w-0 items-center gap-1">
-          {agentConfigMenu}
-          {footerTrailing}
-        </div>
-
-        <Button
-          type={loading ? "button" : "submit"}
-          size="icon"
-          disabled={loading ? !onStop : !canSubmit}
-          aria-label={loading ? "Stop generating" : "Send prompt"}
-          onClick={loading ? onStop : undefined}
-          className="size-8 rounded-full"
-        >
-          <AnimatePresence initial={false} mode="popLayout">
-            <motion.span
-              key={loading ? "stop" : "send"}
-              initial={reduce ? { opacity: 1 } : { opacity: 0, y: 3, scale: 0.8 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={reduce ? { opacity: 0 } : { opacity: 0, y: -3, scale: 0.8 }}
-              transition={reduce ? { duration: 0 } : SPRING_SWAP}
-              className="grid place-items-center"
-            >
-              {loading ? (
-                <Square className="size-3 fill-current" />
-              ) : (
-                <ArrowUp className="size-4" />
-              )}
-            </motion.span>
-          </AnimatePresence>
-        </Button>
-      </div>
     </form>
   );
 }

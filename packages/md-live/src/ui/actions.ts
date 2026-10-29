@@ -18,7 +18,7 @@ import {
   streamingPluginKey,
 } from "@milkdown/kit/plugin/streaming";
 import { acceptAllDiffsCmd, clearDiffReviewCmd } from "@milkdown/kit/plugin/diff";
-import type { MdLiveBlockAction, MdLiveFocusCaret } from "./types";
+import type { MdLiveBlockAction, MdLiveFocusCaret, MdLiveViewportRect } from "./types";
 import { formatMdLiveSerializedMarkdown } from "./markdown-stringify";
 import { applyMdLiveBlockConvert } from "./convert-block";
 import { mdLiveInsertEmptyInlineCode } from "./inline-code";
@@ -46,6 +46,40 @@ export function getSelectionMarkdown(ctx: Ctx): string {
   const { from, to, empty } = view.state.selection;
   if (empty) return "";
   return view.state.doc.textBetween(from, to, "\n\n");
+}
+
+function rectFromCoords(
+  start: { left: number; top: number; right: number; bottom: number },
+  end: { left: number; top: number; right: number; bottom: number },
+): MdLiveViewportRect {
+  const left = Math.min(start.left, end.left);
+  const top = Math.min(start.top, end.top);
+  const right = Math.max(start.right, end.right);
+  const bottom = Math.max(start.bottom, end.bottom);
+  return {
+    left,
+    top,
+    right,
+    bottom,
+    width: Math.max(0, right - left),
+    height: Math.max(0, bottom - top),
+  };
+}
+
+export function getSelectionViewportRect(ctx: Ctx): MdLiveViewportRect | null {
+  const view = ctx.get(editorViewCtx);
+  const { from, to } = view.state.selection;
+  const start = view.coordsAtPos(from);
+  const end = from === to ? start : view.coordsAtPos(to);
+  if (!start || !end) return null;
+  return rectFromCoords(start, end);
+}
+
+export function selectAll(ctx: Ctx): void {
+  const view = ctx.get(editorViewCtx);
+  const { doc } = view.state;
+  const next = TextSelection.create(doc, 0, doc.content.size);
+  view.dispatch(view.state.tr.setSelection(next));
 }
 
 export function deleteSlashQuery(ctx: Ctx): void {

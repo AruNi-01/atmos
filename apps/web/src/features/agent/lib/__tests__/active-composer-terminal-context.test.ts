@@ -1,6 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import {
   addTerminalSelectionAsContext,
+  insertAiContextForInstanceKey,
+  insertFileMentionForInstanceKey,
   registerActiveAgentComposer,
 } from "@/features/agent/lib/agent/active-composer";
 import type { TerminalSelectionSnapshot } from "@/features/terminal/types";
@@ -46,5 +48,36 @@ describe("addTerminalSelectionAsContext", () => {
       }),
     ).toBe(true);
     expect(overlayCalls).toEqual(["git status"]);
+  });
+});
+
+describe("instance-key composer inserts", () => {
+  it("routes file mention and doc selection to the matching Live session", () => {
+    const mentions: string[] = [];
+    const contexts: Array<{ kind: string; text: string }> = [];
+    const unregister = registerActiveAgentComposer(
+      "ws-1",
+      "p-1",
+      "default",
+      {
+        setDraft: () => undefined,
+        insertAiContext: (kind, promptText) => {
+          contexts.push({ kind, text: promptText });
+        },
+        insertFileMention: (path) => {
+          mentions.push(path);
+        },
+      },
+      "md-live:/tmp/note.md",
+    );
+
+    expect(insertFileMentionForInstanceKey("md-live:/tmp/note.md", "/tmp/note.md")).toBe(true);
+    expect(insertAiContextForInstanceKey("md-live:/tmp/note.md", "doc-selection", "hello")).toBe(
+      true,
+    );
+    expect(mentions).toEqual(["/tmp/note.md"]);
+    expect(contexts).toEqual([{ kind: "doc-selection", text: "hello" }]);
+    expect(insertFileMentionForInstanceKey("md-live:/other.md", "/other.md")).toBe(false);
+    unregister();
   });
 });

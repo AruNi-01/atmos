@@ -151,41 +151,57 @@ describe("md-live structural gates", () => {
     expect(source).toContain("activateCenterChromeTab");
   });
 
-  test("composer dock reuses PromptComposer and has no terminal send", () => {
+  test("Live Agent Chat reuses one Agent Chat session for popover and bottom bar", () => {
     const source = readFileSync(
+      join(import.meta.dir, "../../components/MdLiveAgentChat.tsx"),
+      "utf8",
+    );
+    expect(source.match(/useAgentChatSession\(/g)?.length).toBe(1);
+    expect(source).toContain("mdLiveAgentChatInstanceKey");
+    expect(source).toContain("instanceKey={instanceKey}");
+    expect(source).toContain("AgentPromptComposer");
+    expect(source).toContain("AgentChatTranscriptList");
+    expect(source).toContain("data-md-live-agent-placement={placement}");
+    expect(source).toContain('placement === "popover"');
+    expect(source).toContain("data-md-live-agent-popover");
+    expect(source).toContain("data-md-live-agent-bar");
+    expect(source).toContain("data-md-live-working-pill");
+    expect(source).toContain("setExpanded(true)");
+    expect(source).toContain("setExpanded(false)");
+    expect(source).toContain("data-md-live-accept");
+    expect(source).toContain("data-md-live-reject");
+    expect(source).toContain("insertFileMentionForInstanceKey");
+    expect(source).toContain("onDraftChange");
+    expect(source).toContain("mdLiveSelectionPopoverStyle");
+    expect(source).toContain("nextMdLiveBarMode");
+    expect(source).toContain("insertAiContextForInstanceKey");
+    expect(source).toContain('"doc-selection"');
+    expect(source).not.toContain("MD_LIVE_HEADLESS_PTY");
+    expect(source).not.toContain("createFenceExtractor");
+    expect(source).not.toContain("Send to terminal");
+    expect(source).toContain("useMdLiveAgentBridge");
+    const bridge = readFileSync(
+      join(import.meta.dir, "../../hooks/use-md-live-agent-bridge.ts"),
+      "utf8",
+    );
+    expect(bridge).toContain("applyMdLiveAgentToolToOpenDoc");
+    expect(bridge).toContain("md_live_agent_dispatch");
+    const host = readFileSync(join(import.meta.dir, "../md-live-edit-host.ts"), "utf8");
+    expect(host).toContain("isMdLiveMutatingTool");
+    expect(host).not.toContain("fs_write");
+  });
+
+  test("headless dock is unmounted as the primary Live Agent path", () => {
+    const chat = readFileSync(
+      join(import.meta.dir, "../../components/MdLiveAgentChat.tsx"),
+      "utf8",
+    );
+    const dock = readFileSync(
       join(import.meta.dir, "../../components/MdLiveAgentDock.tsx"),
       "utf8",
     );
-    expect(source).toContain("PromptComposer");
-    expect(source).toContain("@/features/welcome/components/PromptComposer");
-    expect(source).toContain("WelcomeAgentSelector");
-    expect(source).toContain("filterHeadlessAgents");
-    expect(source).toContain('triggerPlacement="inline"');
-    expect(source).toContain('purpose="automation"');
-    expect(source).not.toContain('variant="menu"');
-    expect(source).toContain('placeholder={t("placeholder")}');
-    expect(source).toContain("ArrowUp");
-    expect(source).not.toContain("copyMdLivePrompt");
-    expect(source).not.toContain("Send to terminal");
-    expect(source).not.toContain("EditorPromptComposer");
-    expect(source).not.toContain('{t("run")}\n        </Button>');
-    expect(source).toContain("isTerminalAgentInputShortcut");
-    expect(source).toContain("h-1 w-28 rounded-full");
-    expect(source).toContain("pointer-events-none absolute inset-x-0 bottom-1.5");
-    expect(source).toContain("grid-rows-[0fr]");
-    expect(source).toContain("grid-rows-[1fr]");
-    expect(source).toContain("MD_LIVE_HEADLESS_PTY");
-    expect(source).toContain("connectWhileHidden");
-    expect(source).toContain("shouldFireMdLiveFenceTimeout");
-    expect(source).toContain("stripTerminalAnsi");
-    expect(source).toContain("resolveMdLiveRunEditor");
-    expect(source).toContain("resolveMdLiveRunGrid");
-    const onRun = source.slice(source.indexOf("const onRun"));
-    expect(onRun.indexOf("resolveMdLiveRunEditor")).toBeGreaterThan(-1);
-    expect(onRun.indexOf("resolveMdLiveRunGrid")).toBeGreaterThan(-1);
-    expect(onRun.indexOf("resolveMdLiveRunEditor")).toBeLessThan(onRun.indexOf("lockMdLiveStream"));
-    expect(onRun.indexOf("resolveMdLiveRunGrid")).toBeLessThan(onRun.indexOf("lockMdLiveStream"));
-    expect(source).toContain("restoreAndUnlockMdLiveStream");
+    expect(chat).not.toContain("MdLiveAgentDock");
+    expect(dock).toContain("MD_LIVE_HEADLESS_PTY");
   });
 
   test("terminal grid handle is published from the frame callback ref", () => {

@@ -135,6 +135,7 @@ function ComposerPromptInput({
   localDraft,
   setLocalDraft,
   persistedDraftRef,
+  compact = false,
   isConnected,
   chatMode,
   instanceKey,
@@ -190,6 +191,7 @@ function ComposerPromptInput({
   onSkillDisableSessionClosed: () => void;
   skillDisableSessionOpen: boolean;
   closePopovers: () => void;
+  compact?: boolean;
   localDraft: string;
   setLocalDraft: React.Dispatch<React.SetStateAction<string>>;
   persistedDraftRef: React.MutableRefObject<string>;
@@ -442,13 +444,16 @@ function ComposerPromptInput({
             : undefined
         }
         radius="3xl"
+        compact={compact}
         footerTrailing={
-          <ContextWindowUsageControl
-            usage={sessionUsage}
-            providerId={registryId}
-            open={contextUsageOpen}
-            onOpenChange={onContextUsageOpenChange}
-          />
+          compact ? null : (
+            <ContextWindowUsageControl
+              usage={sessionUsage}
+              providerId={registryId}
+              open={contextUsageOpen}
+              onOpenChange={onContextUsageOpenChange}
+            />
+          )
         }
         className={cn("w-full shadow-none", editingItem && "border-dashed border-info")}
       />
@@ -507,6 +512,10 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   subagentOverlay = null,
   aboveInputOverlay = null,
   onAboveComposerOverlaysNodeChange,
+  compact = false,
+  placeholderOverride = null,
+  leadingChrome = null,
+  onDraftChange,
 }: {
   currentPlan: AgentPlan | null;
   isResumedSession: boolean;
@@ -566,6 +575,10 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   /** Approve / session-op cards — floated in the same lane as context usage. */
   aboveInputOverlay?: React.ReactNode;
   onAboveComposerOverlaysNodeChange?: (node: HTMLDivElement | null) => void;
+  compact?: boolean;
+  placeholderOverride?: string | null;
+  leadingChrome?: React.ReactNode;
+  onDraftChange?: (hasDraft: boolean) => void;
 }) {
   const t = useTranslations("Agent.components");
   const setAgentChatDraft = useDialogStore((s) => s.setAgentChatDraft);
@@ -632,9 +645,11 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
     runtimeStatus,
     hasPersistenceHandle,
   });
-  const placeholder = t(`composer.placeholder.${placeholderKind}`, {
-    agent: activeAgent?.name ?? "",
-  });
+  const placeholder =
+    placeholderOverride?.trim() ||
+    t(`composer.placeholder.${placeholderKind}`, {
+      agent: activeAgent?.name ?? "",
+    });
   const {
     popovers,
     closePopovers,
@@ -671,6 +686,10 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
           composerRef.current?.focus();
           composerRef.current?.insertAiContext(kind, promptText);
         },
+        insertFileMention: (relativePath) => {
+          composerRef.current?.focus();
+          composerRef.current?.insertFileMention(relativePath);
+        },
         focus: () => composerRef.current?.focus(),
       },
       instanceKey,
@@ -702,10 +721,15 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
     setAgentChatDraft,
   ]);
 
+  useEffect(() => {
+    onDraftChange?.(Boolean(stripSkillDisableSession(localDraft).trim()));
+  }, [localDraft, onDraftChange]);
+
   return (
     <div
-      className="shrink-0 px-3 pt-px pb-3 select-none"
+      className={cn("shrink-0 select-none", compact ? "px-0 pt-0 pb-0" : "px-3 pt-px pb-3")}
       data-agent-chat-composer=""
+      data-agent-chat-compact={compact ? "true" : undefined}
       data-agent-chat-mode={chatMode}
       data-agent-chat-instance-key={instanceKey?.trim() || undefined}
       data-agent-chat-workspace-id={sessionWorkspaceId ?? undefined}
@@ -750,6 +774,14 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
         setEditingQueueId(null);
       }}
     >
+      {leadingChrome ? (
+        <div
+          data-agent-chat-leading-chrome=""
+          className="mb-1.5 flex min-h-6 min-w-0 flex-wrap items-center gap-1.5 px-1"
+        >
+          {leadingChrome}
+        </div>
+      ) : null}
       <div ref={composerSurfaceRef} className="relative">
         <AgentChatAboveComposerOverlays
           composerSurfaceRef={composerSurfaceRef}
@@ -767,7 +799,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
           hasUpperComposerCards={hasUpperComposerCards}
           onLaneNodeChange={onAboveComposerOverlaysNodeChange}
         />
-        {hasUpperComposerCards ? (
+        {hasUpperComposerCards && !compact ? (
           <div
             data-agent-composer-upper-cards=""
             className="relative z-[1] mx-6 overflow-hidden rounded-t-3xl border border-b-0 border-foreground/10 bg-foreground/[0.04]"
@@ -810,6 +842,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
         <PromptInputProvider>
           <ComposerPromptInput
             composerRef={composerRef}
+            compact={compact}
             onAtTrigger={onAtTrigger}
             onAtCancel={onAtCancel}
             onSlashTrigger={onSlashTrigger}

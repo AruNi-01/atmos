@@ -78,8 +78,8 @@ const MarkdownLiveEditor = dynamic(
     ),
   { ssr: false },
 );
-const MdLiveAgentDock = dynamic(
-  () => import("@/features/md-live/components/MdLiveAgentDock").then((mod) => mod.MdLiveAgentDock),
+const MdLiveAgentChat = dynamic(
+  () => import("@/features/md-live/components/MdLiveAgentChat").then((mod) => mod.MdLiveAgentChat),
   { ssr: false },
 );
 const MdLiveSaveAsDialog = dynamic(
@@ -1197,12 +1197,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
                   />
                 ) : null}
                 {isLive && surfaceActive ? (
-                  <MdLiveAgentDock
-                    filePath={file.path}
-                    markdown={file.content}
-                    ensureLive={() => setMarkdownView("live")}
-                    scopeRef={liveChromeRef}
-                  />
+                  <MdLiveAgentChat filePath={file.path} scopeRef={liveChromeRef} />
                 ) : null}
               </FindHighlightProvider>
             </div>

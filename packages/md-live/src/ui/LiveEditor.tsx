@@ -32,6 +32,7 @@ import {
   endStream,
   getEditorMarkdown,
   getSelectionMarkdown,
+  getSelectionViewportRect,
   insertMarkdown,
   insertText,
   pushStreamChunk,
@@ -39,6 +40,7 @@ import {
   keepSlashTrigger,
   focusEditorCaret,
   runBlockAction,
+  selectAll,
   startStream,
 } from "./actions";
 import { cn } from "./cn";
@@ -420,6 +422,7 @@ export function MdLiveEditor({
     const handle: MdLiveEditorHandle = {
       getMarkdown: () => run((ctx) => getEditorMarkdown(ctx)) ?? "",
       getSelectionMarkdown: () => run((ctx) => getSelectionMarkdown(ctx)) ?? "",
+      getSelectionViewportRect: () => run((ctx) => getSelectionViewportRect(ctx)) ?? null,
       focus: (options) => {
         run((ctx) => focusEditorCaret(ctx, options?.caret ?? "start"));
       },
@@ -431,6 +434,9 @@ export function MdLiveEditor({
       },
       runBlockAction: (action) => {
         run((ctx) => runBlockAction(ctx, action));
+      },
+      selectAll: () => {
+        run((ctx) => selectAll(ctx));
       },
       startStream: (insertAt) => run((ctx) => startStream(ctx, insertAt)) ?? false,
       pushChunk: (token) => {

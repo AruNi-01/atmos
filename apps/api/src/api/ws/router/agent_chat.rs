@@ -696,6 +696,7 @@ mod tests {
             Arc::new(QuotaUsageService::new(Vec::<Arc<dyn QuotaProvider>>::new())),
             Arc::new(CanvasAgentRelay::new()),
             Arc::new(CanvasAgentRelay::new()),
+            Arc::new(CanvasAgentRelay::new()),
             notification_service,
             Arc::new(TokenUsageService::default()),
             Arc::new(AgentStatusService::new()),

@@ -12,6 +12,7 @@ export type {
   MdLiveSlashMenuProps,
   MdLiveSlashPick,
   MdLiveTaskMarker,
+  MdLiveViewportRect,
 } from "./ui/types";
 export {
   MD_LIVE_HEADING_LEVELS,
@@ -93,6 +94,7 @@ export { MdLiveEditor, type MdLiveEditorProps } from "./ui/LiveEditor";
 export {
   getEditorMarkdown,
   getSelectionMarkdown,
+  getSelectionViewportRect,
   focusEditorCaret,
   insertMarkdown,
   sliceFromMarkdownDoc,
@@ -100,6 +102,7 @@ export {
   deleteSlashQuery,
   insertText,
   runBlockAction,
+  selectAll,
   startStream,
   pushStreamChunk,
   endStream,
