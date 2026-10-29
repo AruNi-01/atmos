@@ -471,7 +471,7 @@ export function WelcomeMentionPopover({
             <div className="flex items-center gap-1 px-1 pt-1">
               <button
                 type="button"
-                className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="flex size-7 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground"
                 aria-label={t("mentionPopover.back")}
                 onMouseDown={(event) => {
                   event.preventDefault();

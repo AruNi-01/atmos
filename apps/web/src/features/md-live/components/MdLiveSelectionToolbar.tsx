@@ -318,8 +318,8 @@ function OverlayMenu({
                 aria-current={triggerActive ? "true" : undefined}
                 className={
                   triggerActive
-                    ? "flex size-8 items-center justify-center rounded-sm bg-accent text-accent-foreground"
-                    : "flex size-8 items-center justify-center rounded-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                    ? "flex size-8 items-center justify-center rounded-lg bg-accent text-accent-foreground"
+                    : "flex size-8 items-center justify-center rounded-lg text-foreground hover:bg-accent hover:text-accent-foreground"
                 }
                 onMouseDown={preventFocusSteal}
               >
@@ -332,8 +332,8 @@ function OverlayMenu({
                 aria-current={triggerActive ? "true" : undefined}
                 className={
                   triggerActive
-                    ? "flex h-8 items-center gap-1 rounded-sm bg-accent px-2 text-sm text-accent-foreground"
-                    : "flex h-8 items-center gap-1 rounded-sm px-2 text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+                    ? "flex h-8 items-center gap-1 rounded-lg bg-accent px-2 text-sm text-accent-foreground"
+                    : "flex h-8 items-center gap-1 rounded-lg px-2 text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
                 }
                 onMouseDown={preventFocusSteal}
               >
@@ -395,8 +395,8 @@ function IconButton({
           aria-current={active ? "true" : undefined}
           className={
             active
-              ? "flex size-8 items-center justify-center rounded-sm bg-accent text-accent-foreground"
-              : "flex size-8 items-center justify-center rounded-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+              ? "flex size-8 items-center justify-center rounded-lg bg-accent text-accent-foreground"
+              : "flex size-8 items-center justify-center rounded-lg text-foreground hover:bg-accent hover:text-accent-foreground"
           }
           onMouseDown={onMouseDown}
           onClick={onClick}

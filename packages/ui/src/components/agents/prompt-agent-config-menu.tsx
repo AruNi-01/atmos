@@ -630,7 +630,7 @@ export function PromptEffortPopoverBody({
                         onContextOpenChange(false);
                       }}
                       className={cn(
-                        "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm outline-none",
+                        "flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm outline-none",
                         selected ? "bg-muted text-foreground" : "text-foreground hover:bg-muted/70",
                         "disabled:pointer-events-none disabled:opacity-50",
                       )}

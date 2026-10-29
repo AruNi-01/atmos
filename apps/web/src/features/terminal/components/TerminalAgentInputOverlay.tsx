@@ -1573,7 +1573,7 @@ function SideChatAgentPicker({
           <button
             key={agent.id}
             type="button"
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left hover:bg-muted"
+            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left hover:bg-muted"
             onMouseDown={(event) => {
               event.preventDefault();
               onSelect(agent);
@@ -1592,7 +1592,7 @@ function SideChatAgentPicker({
       )}
       <button
         type="button"
-        className="mt-1 flex w-full items-center rounded-md px-2.5 py-1.5 text-left text-xs text-muted-foreground hover:bg-muted"
+        className="mt-1 flex w-full items-center rounded-lg px-2.5 py-1.5 text-left text-xs text-muted-foreground hover:bg-muted"
         onMouseDown={(event) => {
           event.preventDefault();
           onCancel();

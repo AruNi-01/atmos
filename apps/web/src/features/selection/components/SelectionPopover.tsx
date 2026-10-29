@@ -325,7 +325,7 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7"
+              className="size-7 rounded-[calc(var(--radius-xl)-2px)] before:rounded-[calc(var(--radius-xl)-3px)]"
               onClick={handleQuickCopy}
               title={t("popover.actions.copyForAi")}
             >
@@ -339,7 +339,7 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7"
+                className="size-7 rounded-[calc(var(--radius-xl)-2px)] before:rounded-[calc(var(--radius-xl)-3px)]"
                 onClick={() => void handleAttach(false)}
                 title={t("popover.actions.attachToAgent")}
                 disabled={attaching}
@@ -351,7 +351,7 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7"
+                className="size-7 rounded-[calc(var(--radius-xl)-2px)] before:rounded-[calc(var(--radius-xl)-3px)]"
                 title={t("popover.actions.addNote")}
               >
                 <ChevronDown
