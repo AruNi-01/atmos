@@ -47,13 +47,17 @@ export function MdLiveAgentChat({
   filePath,
   scopeRef,
   className,
+  chatId: chatIdProp = null,
 }: {
   filePath: string;
   scopeRef?: RefObject<HTMLElement | null>;
   className?: string;
+  chatId?: string | null;
 }) {
   const t = useTranslations("mdLive");
   const instanceKey = mdLiveAgentChatInstanceKey(filePath);
+  const chatId = chatIdProp || "";
+  const [selectedSubagentId, setSelectedSubagentId] = useState<string | null>(null);
   const { clientId } = useMdLiveAgentBridge(filePath);
   const [invokeUrl, setInvokeUrl] = useState("");
   const [placement, setPlacement] = useState<MdLiveAgentPlacement>("bottom");
@@ -91,6 +95,7 @@ export function MdLiveAgentChat({
     active: true,
     instanceKey,
     transformPrompt,
+    chatId,
   });
 
   const working = session.agentActivity.busy;
@@ -402,7 +407,7 @@ export function MdLiveAgentChat({
   );
 
   return (
-    <SubagentOverlayProvider>
+    <SubagentOverlayProvider selectedId={selectedSubagentId} onSelect={setSelectedSubagentId}>
       <div
         ref={hostRef}
         data-md-live-agent-chat=""

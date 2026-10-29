@@ -157,6 +157,9 @@ describe("md-live structural gates", () => {
       "utf8",
     );
     expect(source.match(/useAgentChatSession\(/g)?.length).toBe(1);
+    expect(source).toContain('chatIdProp || ""');
+    expect(source).toContain("selectedId={selectedSubagentId}");
+    expect(source).toContain("onSelect={setSelectedSubagentId}");
     expect(source).toContain("mdLiveAgentChatInstanceKey");
     expect(source).toContain("instanceKey={instanceKey}");
     expect(source).toContain("AgentPromptComposer");
