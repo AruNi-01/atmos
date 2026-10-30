@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useTranslations } from "next-intl";
 import { Conversation, ConversationContent, cn } from "@workspace/ui";
-import { Minimize2, Plus, Sparkles, X } from "lucide-react";
+import { Minimize2, Sparkles, X } from "lucide-react";
 import { AgentAuthDialog } from "@/features/agent/components/AgentAuthDialog";
 import { AgentChatOwnSendRefsProvider } from "@/features/agent/components/agent-chat-own-send-context";
 import { AgentChatCwdProvider } from "@/features/agent/components/agent-chat-cwd-context";
@@ -115,8 +115,8 @@ export function MdLiveAgentChat({
     Boolean(session.pendingPermission) ||
     Boolean(session.pendingSessionOp);
   const showThread = (popover || barMode === "expanded") && hasThread;
-  const showPanelHeader = popover || showThread;
   const showBar = popover || barMode !== "hidden";
+  const hasComposerChrome = !showThread && (popover || reviewPending || (working && !popover));
 
   const openPopover = useCallback(
     (selection: string) => {
@@ -204,7 +204,7 @@ export function MdLiveAgentChat({
 
   const placeholder =
     working || session.messages.length > 0 ? t("followUpPlaceholder") : t("askPlaceholder");
-  const panelTitle = mdLiveOverlayTitle(session.displaySessionTitle, t("chat"));
+  const sessionTitle = mdLiveOverlayTitle(session.displaySessionTitle, "");
   const chromeButtonClass =
     "inline-flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground";
   const chromePillClass =
@@ -250,14 +250,16 @@ export function MdLiveAgentChat({
           </button>
         </>
       ) : null}
-      <button
-        type="button"
-        className={chromeButtonClass}
-        aria-label={t("newChat")}
-        onClick={() => void session.handleCreateNewSession()}
-      >
-        <Plus className="size-3.5" />
-      </button>
+      {showThread ? (
+        <button
+          type="button"
+          className={chromePillClass}
+          aria-label={t("newChat")}
+          onClick={() => void session.handleCreateNewSession()}
+        >
+          {t("newChat")}
+        </button>
+      ) : null}
       {showThread && !popover ? (
         <button
           type="button"
@@ -281,12 +283,16 @@ export function MdLiveAgentChat({
     </>
   );
 
-  const panelHeader = showPanelHeader ? (
+  const panelHeader = showThread ? (
     <div
       data-md-live-agent-header=""
       className="flex shrink-0 items-center gap-1.5 border-b border-border px-3 py-1.5"
     >
-      <span className="min-w-0 flex-1 truncate text-sm">{panelTitle}</span>
+      {sessionTitle ? (
+        <span className="min-w-0 flex-1 truncate text-sm">{sessionTitle}</span>
+      ) : (
+        <span className="min-w-0 flex-1" />
+      )}
       <div className="flex shrink-0 items-center gap-0.5">{chrome}</div>
     </div>
   ) : null;
@@ -369,9 +375,8 @@ export function MdLiveAgentChat({
       projectPath={session.sessionCwd ?? session.localPath}
       sessionUsage={session.sessionUsage}
       messages={session.messages}
-      compact
       placeholderOverride={placeholder}
-      leadingChrome={showPanelHeader ? null : chrome}
+      leadingChrome={hasComposerChrome ? chrome : null}
       onDraftChange={setHasDraft}
       aboveInputOverlay={
         session.pendingPermission || session.pendingSessionOp ? (
@@ -421,8 +426,9 @@ export function MdLiveAgentChat({
             data-md-live-agent-popover=""
             className={cn(
               "pointer-events-auto absolute w-[min(100%,26.25rem)]",
-              MD_LIVE_AGENT_PANEL_CLASS,
-              showThread && "max-h-[min(70vh,32rem)]",
+              showThread
+                ? cn(MD_LIVE_AGENT_PANEL_CLASS, "max-h-[min(70vh,32rem)]")
+                : "drop-shadow-lg",
             )}
             style={{
               ...popoverStyle,
@@ -433,19 +439,21 @@ export function MdLiveAgentChat({
           >
             {panelHeader}
             {thread}
-            <div className="shrink-0 p-1.5 pt-1">{composer}</div>
+            {composer}
           </div>
         ) : showBar ? (
           <div
             data-md-live-agent-bar=""
             className={cn(
               "pointer-events-auto absolute inset-x-0 bottom-3 mx-auto w-[min(100%-1.5rem,42rem)]",
-              showThread ? cn(MD_LIVE_AGENT_PANEL_CLASS, "max-h-[min(70vh,32rem)]") : "",
+              showThread
+                ? cn(MD_LIVE_AGENT_PANEL_CLASS, "max-h-[min(70vh,32rem)]")
+                : "drop-shadow-lg",
             )}
           >
             {panelHeader}
             {thread}
-            <div className={cn("shrink-0", showThread && "p-1.5 pt-1")}>{composer}</div>
+            {composer}
           </div>
         ) : null}
       </div>

@@ -182,11 +182,11 @@ describe("agent prompt composer", () => {
     expect(composer).toContain(
       '"min-h-5 max-h-40 select-text rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5"',
     );
-    expect(composer).toContain("whitespace-nowrap");
-    expect(composer).toContain("[&_[data-token]]:shrink-0");
-    expect(composer).toContain('density={compact ? "compact" : "composer"}');
-    expect(composer).toContain("leadingChrome={compact ? leadingChrome : null}");
-    expect(composer).toContain("{leadingChrome && !compact ? (");
+    expect(composer).not.toContain("whitespace-nowrap");
+    expect(composer).not.toContain("[&_[data-token]]:shrink-0");
+    expect(composer).toContain("header={<AgentComposerAttachments />}");
+    expect(composer).toContain("{leadingChrome ? (");
+    expect(composer).not.toContain("data-agent-chat-compact");
     expect(composer).not.toContain("data-agent-composer-landing");
   });
 

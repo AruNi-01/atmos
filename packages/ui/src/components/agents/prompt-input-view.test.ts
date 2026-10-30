@@ -450,17 +450,16 @@ describe("footerTrailing slot", () => {
   });
 });
 
-describe("compact one-line capsule", () => {
-  it("puts attach, editor, agent/model, and send on one row", () => {
-    expect(promptInput).toContain("compact?: boolean");
-    expect(promptInput).toContain('data-prompt-compact={compact ? "true" : undefined}');
+describe("mode and permission labels", () => {
+  it("keeps readable Agent Chat labels instead of icon-only letters", () => {
+    expect(promptInput).not.toContain("compact?: boolean");
+    expect(promptInput).not.toContain("data-prompt-compact");
+    expect(promptInput).not.toContain("compact && current?.icon");
     expect(promptInput).toContain(
-      "flex min-h-8 min-w-0 flex-nowrap items-center gap-1 overflow-x-auto",
+      '<span className="min-w-0 truncate">{current?.label ?? placeholder}</span>',
     );
-    expect(promptInput).toContain("data-prompt-leading-chrome");
-    expect(promptInput).toContain("overflow-x-auto bg-popover p-1");
-    expect(promptInput).toContain("compact && current?.icon");
-    expect(promptMenu).toContain('compact ? "max-w-[9rem] shrink-0 px-1.5"');
-    expect(promptInput).toMatch(/\{modeSelects\}\s*\{agentConfigMenu\}/);
+    expect(promptInput).toContain("h-8 max-w-44 items-center gap-1.5");
+    expect(promptMenu).toContain("max-w-[22rem]");
+    expect(promptMenu).not.toContain("max-w-[9rem]");
   });
 });

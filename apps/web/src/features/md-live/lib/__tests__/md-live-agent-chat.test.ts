@@ -86,17 +86,17 @@ describe("md-live agent chat helpers", () => {
   });
 
   test("overlay title ignores injected Live contract lines", () => {
-    expect(
-      mdLiveOverlayTitle("You are editing the open Atmos Live markdown document.", "Chat"),
-    ).toBe("Chat");
+    expect(mdLiveOverlayTitle("You are editing the open Atmos Live markdown document.", "")).toBe(
+      "",
+    );
     expect(
       mdLiveOverlayTitle(
         "Rewrite the selected markdown in place using md_live_replace_selection.",
-        "Chat",
+        "",
       ),
-    ).toBe("Chat");
-    expect(mdLiveOverlayTitle("Tighten this paragraph.", "Chat")).toBe("Tighten this paragraph.");
-    expect(mdLiveOverlayTitle(null, "Chat")).toBe("Chat");
+    ).toBe("");
+    expect(mdLiveOverlayTitle("Tighten this paragraph.", "")).toBe("Tighten this paragraph.");
+    expect(mdLiveOverlayTitle(null, "")).toBe("");
   });
 
   test("hover zone is the bottom strip of the Live host", () => {

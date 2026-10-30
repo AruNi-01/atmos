@@ -73,7 +73,6 @@ export function PromptAgentConfigMenu({
   agentTablist,
   menuSide = "top",
   menuInline = false,
-  compact = false,
 }: {
   agents: PromptModel[];
   agent?: string;
@@ -114,7 +113,6 @@ export function PromptAgentConfigMenu({
   agentTablist?: ReactNode;
   menuSide?: "top" | "bottom";
   menuInline?: boolean;
-  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const skipAgentList = agents.length === 0;
@@ -507,8 +505,7 @@ export function PromptAgentConfigMenu({
           disabled={disabled}
           title={triggerText}
           className={cn(
-            "inline-flex h-8 items-center gap-1.5 border-0 bg-transparent py-0 text-xs text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2",
-            compact ? "max-w-[9rem] shrink-0 px-1.5" : "max-w-[22rem] px-2",
+            "inline-flex h-8 max-w-[22rem] items-center gap-1.5 border-0 bg-transparent px-2 py-0 text-xs text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2",
             open && "bg-muted text-foreground",
             controlRadius,
           )}

@@ -185,6 +185,11 @@ describe("md-live structural gates", () => {
     expect(source).toContain("MD_LIVE_HIDE_SELECTION_TOOLBAR_EVENT");
     expect(source).toContain("mdLiveOverlayTitle");
     expect(source).toContain("data-md-live-agent-header");
+    expect(source).toContain("hasComposerChrome ? chrome : null");
+    expect(source).toContain('mdLiveOverlayTitle(session.displaySessionTitle, "")');
+    expect(source).not.toContain("compact");
+    expect(source).not.toContain('t("chat")');
+    expect(source).not.toContain("<Plus");
     expect(source).not.toContain("bg-background/95");
     expect(source).not.toContain("insertFileMentionForInstanceKey");
     expect(source).not.toContain("insertAiContextForInstanceKey");

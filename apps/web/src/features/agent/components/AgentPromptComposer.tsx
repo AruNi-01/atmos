@@ -135,8 +135,6 @@ function ComposerPromptInput({
   localDraft,
   setLocalDraft,
   persistedDraftRef,
-  compact = false,
-  leadingChrome = null,
   isConnected,
   chatMode,
   instanceKey,
@@ -192,8 +190,6 @@ function ComposerPromptInput({
   onSkillDisableSessionClosed: () => void;
   skillDisableSessionOpen: boolean;
   closePopovers: () => void;
-  compact?: boolean;
-  leadingChrome?: React.ReactNode;
   localDraft: string;
   setLocalDraft: React.Dispatch<React.SetStateAction<string>>;
   persistedDraftRef: React.MutableRefObject<string>;
@@ -362,11 +358,9 @@ function ComposerPromptInput({
             disabled={composerLocked}
             placeholder={placeholder}
             editorClassName={
-              compact
-                ? "min-h-5 max-h-8 overflow-x-auto overflow-y-hidden select-text rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5 whitespace-nowrap break-normal [&_[data-token]]:shrink-0"
-                : landing
-                  ? "min-h-10 max-h-40 select-text rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5"
-                  : "min-h-5 max-h-40 select-text rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5"
+              landing
+                ? "min-h-10 max-h-40 select-text rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5"
+                : "min-h-5 max-h-40 select-text rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5"
             }
             placeholderClassName="left-0 top-0 text-sm leading-5 text-muted-foreground/55"
             onTextChange={setLocalDraft}
@@ -404,13 +398,7 @@ function ComposerPromptInput({
             ) : null}
           </div>
         }
-        header={
-          <AgentComposerAttachments
-            density={compact ? "compact" : "composer"}
-            className={compact ? "flex-nowrap overflow-x-auto px-1 pt-1" : undefined}
-          />
-        }
-        leadingChrome={compact ? leadingChrome : null}
+        header={<AgentComposerAttachments />}
         onSubmit={async (text) => {
           const composed = expandAgentComposerText(composerRef.current?.getText() ?? text);
           if (editingItem) {
@@ -454,22 +442,15 @@ function ComposerPromptInput({
             : undefined
         }
         radius="3xl"
-        compact={compact}
         footerTrailing={
-          compact ? null : (
-            <ContextWindowUsageControl
-              usage={sessionUsage}
-              providerId={registryId}
-              open={contextUsageOpen}
-              onOpenChange={onContextUsageOpenChange}
-            />
-          )
+          <ContextWindowUsageControl
+            usage={sessionUsage}
+            providerId={registryId}
+            open={contextUsageOpen}
+            onOpenChange={onContextUsageOpenChange}
+          />
         }
-        className={cn(
-          "w-full shadow-none",
-          compact && "border-border bg-popover",
-          editingItem && "border-dashed border-info",
-        )}
+        className={cn("w-full shadow-none", editingItem && "border-dashed border-info")}
       />
     </>
   );
@@ -526,7 +507,6 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   subagentOverlay = null,
   aboveInputOverlay = null,
   onAboveComposerOverlaysNodeChange,
-  compact = false,
   placeholderOverride = null,
   leadingChrome = null,
   onDraftChange,
@@ -589,7 +569,6 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   /** Approve / session-op cards — floated in the same lane as context usage. */
   aboveInputOverlay?: React.ReactNode;
   onAboveComposerOverlaysNodeChange?: (node: HTMLDivElement | null) => void;
-  compact?: boolean;
   placeholderOverride?: string | null;
   leadingChrome?: React.ReactNode;
   onDraftChange?: (hasDraft: boolean) => void;
@@ -741,9 +720,8 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
 
   return (
     <div
-      className={cn("shrink-0 select-none", compact ? "px-0 pt-0 pb-0" : "px-3 pt-px pb-3")}
+      className="shrink-0 px-3 pt-px pb-3 select-none"
       data-agent-chat-composer=""
-      data-agent-chat-compact={compact ? "true" : undefined}
       data-agent-chat-mode={chatMode}
       data-agent-chat-instance-key={instanceKey?.trim() || undefined}
       data-agent-chat-workspace-id={sessionWorkspaceId ?? undefined}
@@ -788,7 +766,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
         setEditingQueueId(null);
       }}
     >
-      {leadingChrome && !compact ? (
+      {leadingChrome ? (
         <div
           data-agent-chat-leading-chrome=""
           className="mb-1.5 flex min-h-6 min-w-0 flex-wrap items-center gap-1.5 px-1"
@@ -813,7 +791,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
           hasUpperComposerCards={hasUpperComposerCards}
           onLaneNodeChange={onAboveComposerOverlaysNodeChange}
         />
-        {hasUpperComposerCards && !compact ? (
+        {hasUpperComposerCards ? (
           <div
             data-agent-composer-upper-cards=""
             className="relative z-[1] mx-6 overflow-hidden rounded-t-3xl border border-b-0 border-foreground/10 bg-foreground/[0.04]"
@@ -856,8 +834,6 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
         <PromptInputProvider>
           <ComposerPromptInput
             composerRef={composerRef}
-            compact={compact}
-            leadingChrome={leadingChrome}
             onAtTrigger={onAtTrigger}
             onAtCancel={onAtCancel}
             onSlashTrigger={onSlashTrigger}
