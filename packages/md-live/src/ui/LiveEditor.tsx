@@ -52,8 +52,10 @@ import {
 } from "./composing";
 import { mdLiveCommonmark, mdLiveHeadingIdPlugin, slugMdLiveHeading } from "./heading-id";
 import {
+  isMdLiveAgentPopoverOpen,
   isMdLiveOverlayEventTarget,
   mdLiveSelectionBlockKindId,
+  MD_LIVE_HIDE_SELECTION_TOOLBAR_EVENT,
   shouldShowMdLiveSelectionToolbar,
 } from "./selection";
 import { mdLiveVisibleConvertIds } from "./convert-block";
@@ -290,6 +292,7 @@ export function MdLiveEditor({
           editable: view.editable,
           editorFocused: view.hasFocus(),
           tooltipFocused: tooltipHost.contains(document.activeElement),
+          agentChatOpen: isMdLiveAgentPopoverOpen(),
         });
         if (show) {
           renderToolbar(
@@ -325,9 +328,11 @@ export function MdLiveEditor({
       const view = run((ctx) => ctx.get(editorViewCtx));
       if (view) tooltipProvider.update(view as never);
     };
+    const hideToolbarForAgentChat = () => tooltipProvider.hide();
     window.addEventListener("pointerdown", onPointerDown, true);
     window.addEventListener("pointerup", onPointerUp);
     window.addEventListener("pointercancel", onPointerUp);
+    window.addEventListener(MD_LIVE_HIDE_SELECTION_TOOLBAR_EVENT, hideToolbarForAgentChat);
 
     const editor = Editor.make()
       .config((ctx) => {
@@ -517,6 +522,7 @@ export function MdLiveEditor({
       window.removeEventListener("pointerdown", onPointerDown, true);
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("pointercancel", onPointerUp);
+      window.removeEventListener(MD_LIVE_HIDE_SELECTION_TOOLBAR_EVENT, hideToolbarForAgentChat);
       const slash = slashRoot;
       const tooltip = tooltipRoot;
       slashRoot = null;

@@ -165,6 +165,8 @@ export interface PromptInputProps extends Omit<
   menuInline?: boolean;
   /** One-line capsule: attach + editor + agent/model + send on a single row. */
   compact?: boolean;
+  /** Extra controls inside the compact capsule (Working pill, new chat, close). */
+  leadingChrome?: ReactNode;
 }
 
 const PROMPT_SHELL_RADIUS: Record<PromptInputRadius, string> = {
@@ -264,6 +266,7 @@ export function PromptInput({
   menuSide = "top",
   menuInline = false,
   compact = false,
+  leadingChrome = null,
   disabled,
   placeholder = "Ask the agent to do something…",
   "aria-label": ariaLabel = "Prompt",
@@ -380,8 +383,9 @@ export function PromptInput({
         onContextChange={onContextChange}
         disabled={disabled || loading}
         labels={labels}
-        className="min-w-0"
+        className={compact ? "shrink-0" : "min-w-0 shrink-0"}
         controlRadius={controlRadius}
+        compact={compact}
         agentTablist={agentTablist}
         menuSide={menuSide}
         menuInline={menuInline}
@@ -498,6 +502,7 @@ export function PromptInput({
           searchPlaceholder={labels.search}
           emptyLabel={labels.noResults}
           controlRadius={controlRadius}
+          compact={compact}
         />
       ) : null}
       {permissionModes.length ? (
@@ -511,6 +516,7 @@ export function PromptInput({
           searchPlaceholder={labels.search}
           emptyLabel={labels.noResults}
           controlRadius={controlRadius}
+          compact={compact}
         />
       ) : null}
     </>
@@ -523,7 +529,7 @@ export function PromptInput({
       disabled={loading ? !onStop : !canSubmit}
       aria-label={loading ? "Stop generating" : "Send prompt"}
       onClick={loading ? onStop : undefined}
-      className="size-8 rounded-full"
+      className="size-8 shrink-0 rounded-full"
     >
       <AnimatePresence initial={false} mode="popLayout">
         <motion.span
@@ -541,7 +547,11 @@ export function PromptInput({
   );
 
   const editorNode = editor ? (
-    <div className={cn(compact ? "min-w-0 flex-1 px-1 py-0.5" : "px-2 pt-1.5")}>{editor}</div>
+    <div
+      className={cn(compact ? "min-w-[5rem] flex-1 overflow-x-auto px-1 py-0.5" : "px-2 pt-1.5")}
+    >
+      {editor}
+    </div>
   ) : (
     <>
       <div
@@ -575,20 +585,25 @@ export function PromptInput({
       onSubmit={submit}
       data-prompt-compact={compact ? "true" : undefined}
       className={cn(
-        "relative w-full overflow-visible border border-foreground/10 bg-foreground/[0.04]",
-        compact ? "p-1" : "p-2",
+        "relative w-full border border-foreground/10",
+        compact ? "overflow-x-auto bg-popover p-1" : "overflow-visible bg-foreground/[0.04] p-2",
         shellRadius,
         disabled && "opacity-60",
         className,
       )}
     >
-      {header}
+      {header ? <div className={cn(compact && "min-w-0 overflow-x-auto")}>{header}</div> : null}
       {compact ? (
-        <div className="flex min-h-8 items-end gap-1">
+        <div className="flex min-h-8 min-w-0 flex-nowrap items-center gap-1 overflow-x-auto">
+          {leadingChrome ? (
+            <div data-prompt-leading-chrome="" className="flex shrink-0 items-center gap-1">
+              {leadingChrome}
+            </div>
+          ) : null}
           {addActions}
           {leadingAction}
           {editorNode}
-          <div className="ml-auto flex min-w-0 items-center gap-1">
+          <div className="flex shrink-0 items-center gap-0.5">
             {modeSelects}
             {agentConfigMenu}
             {footerTrailing}
@@ -624,6 +639,7 @@ function PromptOptionSelect({
   searchPlaceholder,
   emptyLabel,
   controlRadius,
+  compact = false,
 }: {
   options: PromptModel[];
   value?: string;
@@ -634,6 +650,7 @@ function PromptOptionSelect({
   searchPlaceholder: string;
   emptyLabel: string;
   controlRadius: string;
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -656,7 +673,7 @@ function PromptOptionSelect({
         setOpen(next);
         if (!next) setSearch("");
       }}
-      className="min-w-0"
+      className={compact ? "shrink-0" : "min-w-0"}
     >
       <MorphPopoverTrigger>
         <button
@@ -664,7 +681,8 @@ function PromptOptionSelect({
           disabled={disabled}
           title={lockedHint || optionLabelText(current) || placeholder}
           className={cn(
-            "inline-flex h-8 max-w-44 items-center gap-1.5 border-0 bg-transparent px-2 py-0 text-xs outline-none hover:bg-muted focus-visible:ring-2",
+            "inline-flex items-center border-0 bg-transparent py-0 text-xs outline-none hover:bg-muted focus-visible:ring-2",
+            compact ? "size-8 shrink-0 justify-center gap-0 px-0" : "h-8 max-w-44 gap-1.5 px-2",
             warning
               ? "text-warning hover:text-warning"
               : "text-muted-foreground hover:text-foreground",
@@ -677,7 +695,11 @@ function PromptOptionSelect({
               {current.icon}
             </span>
           ) : null}
-          <span className="min-w-0 truncate">{current?.label ?? placeholder}</span>
+          {compact && current?.icon ? (
+            <span className="sr-only">{current?.label ?? placeholder}</span>
+          ) : (
+            <span className="min-w-0 truncate">{current?.label ?? placeholder}</span>
+          )}
         </button>
       </MorphPopoverTrigger>
       <MorphPopoverContent

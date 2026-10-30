@@ -2,7 +2,9 @@ import { describe, expect, test } from "bun:test";
 import {
   isMdLiveBarHoverZone,
   mdLiveAgentChatInstanceKey,
+  mdLiveOverlayTitle,
   mdLiveSelectionPopoverStyle,
+  MD_LIVE_AGENT_SKILL_PATH,
   MD_LIVE_BAR_HOVER_PX,
   nextMdLiveBarMode,
   transformMdLivePrompt,
@@ -75,10 +77,26 @@ describe("md-live agent chat helpers", () => {
       clientId: "md-live:/repo/README.md",
       selection: "hello",
     });
+    expect(prompt.startsWith("Tighten this paragraph.")).toBe(true);
     expect(prompt).toContain("md_live_replace_selection");
     expect(prompt).toContain("/api/md-live/agent/invoke");
     expect(prompt).toContain("Do not use fs_write");
-    expect(prompt).toContain("Tighten this paragraph.");
+    expect(prompt).toContain(MD_LIVE_AGENT_SKILL_PATH);
+    expect(prompt).toContain("Do not only reply with rewritten text");
+  });
+
+  test("overlay title ignores injected Live contract lines", () => {
+    expect(
+      mdLiveOverlayTitle("You are editing the open Atmos Live markdown document.", "Chat"),
+    ).toBe("Chat");
+    expect(
+      mdLiveOverlayTitle(
+        "Rewrite the selected markdown in place using md_live_replace_selection.",
+        "Chat",
+      ),
+    ).toBe("Chat");
+    expect(mdLiveOverlayTitle("Tighten this paragraph.", "Chat")).toBe("Tighten this paragraph.");
+    expect(mdLiveOverlayTitle(null, "Chat")).toBe("Chat");
   });
 
   test("hover zone is the bottom strip of the Live host", () => {

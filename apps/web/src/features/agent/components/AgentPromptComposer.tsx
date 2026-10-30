@@ -136,6 +136,7 @@ function ComposerPromptInput({
   setLocalDraft,
   persistedDraftRef,
   compact = false,
+  leadingChrome = null,
   isConnected,
   chatMode,
   instanceKey,
@@ -192,6 +193,7 @@ function ComposerPromptInput({
   skillDisableSessionOpen: boolean;
   closePopovers: () => void;
   compact?: boolean;
+  leadingChrome?: React.ReactNode;
   localDraft: string;
   setLocalDraft: React.Dispatch<React.SetStateAction<string>>;
   persistedDraftRef: React.MutableRefObject<string>;
@@ -360,9 +362,11 @@ function ComposerPromptInput({
             disabled={composerLocked}
             placeholder={placeholder}
             editorClassName={
-              landing
-                ? "min-h-10 max-h-40 select-text rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5"
-                : "min-h-5 max-h-40 select-text rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5"
+              compact
+                ? "min-h-5 max-h-8 overflow-x-auto overflow-y-hidden select-text rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5 whitespace-nowrap break-normal [&_[data-token]]:shrink-0"
+                : landing
+                  ? "min-h-10 max-h-40 select-text rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5"
+                  : "min-h-5 max-h-40 select-text rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5"
             }
             placeholderClassName="left-0 top-0 text-sm leading-5 text-muted-foreground/55"
             onTextChange={setLocalDraft}
@@ -384,7 +388,7 @@ function ComposerPromptInput({
           />
         }
         leadingAction={
-          <div className="flex min-w-0 items-center gap-1">
+          <div className="flex shrink-0 items-center gap-1">
             <PromptInputAddAttachmentsButton className="rounded-2xl bg-transparent shadow-none hover:bg-muted/60 data-pressed:bg-muted/60 dark:bg-transparent dark:hover:bg-muted/60" />
             {workingDirectoryPicker ? (
               <AgentChatWorkingDirectoryPicker
@@ -400,7 +404,13 @@ function ComposerPromptInput({
             ) : null}
           </div>
         }
-        header={<AgentComposerAttachments />}
+        header={
+          <AgentComposerAttachments
+            density={compact ? "compact" : "composer"}
+            className={compact ? "flex-nowrap overflow-x-auto px-1 pt-1" : undefined}
+          />
+        }
+        leadingChrome={compact ? leadingChrome : null}
         onSubmit={async (text) => {
           const composed = expandAgentComposerText(composerRef.current?.getText() ?? text);
           if (editingItem) {
@@ -455,7 +465,11 @@ function ComposerPromptInput({
             />
           )
         }
-        className={cn("w-full shadow-none", editingItem && "border-dashed border-info")}
+        className={cn(
+          "w-full shadow-none",
+          compact && "border-border bg-popover",
+          editingItem && "border-dashed border-info",
+        )}
       />
     </>
   );
@@ -774,7 +788,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
         setEditingQueueId(null);
       }}
     >
-      {leadingChrome ? (
+      {leadingChrome && !compact ? (
         <div
           data-agent-chat-leading-chrome=""
           className="mb-1.5 flex min-h-6 min-w-0 flex-wrap items-center gap-1.5 px-1"
@@ -843,6 +857,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
           <ComposerPromptInput
             composerRef={composerRef}
             compact={compact}
+            leadingChrome={leadingChrome}
             onAtTrigger={onAtTrigger}
             onAtCancel={onAtCancel}
             onSlashTrigger={onSlashTrigger}

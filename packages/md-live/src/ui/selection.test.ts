@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  isMdLiveAgentPopoverOpen,
   mdLiveBlockKindId,
   mdLiveUnifyBlockKindId,
   shouldShowMdLiveSelectionToolbar,
@@ -28,6 +29,24 @@ describe("shouldShowMdLiveSelectionToolbar", () => {
     expect(
       shouldShowMdLiveSelectionToolbar({ ...ready, editorFocused: false, tooltipFocused: false }),
     ).toBe(false);
+  });
+
+  test("hides while the Live agent chat popover is open", () => {
+    expect(shouldShowMdLiveSelectionToolbar({ ...ready, agentChatOpen: true })).toBe(false);
+  });
+});
+
+describe("isMdLiveAgentPopoverOpen", () => {
+  test("detects the popover placement host", () => {
+    const popover = { getAttribute: () => "popover" };
+    const root = {
+      querySelector: (selector: string) =>
+        selector === '[data-md-live-agent-placement="popover"]'
+          ? (popover as unknown as Element)
+          : null,
+    };
+    expect(isMdLiveAgentPopoverOpen(root)).toBe(true);
+    expect(isMdLiveAgentPopoverOpen({ querySelector: () => null })).toBe(false);
   });
 });
 

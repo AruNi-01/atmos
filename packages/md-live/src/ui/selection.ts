@@ -65,6 +65,15 @@ export function mdLiveSelectionBlockKindId(
   return mdLiveUnifyBlockKindId(ids);
 }
 
+export const MD_LIVE_HIDE_SELECTION_TOOLBAR_EVENT = "md-live-hide-selection-toolbar";
+
+export function isMdLiveAgentPopoverOpen(
+  root?: { querySelector: (selector: string) => Element | null } | null,
+): boolean {
+  const host = root === undefined ? (typeof document === "undefined" ? null : document) : root;
+  return Boolean(host?.querySelector('[data-md-live-agent-placement="popover"]'));
+}
+
 export function shouldShowMdLiveSelectionToolbar(options: {
   pointerSelecting: boolean;
   selectionEmpty: boolean;
@@ -72,7 +81,9 @@ export function shouldShowMdLiveSelectionToolbar(options: {
   editable: boolean;
   editorFocused: boolean;
   tooltipFocused: boolean;
+  agentChatOpen?: boolean;
 }): boolean {
+  if (options.agentChatOpen) return false;
   if (options.pointerSelecting) return false;
   if (!options.editable) return false;
   if (!options.editorFocused && !options.tooltipFocused) return false;

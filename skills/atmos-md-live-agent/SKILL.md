@@ -50,6 +50,7 @@ md_live_get → md_live_replace_selection | md_live_insert | md_live_replace_doc
 2. Edit in your head. Return markdown, not commentary, in the tool args.
 3. `md_live_replace_selection` when there is a selection; `md_live_insert` at the cursor; `md_live_replace_document` only when the user asked for a full rewrite.
 4. Reply in chat. Do not paste the new document into the chat unless the user asked to see it.
+5. A rewrite / summarize request is **not done** until `md_live_replace_selection` (or insert / replace_document) succeeds. Chat-only rewritten markdown does not change Live.
 
 The host streams the tool payload into Live (Milkdown). Accept / Reject may appear on the streamed span. Chat stays the control surface.
 
@@ -61,5 +62,6 @@ The host streams the tool payload into Live (Milkdown). Accept / Reject may appe
 - Scraping Terminal output into the document
 - Returning an `<!--atmos-md-live-->` fence as the primary edit path
 - Inventing other file paths to “save” the Live buffer
+- Answering Rewrite / Summarize with only chat text and no invoke POST
 
 Full args and error codes: [`references/command-reference.md`](references/command-reference.md).

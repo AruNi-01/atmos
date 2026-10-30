@@ -367,7 +367,7 @@ describe("PromptAgentConfigMenu", () => {
     expect(promptMenu).toContain("fastLabel: labels.fastChip");
     expect(promptMenu).toContain("function ThinkingSliderPanel");
     expect(promptMenu).toContain("aria-label={labels.fastMode}");
-    expect(promptMenu).toContain("onModelChange(option.value, option)");
+    expect(promptMenu).toContain("selectPromptModel(option.value, option, onModelChange)");
     expect(promptMenu).toContain("function ModelFavoriteMark");
     expect(promptMenu).toContain("group/model");
     expect(promptMenu).toContain("option.favorited");
@@ -379,7 +379,7 @@ describe("PromptAgentConfigMenu", () => {
     expect(promptMenu).toContain("onContextChange?.(level.value)");
     expect(promptMenu).toContain('side="right"');
     expect(promptMenu).toContain(
-      "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm outline-none",
+      "flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm outline-none",
     );
     expect(promptMenu).toContain('className="flex w-full"');
     expect(promptMenu).toContain(
@@ -422,14 +422,13 @@ describe("PromptAgentConfigMenu", () => {
     expect(promptMenu).toContain("groupedPromptModelRows");
     expect(promptMenu).toContain('row.type === "header"');
     expect(promptMenu).toContain("key={`group:${index}:${row.label}`}");
-    expect(promptMenu).toContain('(option.group ?? "").trim() ? "pl-4 pr-2.5" : "px-2.5"');
+    expect(promptMenu).toContain('(option.group ?? "").trim() ? "pr-2.5 pl-4" : "px-2.5"');
     expect(promptMenu).toContain("text-sm text-muted-foreground");
     expect(promptMenu).not.toContain("` / ${provider}`");
-    expect(promptMenu).toContain(
-      'const fullLabel = modelLabelWithContext(optionName(option), isSelected ? contextSuffix : "")',
-    );
+    expect(promptMenu).toContain("const fullLabel = modelLabelWithContext(");
+    expect(promptMenu).toContain('isSelected ? contextSuffix : ""');
     expect(promptMenu).toContain("label: modelLabelWithContext(optionName(option), contextSuffix)");
-    expect(promptMenu).toContain("modelsLocked\n                    ? labels.modelLocked");
+    expect(promptMenu).toContain("? labels.modelLocked");
     expect(promptMenu).toContain("min-w-0 truncate text-sm");
   });
 });
@@ -455,7 +454,13 @@ describe("compact one-line capsule", () => {
   it("puts attach, editor, agent/model, and send on one row", () => {
     expect(promptInput).toContain("compact?: boolean");
     expect(promptInput).toContain('data-prompt-compact={compact ? "true" : undefined}');
-    expect(promptInput).toContain("flex min-h-8 items-end gap-1");
+    expect(promptInput).toContain(
+      "flex min-h-8 min-w-0 flex-nowrap items-center gap-1 overflow-x-auto",
+    );
+    expect(promptInput).toContain("data-prompt-leading-chrome");
+    expect(promptInput).toContain("overflow-x-auto bg-popover p-1");
+    expect(promptInput).toContain("compact && current?.icon");
+    expect(promptMenu).toContain('compact ? "max-w-[9rem] shrink-0 px-1.5"');
     expect(promptInput).toMatch(/\{modeSelects\}\s*\{agentConfigMenu\}/);
   });
 });

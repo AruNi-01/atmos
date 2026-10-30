@@ -1,6 +1,6 @@
 import { getAgentPromptQueueKey } from "@/app-shell/state/use-dialog-store";
 import type { AgentChatMode } from "@/features/agent/types/index";
-import type { AiContextKind } from "@/shared/lib/ai-context-protocol";
+import { registerAiContextPrompt, type AiContextKind } from "@/shared/lib/ai-context-protocol";
 import type { TerminalSelectionSnapshot } from "@/features/terminal/types";
 
 type DraftUpdater = string | ((previous: string) => string);
@@ -94,6 +94,25 @@ export function insertFileMentionForInstanceKey(
   if (!handle?.insertFileMention) return false;
   handle.focus?.();
   handle.insertFileMention(relativePath);
+  return true;
+}
+
+export function prependMdLiveComposerContext(
+  instanceKey: string,
+  filePath: string,
+  selection: string,
+): boolean {
+  const handle = handleForInstanceKey(instanceKey);
+  if (!handle) return false;
+  const fileToken = `@file:${filePath}`;
+  const ctxToken = registerAiContextPrompt("doc-selection", selection);
+  handle.setDraft((previous) => {
+    if (previous.includes(fileToken) && previous.includes("[#ctx:")) return previous;
+    const rest = previous.replace(/^\u00A0+/, "").trimStart();
+    const prefix = `${fileToken}\u00A0${ctxToken}\u00A0`;
+    return rest ? `${prefix}${rest}` : prefix;
+  });
+  handle.focus?.();
   return true;
 }
 

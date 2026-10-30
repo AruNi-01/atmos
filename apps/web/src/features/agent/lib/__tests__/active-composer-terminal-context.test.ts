@@ -3,6 +3,7 @@ import {
   addTerminalSelectionAsContext,
   insertAiContextForInstanceKey,
   insertFileMentionForInstanceKey,
+  prependMdLiveComposerContext,
   registerActiveAgentComposer,
 } from "@/features/agent/lib/agent/active-composer";
 import type { TerminalSelectionSnapshot } from "@/features/terminal/types";
@@ -78,6 +79,32 @@ describe("instance-key composer inserts", () => {
     expect(mentions).toEqual(["/tmp/note.md"]);
     expect(contexts).toEqual([{ kind: "doc-selection", text: "hello" }]);
     expect(insertFileMentionForInstanceKey("md-live:/other.md", "/other.md")).toBe(false);
+    unregister();
+  });
+
+  it("writes file and selection chips in one draft so they do not nest", () => {
+    let draft = "";
+    const unregister = registerActiveAgentComposer(
+      "ws-1",
+      "p-1",
+      "default",
+      {
+        setDraft: (updater) => {
+          draft = typeof updater === "function" ? updater(draft) : updater;
+        },
+      },
+      "md-live:/tmp/note.md",
+    );
+
+    expect(prependMdLiveComposerContext("md-live:/tmp/note.md", "/tmp/note.md", "hello")).toBe(
+      true,
+    );
+    expect(draft.startsWith("@file:/tmp/note.md")).toBe(true);
+    expect(draft).toContain("[#ctx:doc-selection:");
+    expect(prependMdLiveComposerContext("md-live:/tmp/note.md", "/tmp/note.md", "hello")).toBe(
+      true,
+    );
+    expect(draft.match(/@file:\/tmp\/note\.md/g)?.length).toBe(1);
     unregister();
   });
 });

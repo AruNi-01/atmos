@@ -78,9 +78,11 @@ export {
 } from "./ui/composing";
 export {
   isMdLiveOverlayEventTarget,
+  isMdLiveAgentPopoverOpen,
   mdLiveBlockKindId,
   mdLiveSelectionBlockKindId,
   mdLiveUnifyBlockKindId,
+  MD_LIVE_HIDE_SELECTION_TOOLBAR_EVENT,
   shouldShowMdLiveSelectionToolbar,
 } from "./ui/selection";
 export {
