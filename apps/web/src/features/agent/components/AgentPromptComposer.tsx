@@ -176,6 +176,7 @@ function ComposerPromptInput({
   sessionUsage,
   contextUsageOpen,
   onContextUsageOpenChange,
+  promptClassName,
 }: {
   composerRef: React.RefObject<ComposerHandle | null>;
   onAtTrigger: (
@@ -247,6 +248,7 @@ function ComposerPromptInput({
   sessionUsage: AgentSessionUsage | null;
   contextUsageOpen: boolean;
   onContextUsageOpenChange: (open: boolean) => void;
+  promptClassName?: string;
 }) {
   const t = useTranslations("Agent.components");
   const attachments = usePromptInputAttachments();
@@ -450,7 +452,11 @@ function ComposerPromptInput({
             onOpenChange={onContextUsageOpenChange}
           />
         }
-        className={cn("w-full shadow-none", editingItem && "border-dashed border-info")}
+        className={cn(
+          "w-full shadow-none",
+          promptClassName,
+          editingItem && "border-dashed border-info",
+        )}
       />
     </>
   );
@@ -509,6 +515,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   onAboveComposerOverlaysNodeChange,
   placeholderOverride = null,
   leadingChrome = null,
+  promptClassName,
   onDraftChange,
 }: {
   currentPlan: AgentPlan | null;
@@ -571,6 +578,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   onAboveComposerOverlaysNodeChange?: (node: HTMLDivElement | null) => void;
   placeholderOverride?: string | null;
   leadingChrome?: React.ReactNode;
+  promptClassName?: string;
   onDraftChange?: (hasDraft: boolean) => void;
 }) {
   const t = useTranslations("Agent.components");
@@ -887,6 +895,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
             sessionUsage={sessionUsage}
             contextUsageOpen={contextUsageOpen}
             onContextUsageOpenChange={setContextUsageOpen}
+            promptClassName={promptClassName}
           />
         </PromptInputProvider>
       </div>

@@ -145,6 +145,7 @@ export function AgentChatWorkingDirectoryPicker({
       <MorphPopoverTrigger>
         <button
           type="button"
+          data-prompt-thread=""
           className={cn(
             "inline-flex h-8 max-w-[11rem] min-w-0 items-center gap-1.5 border-0 bg-transparent px-2 py-0 text-xs text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2",
             open && "bg-muted text-foreground",

@@ -2,10 +2,16 @@ import { describe, expect, test } from "bun:test";
 import {
   isMdLiveBarHoverZone,
   mdLiveAgentChatInstanceKey,
+  mdLiveAgentChromeStep,
   mdLiveOverlayTitle,
   mdLiveSelectionPopoverStyle,
+  MD_LIVE_AGENT_CHROME_MAX_MODE_LABEL_PX,
+  MD_LIVE_AGENT_CHROME_MAX_MODEL_TEXT_PX,
+  MD_LIVE_AGENT_CHROME_MAX_PERMISSION_LABEL_PX,
+  MD_LIVE_AGENT_CHROME_MAX_THREAD_PX,
   MD_LIVE_AGENT_SKILL_PATH,
   MD_LIVE_BAR_HOVER_PX,
+  MD_LIVE_POPOVER_WIDTH,
   nextMdLiveBarMode,
   transformMdLivePrompt,
 } from "../md-live-agent-chat";
@@ -102,5 +108,21 @@ describe("md-live agent chat helpers", () => {
   test("hover zone is the bottom strip of the Live host", () => {
     expect(isMdLiveBarHoverZone(940, 1000)).toBe(true);
     expect(isMdLiveBarHoverZone(1000 - MD_LIVE_BAR_HOVER_PX - 1, 1000)).toBe(false);
+  });
+
+  test("adaptive chrome hides Thread then model text then mode then permission", () => {
+    expect(mdLiveAgentChromeStep(MD_LIVE_AGENT_CHROME_MAX_THREAD_PX + 1)).toBe("full");
+    expect(mdLiveAgentChromeStep(MD_LIVE_AGENT_CHROME_MAX_THREAD_PX)).toBe("hide-thread");
+    expect(mdLiveAgentChromeStep(MD_LIVE_AGENT_CHROME_MAX_MODEL_TEXT_PX + 1)).toBe("hide-thread");
+    expect(mdLiveAgentChromeStep(MD_LIVE_AGENT_CHROME_MAX_MODEL_TEXT_PX)).toBe("model-icon");
+    expect(mdLiveAgentChromeStep(MD_LIVE_POPOVER_WIDTH)).toBe("model-icon");
+    expect(mdLiveAgentChromeStep(MD_LIVE_AGENT_CHROME_MAX_MODE_LABEL_PX + 1)).toBe("model-icon");
+    expect(mdLiveAgentChromeStep(MD_LIVE_AGENT_CHROME_MAX_MODE_LABEL_PX)).toBe("mode-icon");
+    expect(mdLiveAgentChromeStep(MD_LIVE_AGENT_CHROME_MAX_PERMISSION_LABEL_PX + 1)).toBe(
+      "mode-icon",
+    );
+    expect(mdLiveAgentChromeStep(MD_LIVE_AGENT_CHROME_MAX_PERMISSION_LABEL_PX)).toBe(
+      "permission-icon",
+    );
   });
 });

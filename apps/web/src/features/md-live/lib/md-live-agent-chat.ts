@@ -7,6 +7,28 @@ export const MD_LIVE_AGENT_SKILL_PATH = "~/.atmos/skills/.system/atmos-md-live-a
 export const MD_LIVE_AGENT_PANEL_CLASS =
   "flex flex-col overflow-hidden rounded-2xl border border-border bg-popover text-popover-foreground shadow-lg";
 
+/** Overlay container queries (`md-live-agent-overlay.css`). Hide order, wide → narrow. */
+export const MD_LIVE_AGENT_CHROME_MAX_THREAD_PX = 576;
+export const MD_LIVE_AGENT_CHROME_MAX_MODEL_TEXT_PX = 448;
+export const MD_LIVE_AGENT_CHROME_MAX_MODE_LABEL_PX = 352;
+export const MD_LIVE_AGENT_CHROME_MAX_PERMISSION_LABEL_PX = 288;
+
+export type MdLiveAgentChromeStep =
+  | "full"
+  | "hide-thread"
+  | "model-icon"
+  | "mode-icon"
+  | "permission-icon";
+
+/** Adaptive chrome for Live overlays. Sidebar is not a named `md-live-agent` container. */
+export function mdLiveAgentChromeStep(widthPx: number): MdLiveAgentChromeStep {
+  if (widthPx <= MD_LIVE_AGENT_CHROME_MAX_PERMISSION_LABEL_PX) return "permission-icon";
+  if (widthPx <= MD_LIVE_AGENT_CHROME_MAX_MODE_LABEL_PX) return "mode-icon";
+  if (widthPx <= MD_LIVE_AGENT_CHROME_MAX_MODEL_TEXT_PX) return "model-icon";
+  if (widthPx <= MD_LIVE_AGENT_CHROME_MAX_THREAD_PX) return "hide-thread";
+  return "full";
+}
+
 const MD_LIVE_OVERLAY_TITLE_NOISE =
   /^(You are editing|Rewrite the selected|Summarize the selected|Read ~\/\.atmos\/skills)/i;
 

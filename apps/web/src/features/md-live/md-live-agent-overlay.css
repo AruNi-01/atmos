@@ -1,0 +1,69 @@
+/* Live Agent Chat overlay: opaque card + width-adaptive chrome.
+   Named container so sidebar Agent Chat is unaffected.
+   Hide order (wide → narrow), px = overlay inline size:
+     ≤576 Thread, ≤448 model text (icon remains), ≤352 mode, ≤288 permission.
+   Wide still shows Default / Ask always / full model — not a permanent D/A compact.
+   --popover is opaque oklch (no alpha). !important beats PromptInput's
+   bg-foreground/[0.04] so document text cannot show through. */
+
+[data-md-live-agent-popover],
+[data-md-live-agent-bar] {
+  container-type: inline-size;
+  container-name: md-live-agent;
+  isolation: isolate;
+  background-color: var(--popover) !important;
+  color: var(--popover-foreground);
+}
+
+[data-md-live-agent-popover] [data-prompt-input],
+[data-md-live-agent-bar] [data-prompt-input] {
+  background-color: var(--popover) !important;
+}
+
+@container md-live-agent (max-width: 576px) {
+  [data-prompt-thread] {
+    display: none;
+  }
+}
+
+@container md-live-agent (max-width: 448px) {
+  [data-prompt-model-label] {
+    display: none;
+  }
+
+  [data-prompt-model] {
+    width: 2rem;
+    max-width: 2rem;
+    justify-content: center;
+    padding-inline: 0;
+    gap: 0;
+  }
+}
+
+@container md-live-agent (max-width: 352px) {
+  [data-prompt-mode] [data-prompt-option-label] {
+    display: none;
+  }
+
+  [data-prompt-mode] {
+    width: 2rem;
+    max-width: 2rem;
+    justify-content: center;
+    padding-inline: 0;
+    gap: 0;
+  }
+}
+
+@container md-live-agent (max-width: 288px) {
+  [data-prompt-permission] [data-prompt-option-label] {
+    display: none;
+  }
+
+  [data-prompt-permission] {
+    width: 2rem;
+    max-width: 2rem;
+    justify-content: center;
+    padding-inline: 0;
+    gap: 0;
+  }
+}

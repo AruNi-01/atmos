@@ -186,6 +186,7 @@ describe("agent prompt composer", () => {
     expect(composer).not.toContain("[&_[data-token]]:shrink-0");
     expect(composer).toContain("header={<AgentComposerAttachments />}");
     expect(composer).toContain("{leadingChrome ? (");
+    expect(composer).toContain("promptClassName?: string");
     expect(composer).not.toContain("data-agent-chat-compact");
     expect(composer).not.toContain("data-agent-composer-landing");
   });

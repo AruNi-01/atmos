@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useTranslations } from "next-intl";
 import { Conversation, ConversationContent, cn } from "@workspace/ui";
-import { Minimize2, Sparkles, X } from "lucide-react";
+import { Maximize2, Minimize2, Sparkles, X } from "lucide-react";
+import "../md-live-agent-overlay.css";
 import { AgentAuthDialog } from "@/features/agent/components/AgentAuthDialog";
 import { AgentChatOwnSendRefsProvider } from "@/features/agent/components/agent-chat-own-send-context";
 import { AgentChatCwdProvider } from "@/features/agent/components/agent-chat-cwd-context";
@@ -116,7 +117,8 @@ export function MdLiveAgentChat({
     Boolean(session.pendingSessionOp);
   const showThread = (popover || barMode === "expanded") && hasThread;
   const showBar = popover || barMode !== "hidden";
-  const hasComposerChrome = !showThread && (popover || reviewPending || (working && !popover));
+  const canExpandThread = hasThread && !popover && !showThread;
+  const hasComposerChrome = !showThread && (popover || reviewPending || working || canExpandThread);
 
   const openPopover = useCallback(
     (selection: string) => {
@@ -132,8 +134,8 @@ export function MdLiveAgentChat({
 
   const closePopover = useCallback(() => {
     setPlacement("bottom");
-    if (!working) setExpanded(false);
-  }, [working]);
+    if (!hasThread) setExpanded(false);
+  }, [hasThread]);
 
   useEffect(() => {
     return subscribeMdLiveEditorEvents(filePath, (event) => {
@@ -224,6 +226,17 @@ export function MdLiveAgentChat({
           {t("working")}
         </button>
       ) : null}
+      {canExpandThread && !working ? (
+        <button
+          type="button"
+          data-md-live-expand=""
+          className={chromeButtonClass}
+          aria-label={t("expandChat")}
+          onClick={() => setExpanded(true)}
+        >
+          <Maximize2 className="size-3.5" />
+        </button>
+      ) : null}
       {reviewPending ? (
         <>
           <button
@@ -263,6 +276,7 @@ export function MdLiveAgentChat({
       {showThread && !popover ? (
         <button
           type="button"
+          data-md-live-minimize=""
           className={chromeButtonClass}
           aria-label={t("minimize")}
           onClick={() => setExpanded(false)}
@@ -300,7 +314,7 @@ export function MdLiveAgentChat({
   const thread = showThread ? (
     <div
       data-md-live-agent-thread=""
-      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+      className="flex min-h-[12rem] min-w-0 flex-1 flex-col overflow-hidden"
     >
       <AgentChatOwnSendRefsProvider>
         <AgentChatCwdProvider cwd={session.sessionCwd} projectOrWorkspacePath={session.localPath}>
@@ -377,6 +391,7 @@ export function MdLiveAgentChat({
       messages={session.messages}
       placeholderOverride={placeholder}
       leadingChrome={hasComposerChrome ? chrome : null}
+      promptClassName="bg-popover"
       onDraftChange={setHasDraft}
       aboveInputOverlay={
         session.pendingPermission || session.pendingSessionOp ? (
@@ -426,14 +441,15 @@ export function MdLiveAgentChat({
             data-md-live-agent-popover=""
             className={cn(
               "pointer-events-auto absolute w-[min(100%,26.25rem)]",
-              showThread
-                ? cn(MD_LIVE_AGENT_PANEL_CLASS, "max-h-[min(70vh,32rem)]")
-                : "drop-shadow-lg",
+              MD_LIVE_AGENT_PANEL_CLASS,
+              showThread && "max-h-[min(70vh,32rem)] min-h-[min(48vh,20rem)]",
             )}
             style={{
               ...popoverStyle,
               position: "fixed",
               width: MD_LIVE_POPOVER_WIDTH,
+              backgroundColor: "var(--popover)",
+              color: "var(--popover-foreground)",
               transition: "top 180ms ease, left 180ms ease",
             }}
           >
@@ -446,10 +462,13 @@ export function MdLiveAgentChat({
             data-md-live-agent-bar=""
             className={cn(
               "pointer-events-auto absolute inset-x-0 bottom-3 mx-auto w-[min(100%-1.5rem,42rem)]",
-              showThread
-                ? cn(MD_LIVE_AGENT_PANEL_CLASS, "max-h-[min(70vh,32rem)]")
-                : "drop-shadow-lg",
+              MD_LIVE_AGENT_PANEL_CLASS,
+              showThread && "max-h-[min(70vh,32rem)] min-h-[min(48vh,20rem)]",
             )}
+            style={{
+              backgroundColor: "var(--popover)",
+              color: "var(--popover-foreground)",
+            }}
           >
             {panelHeader}
             {thread}

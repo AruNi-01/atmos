@@ -179,9 +179,49 @@ describe("md-live structural gates", () => {
     expect(source).toContain("nextMdLiveBarMode");
     expect(source).toContain("MD_LIVE_AGENT_PANEL_CLASS");
     expect(source).toContain("z-[60]");
+    expect(source).toContain('import "../md-live-agent-overlay.css"');
+    expect(source).toContain('promptClassName="bg-popover"');
+    expect(source).toContain('backgroundColor: "var(--popover)"');
+    expect(source).toContain('data-md-live-minimize=""');
+    expect(source).toContain('data-md-live-expand=""');
+    expect(source).toContain("min-h-[12rem]");
+    expect(source).toContain('showThread && "max-h-[min(70vh,32rem)] min-h-[min(48vh,20rem)]"');
+    expect(source).toContain("if (!hasThread) setExpanded(false)");
+    expect(source).toContain("AgentChatTranscriptList");
     const helpers = readFileSync(join(import.meta.dir, "../md-live-agent-chat.ts"), "utf8");
     expect(helpers).toContain("bg-popover");
     expect(helpers).toContain("MD_LIVE_AGENT_PANEL_CLASS");
+    expect(helpers).toContain("mdLiveAgentChromeStep");
+    expect(helpers).toContain("MD_LIVE_AGENT_CHROME_MAX_THREAD_PX = 576");
+    expect(helpers).toContain("MD_LIVE_AGENT_CHROME_MAX_MODEL_TEXT_PX = 448");
+    expect(helpers).toContain("MD_LIVE_AGENT_CHROME_MAX_MODE_LABEL_PX = 352");
+    expect(helpers).toContain("MD_LIVE_AGENT_CHROME_MAX_PERMISSION_LABEL_PX = 288");
+    const overlayCss = readFileSync(
+      join(import.meta.dir, "../../md-live-agent-overlay.css"),
+      "utf8",
+    );
+    expect(overlayCss).toContain("container-name: md-live-agent");
+    expect(overlayCss).toContain("background-color: var(--popover) !important");
+    expect(overlayCss.indexOf("max-width: 576px")).toBeGreaterThan(0);
+    expect(overlayCss.indexOf("max-width: 448px")).toBeGreaterThan(
+      overlayCss.indexOf("max-width: 576px"),
+    );
+    expect(overlayCss.indexOf("max-width: 352px")).toBeGreaterThan(
+      overlayCss.indexOf("max-width: 448px"),
+    );
+    expect(overlayCss.indexOf("max-width: 288px")).toBeGreaterThan(
+      overlayCss.indexOf("max-width: 352px"),
+    );
+    expect(overlayCss).toContain("[data-prompt-thread]");
+    expect(overlayCss).toContain("[data-prompt-model-label]");
+    expect(overlayCss).toContain("[data-prompt-mode]");
+    expect(overlayCss).toContain("[data-prompt-permission]");
+    expect(overlayCss).not.toContain("[data-agent-chat]");
+    const picker = readFileSync(
+      join(import.meta.dir, "../../../agent/components/AgentChatWorkingDirectoryPicker.tsx"),
+      "utf8",
+    );
+    expect(picker).toContain('data-prompt-thread=""');
     expect(source).toContain("MD_LIVE_HIDE_SELECTION_TOOLBAR_EVENT");
     expect(source).toContain("mdLiveOverlayTitle");
     expect(source).toContain("data-md-live-agent-header");
@@ -191,6 +231,8 @@ describe("md-live structural gates", () => {
     expect(source).not.toContain('t("chat")');
     expect(source).not.toContain("<Plus");
     expect(source).not.toContain("bg-background/95");
+    expect(source).not.toContain("drop-shadow-lg");
+    expect(source).not.toContain("showThread ? MD_LIVE_AGENT_PANEL_CLASS");
     expect(source).not.toContain("insertFileMentionForInstanceKey");
     expect(source).not.toContain("insertAiContextForInstanceKey");
     expect(source).not.toContain("MD_LIVE_HEADLESS_PTY");

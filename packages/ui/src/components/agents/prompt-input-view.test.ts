@@ -455,10 +455,18 @@ describe("mode and permission labels", () => {
     expect(promptInput).not.toContain("compact?: boolean");
     expect(promptInput).not.toContain("data-prompt-compact");
     expect(promptInput).not.toContain("compact && current?.icon");
+    expect(promptInput).toContain('data-prompt-input=""');
+    expect(promptInput).toContain('slot: "mode" | "permission"');
+    expect(promptInput).toContain('data-prompt-mode={slot === "mode" ? "" : undefined}');
     expect(promptInput).toContain(
-      '<span className="min-w-0 truncate">{current?.label ?? placeholder}</span>',
+      'data-prompt-permission={slot === "permission" ? "" : undefined}',
     );
+    expect(promptInput).toContain('data-prompt-option-label=""');
+    expect(promptInput).toContain("{current?.label ?? placeholder}");
     expect(promptInput).toContain("h-8 max-w-44 items-center gap-1.5");
+    expect(promptMenu).toContain('data-prompt-model=""');
+    expect(promptMenu).toContain('data-prompt-model-label=""');
+    expect(promptMenu).toContain("{triggerText}");
     expect(promptMenu).toContain("max-w-[22rem]");
     expect(promptMenu).not.toContain("max-w-[9rem]");
   });

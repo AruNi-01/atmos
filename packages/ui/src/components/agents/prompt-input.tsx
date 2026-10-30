@@ -395,6 +395,7 @@ export function PromptInput({
       >
         {modes.length ? (
           <PromptOptionSelect
+            slot="mode"
             options={modes}
             value={mode ?? ""}
             onChange={onModeChange}
@@ -408,6 +409,7 @@ export function PromptInput({
         ) : null}
         {permissionModes.length ? (
           <PromptOptionSelect
+            slot="permission"
             options={permissionModes}
             value={permissionMode ?? ""}
             onChange={onPermissionModeChange}
@@ -486,6 +488,7 @@ export function PromptInput({
     <>
       {modes.length ? (
         <PromptOptionSelect
+          slot="mode"
           options={modes}
           value={mode ?? ""}
           onChange={onModeChange}
@@ -499,6 +502,7 @@ export function PromptInput({
       ) : null}
       {permissionModes.length ? (
         <PromptOptionSelect
+          slot="permission"
           options={permissionModes}
           value={permissionMode ?? ""}
           onChange={onPermissionModeChange}
@@ -567,6 +571,7 @@ export function PromptInput({
     <form
       ref={formRef}
       onSubmit={submit}
+      data-prompt-input=""
       className={cn(
         "relative w-full overflow-visible border border-foreground/10 bg-foreground/[0.04] p-2",
         shellRadius,
@@ -591,6 +596,7 @@ export function PromptInput({
 }
 
 function PromptOptionSelect({
+  slot,
   options,
   value,
   onChange,
@@ -601,6 +607,7 @@ function PromptOptionSelect({
   emptyLabel,
   controlRadius,
 }: {
+  slot: "mode" | "permission";
   options: PromptModel[];
   value?: string;
   onChange?: (value: string) => void;
@@ -638,7 +645,10 @@ function PromptOptionSelect({
         <button
           type="button"
           disabled={disabled}
+          data-prompt-mode={slot === "mode" ? "" : undefined}
+          data-prompt-permission={slot === "permission" ? "" : undefined}
           title={lockedHint || optionLabelText(current) || placeholder}
+          aria-label={optionLabelText(current) || placeholder}
           className={cn(
             "inline-flex h-8 max-w-44 items-center gap-1.5 border-0 bg-transparent px-2 py-0 text-xs outline-none hover:bg-muted focus-visible:ring-2",
             warning
@@ -653,7 +663,9 @@ function PromptOptionSelect({
               {current.icon}
             </span>
           ) : null}
-          <span className="min-w-0 truncate">{current?.label ?? placeholder}</span>
+          <span data-prompt-option-label="" className="min-w-0 truncate">
+            {current?.label ?? placeholder}
+          </span>
         </button>
       </MorphPopoverTrigger>
       <MorphPopoverContent
