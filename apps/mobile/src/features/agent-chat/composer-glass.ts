@@ -11,9 +11,15 @@ export const COMPOSER_GLASS_DOCK_RADIUS = radii.control;
  * GlassPanel chrome. No tint, no extra fill, no extra border — GlassView owns
  * the material.
  *
- * Containers (dock, title pills, N-below, expanded card) use GlassPanel because
- * they wrap RN `TextInput` / NumberFlow / Lucide / ScrollView. Labeled in-card
- * actions use Expo UI `buttonStyle("glass")` via `GlassTextButton`.
+ * Containers (dock, title pills, N-below, expanded card, icon wells wrapping
+ * Lucide) use GlassPanel because they wrap RN `TextInput` / NumberFlow /
+ * Lucide / ScrollView. Labeled in-card actions use Expo UI `glassEffect` via
+ * `GlassTextButton` / `GlassActionButtons` (plain button + glassEffect).
+ *
+ * Adjacent composer glasses stay overlay siblings of the dock. Nested GlassView
+ * draws nothing. Official GlassContainer is not used here: the toolbar mixes
+ * GlassPanel wells with text/spacer children, and the pill row uses animated
+ * width slots.
  */
 export const COMPOSER_GLASS_WELL = {
   interactive: true,

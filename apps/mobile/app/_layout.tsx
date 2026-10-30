@@ -1,5 +1,4 @@
 import "@/global.css";
-import { GlassProvider } from "@rbayuokt/expo-adaptive-glass";
 import {
   DarkTheme,
   DefaultTheme,
@@ -14,6 +13,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { parityPreviewHref } from "@/features/agent-chat/parity-preview-route";
 import { AppProviders } from "@/providers/AppProviders";
 import { hiddenScrollEdgeEffects } from "@/ui/navigation/native-screen-options";
+import { AndroidGlassRoot } from "@/ui/primitives/android-glass-root";
 import { useMobileTheme } from "@/theme/theme-store";
 
 function navigationTheme(
@@ -68,7 +68,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <AppProviders>
         <ThemeProvider value={navigation}>
-          <GlassProvider>
+          <AndroidGlassRoot>
             <Stack
               screenOptions={{
                 headerShadowVisible: false,
@@ -193,7 +193,7 @@ export default function RootLayout() {
               <Stack.Screen name="+not-found" />
             </Stack>
             {process.env.EXPO_PUBLIC_PARITY_PREVIEW === "1" ? <ParityPreviewRedirect /> : null}
-          </GlassProvider>
+          </AndroidGlassRoot>
           <StatusBar style={theme.statusBarStyle} />
         </ThemeProvider>
       </AppProviders>

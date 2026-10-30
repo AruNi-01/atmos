@@ -78,7 +78,6 @@
         }
       ],
       "./plugins/with-ios-pod-deployment-target.js",
-      "./plugins/with-ios-clear-tab-bar.js",
       "./plugins/with-ios-scene-lifecycle.js"
     ],
     "experiments": {

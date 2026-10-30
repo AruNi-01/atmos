@@ -1,10 +1,9 @@
 import { Button as ExpoButton, Host as ExpoHost } from "@expo/ui";
-import { Button, Host, HStack } from "@expo/ui/swift-ui";
+import { Button, GlassEffectContainer, Host, HStack } from "@expo/ui/swift-ui";
 import {
   background,
   buttonStyle,
   controlSize,
-  disabled as disabledModifier,
   font,
   foregroundStyle,
   glassEffect,
@@ -231,25 +230,41 @@ function FallbackGlassTextButton({ disabled, label, onPress, role, testID, tone 
 
 function IosGlassActionButtons({ actions }: { actions: GlassAction[] }) {
   const theme = useMobileTheme();
+  const reduceTransparency = useReduceTransparencyEnabled();
+  const useLiquidGlass = shouldUseLiquidGlass({
+    apiAvailable: isGlassEffectAPIAvailable(),
+    liquidGlassAvailable: isLiquidGlassAvailable(),
+    reduceTransparency,
+  });
+  const fillColor = theme.colors.control;
+  const row = (
+    <HStack alignment="center" spacing={8}>
+      {actions.map((action) => {
+        const isDisabled = Boolean(action.disabled);
+        const isGhost = action.tone === "ghost";
+        return (
+          <Button
+            key={action.label}
+            label={action.label}
+            modifiers={iosGlassChipModifiers({
+              fillColor,
+              inkColor: chipInkColor(theme.colors, action.role, action.tone),
+              isDisabled,
+              isGhost,
+              useLiquidGlass,
+            })}
+            onPress={isDisabled ? undefined : action.onPress}
+            role={action.role ?? "default"}
+          />
+        );
+      })}
+    </HStack>
+  );
 
   return (
     <View style={{ alignItems: "flex-end" }}>
       <Host colorScheme={theme.colorScheme} matchContents>
-        <HStack alignment="center" spacing={8}>
-          {actions.map((action) => (
-            <Button
-              key={action.label}
-              label={action.label}
-              modifiers={[
-                buttonStyle("glass"),
-                controlSize("regular"),
-                disabledModifier(Boolean(action.disabled)),
-              ]}
-              onPress={action.disabled ? undefined : action.onPress}
-              role={action.role ?? "default"}
-            />
-          ))}
-        </HStack>
+        {useLiquidGlass ? <GlassEffectContainer spacing={8}>{row}</GlassEffectContainer> : row}
       </Host>
     </View>
   );
