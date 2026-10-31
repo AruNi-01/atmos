@@ -6,6 +6,7 @@ import {
   mdLiveAgentChromeStep,
   mdLiveOverlayTitle,
   mdLiveSelectionPopoverStyle,
+  mdLiveShowThreadCard,
   MD_LIVE_AGENT_CHAT_SOURCE,
   MD_LIVE_AGENT_CHROME_MAX_MODE_LABEL_PX,
   MD_LIVE_AGENT_CHROME_MAX_MODEL_TEXT_PX,
@@ -132,6 +133,17 @@ describe("md-live agent chat helpers", () => {
         contains: () => false,
       }),
     ).toBe(true);
+  });
+
+  test("thread card appears only when the overlay has messages", () => {
+    expect(mdLiveShowThreadCard({ popover: true, barExpanded: false, messageCount: 0 })).toBe(
+      false,
+    );
+    expect(mdLiveShowThreadCard({ popover: true, barExpanded: false, messageCount: 1 })).toBe(true);
+    expect(mdLiveShowThreadCard({ popover: false, barExpanded: true, messageCount: 2 })).toBe(true);
+    expect(mdLiveShowThreadCard({ popover: false, barExpanded: false, messageCount: 3 })).toBe(
+      false,
+    );
   });
 
   test("adaptive chrome hides Thread then model text then mode then permission", () => {

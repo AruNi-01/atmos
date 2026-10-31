@@ -185,20 +185,26 @@ describe("md-live structural gates", () => {
     expect(source).toContain("mdLiveSelectionPopoverStyle");
     expect(source).toContain("nextMdLiveBarMode");
     expect(source).toContain("MD_LIVE_AGENT_PANEL_CLASS");
+    expect(source).toContain("MD_LIVE_AGENT_STACK_CLASS");
+    expect(source).toContain("MD_LIVE_AGENT_THREAD_MAX_CLASS");
     expect(source).toContain("z-[60]");
     expect(source).toContain('import "../md-live-agent-overlay.css"');
     expect(source).toContain('promptClassName="bg-popover"');
-    expect(source).toContain('backgroundColor: "var(--popover)"');
+    expect(source).toContain('data-md-live-agent-thread-card=""');
+    expect(source).toContain("mdLiveShowThreadCard");
     expect(source).toContain('data-md-live-minimize=""');
     expect(source).toContain('data-md-live-expand=""');
-    expect(source).toContain("min-h-[12rem]");
-    expect(source).toContain('showThread && "max-h-[min(70vh,32rem)] min-h-[min(48vh,20rem)]"');
+    expect(source).not.toContain("min-h-[12rem]");
+    expect(source).not.toContain("min-h-[min(48vh,20rem)]");
+    expect(source).not.toContain('backgroundColor: "var(--popover)"');
     expect(source).toContain('setPlacement("bottom")');
     expect(source).toContain("setExpanded(false)");
     expect(source).toContain("AgentChatTranscriptList");
     const helpers = readFileSync(join(import.meta.dir, "../md-live-agent-chat.ts"), "utf8");
     expect(helpers).toContain("bg-popover");
     expect(helpers).toContain("MD_LIVE_AGENT_PANEL_CLASS");
+    expect(helpers).toContain("MD_LIVE_AGENT_STACK_CLASS");
+    expect(helpers).toContain("mdLiveShowThreadCard");
     expect(helpers).toContain('MD_LIVE_AGENT_CHAT_SOURCE = "md-live"');
     expect(helpers).toContain("isMdLiveAgentOverlayDismissTarget");
     expect(helpers).toContain("mdLiveAgentChromeStep");
@@ -211,7 +217,11 @@ describe("md-live structural gates", () => {
       "utf8",
     );
     expect(overlayCss).toContain("container-name: md-live-agent");
+    expect(overlayCss).toContain("[data-md-live-agent-thread-card]");
     expect(overlayCss).toContain("background-color: var(--popover) !important");
+    expect(overlayCss).not.toMatch(
+      /\[data-md-live-agent-popover\],\s*\[data-md-live-agent-bar\]\s*\{[^}]*background-color/,
+    );
     expect(overlayCss.indexOf("max-width: 576px")).toBeGreaterThan(0);
     expect(overlayCss.indexOf("max-width: 448px")).toBeGreaterThan(
       overlayCss.indexOf("max-width: 576px"),
@@ -235,7 +245,8 @@ describe("md-live structural gates", () => {
     expect(source).toContain("MD_LIVE_HIDE_SELECTION_TOOLBAR_EVENT");
     expect(source).toContain("mdLiveOverlayTitle");
     expect(source).toContain("data-md-live-agent-header");
-    expect(source).toContain("hasComposerChrome ? barChrome : null");
+    expect(source).toContain("data-md-live-agent-chrome");
+    expect(source).toContain("hasComposerChrome ? (");
     expect(source).toContain('mdLiveOverlayTitle(session.displaySessionTitle, "")');
     expect(source).toContain("<Plus");
     expect(source).toContain("<Pin");

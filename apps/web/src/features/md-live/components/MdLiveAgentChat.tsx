@@ -32,6 +32,8 @@ import { restoreAndUnlockMdLiveStream, useMdLiveStreamLocked } from "../lib/md-l
 import {
   MD_LIVE_AGENT_CHAT_SOURCE,
   MD_LIVE_AGENT_PANEL_CLASS,
+  MD_LIVE_AGENT_STACK_CLASS,
+  MD_LIVE_AGENT_THREAD_MAX_CLASS,
   MD_LIVE_POPOVER_WIDTH,
   isMdLiveAgentOverlayDismissTarget,
   isMdLiveBarHoverZone,
@@ -39,6 +41,7 @@ import {
   mdLiveOverlayTitle,
   mdLiveRewritePrompt,
   mdLiveSelectionPopoverStyle,
+  mdLiveShowThreadCard,
   mdLiveSummarizePrompt,
   nextMdLiveBarMode,
   transformMdLivePrompt,
@@ -120,10 +123,14 @@ export function MdLiveAgentChat({
     working,
     hasThread,
   });
-  const showThread = (popover || barMode === "expanded") && hasThread;
+  const showThreadCard = mdLiveShowThreadCard({
+    popover,
+    barExpanded: barMode === "expanded",
+    messageCount: session.messages.length,
+  });
   const showBar = popover || barMode !== "hidden";
-  const canExpandThread = hasThread && !popover && !showThread;
-  const hasComposerChrome = !showThread && (reviewPending || working || canExpandThread);
+  const canExpandThread = session.messages.length > 0 && !popover && !showThreadCard;
+  const hasComposerChrome = !showThreadCard && (reviewPending || working || canExpandThread);
   const isLiveSource = session.chatSource === MD_LIVE_AGENT_CHAT_SOURCE;
 
   const openPopover = useCallback(
@@ -281,10 +288,10 @@ export function MdLiveAgentChat({
     </>
   );
 
-  const panelHeader = showThread ? (
+  const panelHeader = showThreadCard ? (
     <div
       data-md-live-agent-header=""
-      className="flex shrink-0 items-center gap-1.5 border-b border-border px-3 py-1.5"
+      className="sticky top-0 z-10 flex shrink-0 items-center gap-1.5 border-b border-border bg-popover px-3 py-1.5"
     >
       <div className="flex shrink-0 items-center gap-0.5">
         <button
@@ -334,36 +341,31 @@ export function MdLiveAgentChat({
     </div>
   ) : null;
 
-  const thread = showThread ? (
-    <div
-      data-md-live-agent-thread=""
-      className="flex min-h-[12rem] min-w-0 flex-1 flex-col overflow-hidden"
-    >
+  const thread = showThreadCard ? (
+    <div data-md-live-agent-thread="" className="min-w-0">
       <AgentChatOwnSendRefsProvider>
         <AgentChatCwdProvider cwd={session.sessionCwd} projectOrWorkspacePath={session.localPath}>
-          <Conversation className="min-h-0 flex-1 overflow-hidden" initial="smooth">
+          <Conversation className="flex-none overflow-visible" initial="smooth">
             <ConversationContent
               className="gap-3 px-3 py-3"
               scrollClassName={AGENT_CHAT_SCROLL_CLASS}
             >
-              {session.messages.length > 0 ? (
-                <AgentChatTranscriptList
-                  messages={session.messages}
-                  registryId={session.registryId}
-                  transcriptRef={session.transcriptRef}
-                  userMessageIndices={session.userMessageIndices}
-                  onActiveUserMessage={session.setMessageNavIndex}
-                  scrollToIndexRef={session.scrollToIndexRef}
-                  activityStatus={
-                    session.agentActivity.busy ? (
-                      <AgentActivityIndicator
-                        activity={session.agentActivity}
-                        elapsedMs={session.elapsedMs}
-                      />
-                    ) : null
-                  }
-                />
-              ) : null}
+              <AgentChatTranscriptList
+                messages={session.messages}
+                registryId={session.registryId}
+                transcriptRef={session.transcriptRef}
+                userMessageIndices={session.userMessageIndices}
+                onActiveUserMessage={session.setMessageNavIndex}
+                scrollToIndexRef={session.scrollToIndexRef}
+                activityStatus={
+                  session.agentActivity.busy ? (
+                    <AgentActivityIndicator
+                      activity={session.agentActivity}
+                      elapsedMs={session.elapsedMs}
+                    />
+                  ) : null
+                }
+              />
               <div ref={session.bottomRef} className="h-px" />
             </ConversationContent>
           </Conversation>
@@ -413,7 +415,6 @@ export function MdLiveAgentChat({
       sessionUsage={session.sessionUsage}
       messages={session.messages}
       placeholderOverride={placeholder}
-      leadingChrome={hasComposerChrome ? barChrome : null}
       promptClassName="bg-popover"
       onDraftChange={setHasDraft}
       aboveInputOverlay={
@@ -445,6 +446,28 @@ export function MdLiveAgentChat({
     />
   );
 
+  const overlayLayers = (
+    <>
+      {showThreadCard ? (
+        <div
+          data-md-live-agent-thread-card=""
+          className={cn(MD_LIVE_AGENT_PANEL_CLASS, MD_LIVE_AGENT_THREAD_MAX_CLASS)}
+        >
+          {panelHeader}
+          {thread}
+        </div>
+      ) : hasComposerChrome ? (
+        <div
+          data-md-live-agent-chrome=""
+          className="flex min-h-6 min-w-0 flex-wrap items-center gap-1.5 px-1"
+        >
+          {barChrome}
+        </div>
+      ) : null}
+      {composer}
+    </>
+  );
+
   return (
     <SubagentOverlayProvider selectedId={selectedSubagentId} onSelect={setSelectedSubagentId}>
       <div
@@ -464,38 +487,26 @@ export function MdLiveAgentChat({
             data-md-live-agent-popover=""
             className={cn(
               "pointer-events-auto absolute w-[min(100%,26.25rem)]",
-              MD_LIVE_AGENT_PANEL_CLASS,
-              showThread && "max-h-[min(70vh,32rem)] min-h-[min(48vh,20rem)]",
+              MD_LIVE_AGENT_STACK_CLASS,
             )}
             style={{
               ...popoverStyle,
               position: "fixed",
               width: MD_LIVE_POPOVER_WIDTH,
-              backgroundColor: "var(--popover)",
-              color: "var(--popover-foreground)",
               transition: "top 180ms ease, left 180ms ease",
             }}
           >
-            {panelHeader}
-            {thread}
-            {composer}
+            {overlayLayers}
           </div>
         ) : showBar ? (
           <div
             data-md-live-agent-bar=""
             className={cn(
               "pointer-events-auto absolute inset-x-0 bottom-3 mx-auto w-[min(100%-1.5rem,42rem)]",
-              MD_LIVE_AGENT_PANEL_CLASS,
-              showThread && "max-h-[min(70vh,32rem)] min-h-[min(48vh,20rem)]",
+              MD_LIVE_AGENT_STACK_CLASS,
             )}
-            style={{
-              backgroundColor: "var(--popover)",
-              color: "var(--popover-foreground)",
-            }}
           >
-            {panelHeader}
-            {thread}
-            {composer}
+            {overlayLayers}
           </div>
         ) : null}
       </div>

@@ -6,8 +6,12 @@ export const MD_LIVE_AGENT_CAPABILITY = "md-live.v1";
 export const MD_LIVE_AGENT_SKILL_PATH = "~/.atmos/skills/.system/atmos-md-live-agent/SKILL.md";
 /** Same slot as automation `"automation"`. Written on Agent Chat create. */
 export const MD_LIVE_AGENT_CHAT_SOURCE = "md-live";
+/** Bordered card for the message list only — never the empty overlay or the input layer. */
 export const MD_LIVE_AGENT_PANEL_CLASS =
-  "flex flex-col overflow-hidden rounded-2xl border border-border bg-popover text-popover-foreground shadow-lg";
+  "flex flex-col rounded-2xl border border-border bg-popover text-popover-foreground shadow-lg";
+/** Transparent overlay stack: thread card (optional) + gap + composer. */
+export const MD_LIVE_AGENT_STACK_CLASS = "flex flex-col gap-2";
+export const MD_LIVE_AGENT_THREAD_MAX_CLASS = "max-h-[min(70vh,32rem)] overflow-y-auto";
 
 /** Overlay container queries (`md-live-agent-overlay.css`). Hide order, wide → narrow. */
 export const MD_LIVE_AGENT_CHROME_MAX_THREAD_PX = 576;
@@ -59,6 +63,15 @@ export function nextMdLiveBarMode(input: {
   if (input.focused || input.hasDraft) return "focused";
   if (input.working || input.hover || input.hasThread) return "collapsed";
   return "hidden";
+}
+
+/** Message card only when there are messages. Working with 0 messages is a pill, not an empty shell. */
+export function mdLiveShowThreadCard(input: {
+  popover: boolean;
+  barExpanded: boolean;
+  messageCount: number;
+}): boolean {
+  return (input.popover || input.barExpanded) && input.messageCount > 0;
 }
 
 const MD_LIVE_OVERLAY_DISMISS_IGNORE = "[data-morph-popover-portal], [role='dialog']";
