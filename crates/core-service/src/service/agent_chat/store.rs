@@ -16,12 +16,13 @@ use super::transcript_page::{
     LEFTOVER_TRANSCRIPT_TAIL_MAX,
 };
 use super::types::{
-    apply_rewind_view, apply_text_offset, chat_descriptor, flatten_messages,
-    sort_parts_by_recorded_ordinals, AgentChatIndexEntry, AgentChatMeta, AgentChatOrigin,
+    agent_chat_source_is_excluded, agent_chat_text_looks_like_md_live, apply_rewind_view,
+    apply_text_offset, chat_descriptor, flatten_messages, normalize_agent_chat_source,
+    sort_parts_by_recorded_ordinals, AgentChatIndexEntry, AgentChatListFilter, AgentChatMeta,
     AgentChatSnapshot, CreateAgentChatRequest, FoldedMessage, FoldedTurn, MaterializedTextPart,
     MessagePart, PendingPermission, QueueItem, RuntimeStatus, SessionHintTone,
     SessionLifecycleAction, SessionLifecycleStatus, ToolCallState, TranscriptEnvelope,
-    TranscriptEvent, TurnStatus,
+    TranscriptEvent, TurnStatus, AGENT_CHAT_SOURCE_MD_LIVE,
 };
 use agent::{
     AgentCurrentConfig, AgentEvent, AgentEventEnvelope, AgentPermissionRequest, TextKind, TurnStop,
@@ -105,7 +106,7 @@ impl AgentChatStore {
             parent_chat_id: None,
             rewind_view: None,
             pending_session_op: None,
-            source: req.source,
+            source: normalize_agent_chat_source(req.source),
             automation_run_guid: req.automation_run_guid,
             grok_goal: None,
             grok_workflow: None,
@@ -317,15 +318,17 @@ impl AgentChatStore {
         Ok(materialize_text_part_from_envelopes(&records, part_id))
     }
 
-    pub fn list(
-        &self,
-        cwd: Option<&str>,
-        workspace_id: Option<&str>,
-        project_id: Option<&str>,
-        include_deleted: bool,
-        all: bool,
-        origin: Option<AgentChatOrigin>,
-    ) -> Result<Vec<AgentChatIndexEntry>> {
+    pub fn list(&self, filter: AgentChatListFilter<'_>) -> Result<Vec<AgentChatIndexEntry>> {
+        let AgentChatListFilter {
+            cwd,
+            workspace_id,
+            project_id,
+            include_deleted,
+            all,
+            origin,
+            exclude_sources,
+        } = filter;
+        self.backfill_unsourced_md_live()?;
         let entries = match self.read_index() {
             Ok(entries) if !entries.is_empty() => entries,
             _ => self.rebuild_index()?,
@@ -334,6 +337,9 @@ impl AgentChatStore {
             .into_iter()
             .filter(|entry| include_deleted || !entry.deleted)
             .filter(|entry| origin.is_none_or(|wanted| entry.origin == wanted))
+            .filter(|entry| {
+                !agent_chat_source_is_excluded(entry.source.as_deref(), exclude_sources)
+            })
             .filter(|entry| {
                 if cwd.is_some() || workspace_id.is_some() || project_id.is_some() {
                     return cwd.is_none_or(|cwd| entry.cwd == cwd)
@@ -346,6 +352,59 @@ impl AgentChatStore {
                 entry.workspace_id.is_none() && entry.project_id.is_none()
             })
             .collect())
+    }
+
+    /// Backfill Live markdown chats created before source was persisted.
+    /// Does not overwrite an existing source (including `"automation"`).
+    pub fn set_source_if_empty(&self, id: &str, source: &str) -> Result<AgentChatMeta> {
+        let source = source.trim();
+        if source.is_empty() {
+            return self.get_meta(id);
+        }
+        self.update_meta(id, |meta| {
+            if meta
+                .source
+                .as_deref()
+                .map(str::trim)
+                .is_none_or(|value| value.is_empty())
+            {
+                meta.source = Some(source.to_string());
+            }
+        })
+    }
+
+    /// Persist `source=md-live` on unsourced chats whose transcript is the Live contract.
+    fn backfill_unsourced_md_live(&self) -> Result<()> {
+        let entries = match self.read_index() {
+            Ok(entries) if !entries.is_empty() => entries,
+            _ => self.rebuild_index()?,
+        };
+        for entry in entries {
+            if entry.deleted {
+                continue;
+            }
+            if entry
+                .source
+                .as_deref()
+                .map(str::trim)
+                .is_some_and(|value| !value.is_empty())
+            {
+                continue;
+            }
+            if !self.unsourced_chat_looks_like_md_live(&entry.id, entry.title.as_deref()) {
+                continue;
+            }
+            self.set_source_if_empty(&entry.id, AGENT_CHAT_SOURCE_MD_LIVE)?;
+        }
+        Ok(())
+    }
+
+    fn unsourced_chat_looks_like_md_live(&self, id: &str, title: Option<&str>) -> bool {
+        if agent_chat_text_looks_like_md_live(title.unwrap_or("")) {
+            return true;
+        }
+        jsonl_looks_like_md_live(&self.transcript_path(id))
+            || jsonl_looks_like_md_live(&self.live_path(id))
     }
 
     pub fn rename(&self, id: &str, title: &str) -> Result<AgentChatMeta> {
@@ -1923,6 +1982,33 @@ fn upsert_message(turn: &mut FoldedTurn, message: FoldedMessage) {
     }
 }
 
+const MD_LIVE_MARKER_SCAN_MAX_BYTES: usize = 256 * 1024;
+
+fn jsonl_looks_like_md_live(path: &Path) -> bool {
+    let Ok(file) = File::open(path) else {
+        return false;
+    };
+    let mut seen = 0usize;
+    let mut reader = BufReader::new(file);
+    let mut line = String::new();
+    loop {
+        line.clear();
+        let n = match reader.read_line(&mut line) {
+            Ok(0) => break,
+            Ok(n) => n,
+            Err(_) => break,
+        };
+        seen = seen.saturating_add(n);
+        if agent_chat_text_looks_like_md_live(&line) {
+            return true;
+        }
+        if seen >= MD_LIVE_MARKER_SCAN_MAX_BYTES {
+            break;
+        }
+    }
+    false
+}
+
 fn require_chat_id(id: &str) -> Result<()> {
     uuid::Uuid::parse_str(id)
         .map(|_| ())
@@ -1978,7 +2064,8 @@ fn io_err(error: std::io::Error) -> ServiceError {
 mod tests {
     use super::*;
     use crate::service::agent_chat::types::{
-        SessionConfigValueChange, TranscriptEnvelope, TranscriptEvent,
+        AgentChatOrigin, SessionConfigValueChange, TranscriptEnvelope, TranscriptEvent,
+        AGENT_CHAT_SOURCE_MD_LIVE,
     };
     use agent::{
         AgentAskQuestion, AgentEvent, AgentEventEnvelope, AgentPermissionRequest, AgentTool,
@@ -4109,14 +4196,17 @@ mod tests {
         let (_dir, store) = store();
         create(&store, "/tmp/a");
         create(&store, "/tmp/b");
-        let listed = store.list(None, None, None, false, false, None).unwrap();
+        let listed = store.list(AgentChatListFilter::default()).unwrap();
         let mut cwds: Vec<_> = listed.iter().map(|e| e.cwd.as_str()).collect();
         cwds.sort();
         cwds.dedup();
         assert_eq!(cwds, ["/tmp/a", "/tmp/b"]);
         assert_eq!(
             store
-                .list(Some("/tmp/a"), None, None, false, false, None)
+                .list(AgentChatListFilter {
+                    cwd: Some("/tmp/a"),
+                    ..Default::default()
+                })
                 .unwrap()
                 .len(),
             1
@@ -4146,19 +4236,21 @@ mod tests {
                 automation_run_guid: None,
             })
             .unwrap();
-        assert_eq!(
-            store
-                .list(None, None, None, false, false, None)
-                .unwrap()
-                .len(),
-            1
-        );
-        let all = store.list(None, None, None, false, true, None).unwrap();
+        assert_eq!(store.list(AgentChatListFilter::default()).unwrap().len(), 1);
+        let all = store
+            .list(AgentChatListFilter {
+                all: true,
+                ..Default::default()
+            })
+            .unwrap();
         assert_eq!(all.len(), 2);
         assert!(all.iter().any(|entry| entry.cwd == "/tmp/workspace"));
         assert_eq!(
             store
-                .list(None, Some("ws-1"), None, false, false, None)
+                .list(AgentChatListFilter {
+                    workspace_id: Some("ws-1"),
+                    ..Default::default()
+                })
                 .unwrap()
                 .len(),
             1
@@ -4189,14 +4281,22 @@ mod tests {
             })
             .unwrap();
         let quick = store
-            .list(None, None, None, false, true, Some(AgentChatOrigin::Quick))
+            .list(AgentChatListFilter {
+                all: true,
+                origin: Some(AgentChatOrigin::Quick),
+                ..Default::default()
+            })
             .unwrap();
         assert_eq!(quick.len(), 1);
         assert_eq!(quick[0].cwd, "/tmp/workspace");
         assert_eq!(quick[0].origin, AgentChatOrigin::Quick);
         assert_eq!(
             store
-                .list(None, None, None, false, true, Some(AgentChatOrigin::Normal))
+                .list(AgentChatListFilter {
+                    all: true,
+                    origin: Some(AgentChatOrigin::Normal),
+                    ..Default::default()
+                })
                 .unwrap()
                 .len(),
             1
@@ -4212,12 +4312,15 @@ mod tests {
         let deleted = store.delete(&meta.id).unwrap();
         assert!(deleted.deleted);
         assert!(store
-            .list(None, None, None, false, false, None)
+            .list(AgentChatListFilter::default())
             .unwrap()
             .is_empty());
         assert_eq!(
             store
-                .list(None, None, None, true, false, None)
+                .list(AgentChatListFilter {
+                    include_deleted: true,
+                    ..Default::default()
+                })
                 .unwrap()
                 .len(),
             1
@@ -4228,5 +4331,231 @@ mod tests {
         .unwrap();
         assert!(on_disk.deleted);
         assert_eq!(on_disk.title.as_deref(), Some("My chat"));
+    }
+
+    #[test]
+    fn list_default_excludes_md_live_source_and_empty_exclude_includes() {
+        let (_dir, store) = store();
+        create(&store, "/tmp/normal");
+        let live = store
+            .create(CreateAgentChatRequest {
+                workspace_id: None,
+                project_id: None,
+                space_id: None,
+                cwd: "/tmp/live".into(),
+                origin: AgentChatOrigin::Normal,
+                provider_id: "claude".into(),
+                model: None,
+                thinking: None,
+                mode: None,
+                permission_mode: None,
+                fast: None,
+                context: None,
+                title: Some("Live chat".into()),
+                source: Some(AGENT_CHAT_SOURCE_MD_LIVE.into()),
+                automation_run_guid: None,
+            })
+            .unwrap();
+        assert_eq!(live.source.as_deref(), Some(AGENT_CHAT_SOURCE_MD_LIVE));
+        let default_list = store.list(AgentChatListFilter::default()).unwrap();
+        assert_eq!(default_list.len(), 1);
+        assert_eq!(default_list[0].cwd, "/tmp/normal");
+        assert!(default_list[0].source.is_none());
+        let included = store
+            .list(AgentChatListFilter {
+                exclude_sources: Some(&[]),
+                ..Default::default()
+            })
+            .unwrap();
+        assert_eq!(included.len(), 2);
+        let live_row = included
+            .iter()
+            .find(|entry| entry.id == live.id)
+            .expect("md-live row");
+        assert_eq!(live_row.source.as_deref(), Some(AGENT_CHAT_SOURCE_MD_LIVE));
+    }
+
+    #[test]
+    fn set_source_if_empty_backfills_without_overwriting() {
+        let (_dir, store) = store();
+        let unsourced = create(&store, "/tmp/old-live");
+        let filled = store
+            .set_source_if_empty(&unsourced.id, AGENT_CHAT_SOURCE_MD_LIVE)
+            .unwrap();
+        assert_eq!(filled.source.as_deref(), Some(AGENT_CHAT_SOURCE_MD_LIVE));
+        let listed = store.list(AgentChatListFilter::default()).unwrap();
+        assert!(listed.is_empty());
+        let kept = store
+            .set_source_if_empty(&unsourced.id, "automation")
+            .unwrap();
+        assert_eq!(kept.source.as_deref(), Some(AGENT_CHAT_SOURCE_MD_LIVE));
+        let automation = store
+            .create(CreateAgentChatRequest {
+                workspace_id: None,
+                project_id: None,
+                space_id: None,
+                cwd: "/tmp/auto".into(),
+                origin: AgentChatOrigin::Normal,
+                provider_id: "claude".into(),
+                model: None,
+                thinking: None,
+                mode: None,
+                permission_mode: None,
+                fast: None,
+                context: None,
+                title: None,
+                source: Some("automation".into()),
+                automation_run_guid: None,
+            })
+            .unwrap();
+        let unchanged = store
+            .set_source_if_empty(&automation.id, AGENT_CHAT_SOURCE_MD_LIVE)
+            .unwrap();
+        assert_eq!(unchanged.source.as_deref(), Some("automation"));
+    }
+
+    fn md_live_contract_text() -> String {
+        "Read ~/.atmos/skills/.system/atmos-md-live-agent/SKILL.md and follow it.\n\
+         You MUST edit Live by HTTP POST http://127.0.0.1:30303/api/md-live/agent/invoke"
+            .into()
+    }
+
+    fn append_user_text(store: &AgentChatStore, chat_id: &str, text: &str) {
+        store
+            .append_record(chat_id, &rec("turn-1", TranscriptEvent::TurnStarted))
+            .unwrap();
+        store
+            .append_record(
+                chat_id,
+                &rec(
+                    "turn-1",
+                    TranscriptEvent::UserMessage {
+                        message_id: "u1".into(),
+                        kind: UserMessageKind::Normal,
+                        text: text.into(),
+                        attachments: Vec::new(),
+                    },
+                ),
+            )
+            .unwrap();
+    }
+
+    #[test]
+    fn list_hydrates_unsourced_md_live_transcript_and_default_excludes() {
+        let (_dir, store) = store();
+        let normal = create(&store, "/tmp/normal");
+        append_user_text(&store, &normal.id, "@file:/tmp/note.md rewrite this");
+        let leaked = create(&store, "/tmp/live");
+        append_user_text(
+            &store,
+            &leaked.id,
+            &format!("@file:/tmp/note.md\n\n{}", md_live_contract_text()),
+        );
+        assert!(store.get_meta(&leaked.id).unwrap().source.is_none());
+        let default_list = store.list(AgentChatListFilter::default()).unwrap();
+        assert_eq!(default_list.len(), 1);
+        assert_eq!(default_list[0].id, normal.id);
+        assert_eq!(
+            store.get_meta(&leaked.id).unwrap().source.as_deref(),
+            Some(AGENT_CHAT_SOURCE_MD_LIVE)
+        );
+        let included = store
+            .list(AgentChatListFilter {
+                exclude_sources: Some(&[]),
+                ..Default::default()
+            })
+            .unwrap();
+        assert_eq!(included.len(), 2);
+        let live_row = included
+            .iter()
+            .find(|entry| entry.id == leaked.id)
+            .expect("hydrated md-live");
+        assert_eq!(live_row.source.as_deref(), Some(AGENT_CHAT_SOURCE_MD_LIVE));
+    }
+
+    #[test]
+    fn list_does_not_tag_unsourced_chats_without_live_markers() {
+        let (_dir, store) = store();
+        let chat = create(&store, "/tmp/normal");
+        append_user_text(&store, &chat.id, "@file:/tmp/note.md please edit");
+        let listed = store.list(AgentChatListFilter::default()).unwrap();
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].id, chat.id);
+        assert!(store.get_meta(&chat.id).unwrap().source.is_none());
+    }
+
+    #[test]
+    fn list_hydrates_unsourced_md_live_invoke_without_skill() {
+        let (_dir, store) = store();
+        let normal = create(&store, "/tmp/normal");
+        append_user_text(&store, &normal.id, "@file:/tmp/note.md rewrite this");
+        let leaked = store
+            .create(CreateAgentChatRequest {
+                workspace_id: None,
+                project_id: None,
+                space_id: None,
+                cwd: "/tmp/live".into(),
+                origin: AgentChatOrigin::Normal,
+                provider_id: "claude".into(),
+                model: None,
+                thinking: None,
+                mode: None,
+                permission_mode: None,
+                fast: None,
+                context: None,
+                title: Some("Tighten this paragraph.".into()),
+                source: None,
+                automation_run_guid: None,
+            })
+            .unwrap();
+        append_user_text(
+            &store,
+            &leaked.id,
+            "You MUST edit Live by HTTP POST http://127.0.0.1:30303/api/md-live/agent/invoke",
+        );
+        assert!(store.get_meta(&leaked.id).unwrap().source.is_none());
+        let default_list = store.list(AgentChatListFilter::default()).unwrap();
+        assert_eq!(default_list.len(), 1);
+        assert_eq!(default_list[0].id, normal.id);
+        assert_eq!(
+            store.get_meta(&leaked.id).unwrap().source.as_deref(),
+            Some(AGENT_CHAT_SOURCE_MD_LIVE)
+        );
+    }
+
+    #[test]
+    fn create_trims_md_live_source_and_default_list_hides_it() {
+        let (_dir, store) = store();
+        create(&store, "/tmp/normal");
+        let live = store
+            .create(CreateAgentChatRequest {
+                workspace_id: None,
+                project_id: None,
+                space_id: None,
+                cwd: "/tmp/live".into(),
+                origin: AgentChatOrigin::Normal,
+                provider_id: "claude".into(),
+                model: None,
+                thinking: None,
+                mode: None,
+                permission_mode: None,
+                fast: None,
+                context: None,
+                title: Some("@file:/tmp/note.md".into()),
+                source: Some("  md-live  ".into()),
+                automation_run_guid: None,
+            })
+            .unwrap();
+        assert_eq!(live.source.as_deref(), Some(AGENT_CHAT_SOURCE_MD_LIVE));
+        let default_list = store.list(AgentChatListFilter::default()).unwrap();
+        assert_eq!(default_list.len(), 1);
+        assert_eq!(default_list[0].cwd, "/tmp/normal");
+        let included = store
+            .list(AgentChatListFilter {
+                exclude_sources: Some(&[]),
+                ..Default::default()
+            })
+            .unwrap();
+        assert!(included.iter().any(|entry| entry.id == live.id));
     }
 }

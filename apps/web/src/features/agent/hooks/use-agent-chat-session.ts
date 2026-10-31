@@ -67,7 +67,7 @@ import {
 import {
   catalogAuthFromSnapshot,
   catalogAuthMethodKind,
-  catalogAuthToastDescription,
+  nextAuthRequiredAgentIds,
   type CatalogAuthStartResult,
 } from "@/features/agent/lib/catalog-auth";
 import {
@@ -167,6 +167,22 @@ import {
 
 export type { AgentChatSlashCommand } from "@/features/agent/store/agent-slash-command-cache";
 
+async function persistRequestedChatSource(
+  chatId: string,
+  written: string | null | undefined,
+  requested: string | null,
+): Promise<string | null> {
+  const have = written?.trim() || "";
+  if (have) return have;
+  if (!requested) return null;
+  try {
+    const updated = await agentChatApi.configure(chatId, { source: requested });
+    return updated.source?.trim() || requested;
+  } catch {
+    return requested;
+  }
+}
+
 function pendingSessionConfigPatch(
   modelId: string,
   thinkingId: string,
@@ -213,6 +229,7 @@ export function useAgentChatSession({
   instanceKey = null,
   paintContextId = null,
   surfaceVisible = true,
+  chatSource: chatSourceProp = null,
   chatId: chatIdProp,
   resumeTranscript = false,
   onChatStarted,
@@ -242,10 +259,13 @@ export function useAgentChatSession({
   onOpenChat?: (id: string) => void;
 }) {
   const chatId = chatIdProp.trim();
+  const requestedSource = chatSourceProp?.trim() || null;
+  const [persistedSource, setPersistedSource] = useState<string | null>(requestedSource);
   const t = useTranslations("agent.chatSessionTypes");
   const tSessionHints = useTranslations("Agent.components.chatPanel.session.hints");
   const tChatPanel = useTranslations("Agent.components.chatPanel");
   const lastCatalogErrorToastRef = useRef("");
+  const pendingAuthPromptAgentIdRef = useRef("");
   const [authRequest, setAuthRequest] = useState<{
     message?: string;
     methods: { id: string; name: string; description?: string }[];
@@ -268,29 +288,18 @@ export function useAgentChatSession({
   const toastCatalogSnapshot = useCallback(
     (next: AgentOptionsSnapshot) => {
       const auth = catalogAuthFromSnapshot(next);
-      if (auth) {
-        const key = `auth:${next.agent_id}:${auth.methods.map((method) => method.id).join(",")}`;
-        if (lastCatalogErrorToastRef.current === key) return;
-        lastCatalogErrorToastRef.current = key;
-        toastManager.add({
-          title: tChatPanel("catalogError.title"),
-          description: catalogAuthToastDescription(auth, tChatPanel("catalogError.authRequired")),
-          type: "error",
-          timeout: 0,
-          actionProps: {
-            children: tChatPanel("catalogError.auth"),
-            onClick: () => {
-              setSelectedAuthMethodId("");
-              setAuthRequest(auth);
-            },
-          },
-        });
-        return;
+      if (pendingAuthPromptAgentIdRef.current === next.agent_id) {
+        pendingAuthPromptAgentIdRef.current = "";
+        if (auth) {
+          setSelectedAuthMethodId("");
+          setAuthRequest(auth);
+        }
       }
+      if (auth) return;
       if (next.status !== "error") return;
       toastCatalogError(next.message ?? "");
     },
-    [tChatPanel, toastCatalogError],
+    [toastCatalogError],
   );
   const urlContext = useContextParams();
   const {
@@ -360,13 +369,39 @@ export function useAgentChatSession({
   const optionsByAgentRef = useRef<Record<string, AgentOptionsSnapshot>>({
     ...readComposerLocalCache().optionsByAgent,
   });
-  const rememberOptions = useCallback((next: AgentOptionsSnapshot | null) => {
-    if (!next?.agent_id) return;
-    if (shouldRetainExistingOptions(next, optionsByAgentRef.current[next.agent_id])) return;
-    if (next.status === "probing" && next.models.length === 0 && next.modes.length === 0) return;
-    optionsByAgentRef.current[next.agent_id] = next;
-    rememberComposerOptions(next);
+  const [authRequiredAgentIds, setAuthRequiredAgentIds] = useState<string[]>(() =>
+    Object.values(readComposerLocalCache().optionsByAgent).flatMap((snap) =>
+      catalogAuthFromSnapshot(snap) ? [snap.agent_id] : [],
+    ),
+  );
+  const rememberAuthRequired = useCallback((next: AgentOptionsSnapshot) => {
+    setAuthRequiredAgentIds((current) =>
+      nextAuthRequiredAgentIds(current, next.agent_id, Boolean(catalogAuthFromSnapshot(next))),
+    );
   }, []);
+  const armCatalogAuthPrompt = useCallback((agentId: string) => {
+    const id = agentId.trim();
+    if (!id) return;
+    pendingAuthPromptAgentIdRef.current = id;
+    const cached = optionsByAgentRef.current[id] ?? readComposerLocalCache().optionsByAgent[id];
+    if (!cached) return;
+    const auth = catalogAuthFromSnapshot(cached);
+    if (!auth) return;
+    pendingAuthPromptAgentIdRef.current = "";
+    setSelectedAuthMethodId("");
+    setAuthRequest(auth);
+  }, []);
+  const rememberOptions = useCallback(
+    (next: AgentOptionsSnapshot | null) => {
+      if (!next?.agent_id) return;
+      rememberAuthRequired(next);
+      if (shouldRetainExistingOptions(next, optionsByAgentRef.current[next.agent_id])) return;
+      if (next.status === "probing" && next.models.length === 0 && next.modes.length === 0) return;
+      optionsByAgentRef.current[next.agent_id] = next;
+      rememberComposerOptions(next);
+    },
+    [rememberAuthRequired],
+  );
   const setCatalog = useCallback(
     (
       next:
@@ -393,6 +428,7 @@ export function useAgentChatSession({
         setOptionsRefreshing(false);
       }
       const existing = optionsByAgentRef.current[next.agent_id];
+      rememberAuthRequired(next);
       toastCatalogSnapshot(next);
       if (shouldRetainExistingOptions(next, existing)) return;
       setCatalog(next);
@@ -401,7 +437,7 @@ export function useAgentChatSession({
         rememberAgentSlashCommands(next.agent_id, commands);
       }
     },
-    [setCatalog, toastCatalogSnapshot],
+    [rememberAuthRequired, setCatalog, toastCatalogSnapshot],
   );
   const [installedAgents, setInstalledAgents] = useState<RegistryAgent[]>(
     composerSeed.installedAgents,
@@ -671,6 +707,16 @@ export function useAgentChatSession({
       if (snapshotEpoch !== snapshotEpochRef.current) return;
       if (hydrateEpoch != null && hydrateEpoch !== hydrateEpochRef.current) return;
       const meta = snapshot.meta;
+      let source = meta.source?.trim() || "";
+      if (requestedSource && !source) {
+        try {
+          const updated = await agentChatApi.configure(id, { source: requestedSource });
+          source = updated.source?.trim() || requestedSource;
+        } catch {
+          source = requestedSource;
+        }
+      }
+      setPersistedSource(source || requestedSource);
       setTitle(meta.title?.trim() || null);
       const loadedMessages = withStableAgentMessageIds(
         (snapshot.messages ?? []).map((message) => ({
@@ -767,9 +813,10 @@ export function useAgentChatSession({
             variant,
             workspaceId: meta.workspace_id ?? null,
             projectId: meta.project_id ?? null,
+            chatSource: requestedSource,
           }),
         );
-        setHistorySessions(chatsToHistoryRows(listed.items ?? []));
+        setHistorySessions(chatsToHistoryRows(listed.items ?? [], { chatSource: requestedSource }));
       } catch {
         // History is secondary. A list() failure must not reject load() after
         // get() already installed the snapshot, or abandonHydrate would fold
@@ -802,6 +849,7 @@ export function useAgentChatSession({
       lastSessionPrefKey,
       paintHostScope.projectId,
       paintHostScope.workspaceId,
+      requestedSource,
       variant,
       applyDescriptor,
     ],
@@ -1012,10 +1060,11 @@ export function useAgentChatSession({
           variant,
           workspaceId: workspaceId ?? paintHostScope.workspaceId,
           projectId: projectId ?? paintHostScope.projectId,
+          chatSource: requestedSource,
         }),
       )
       .then((listed) => {
-        setHistorySessions(chatsToHistoryRows(listed.items ?? []));
+        setHistorySessions(chatsToHistoryRows(listed.items ?? [], { chatSource: requestedSource }));
       })
       .finally(() => {
         setHistoryLoading(false);
@@ -1026,6 +1075,7 @@ export function useAgentChatSession({
     paintHostScope.workspaceId,
     prefsRestored,
     projectId,
+    requestedSource,
     variant,
     workspaceId,
     wsConnected,
@@ -1348,6 +1398,9 @@ export function useAgentChatSession({
       })
       .catch((error) => {
         if (cancelled) return;
+        if (pendingAuthPromptAgentIdRef.current === providerId) {
+          pendingAuthPromptAgentIdRef.current = "";
+        }
         toastCatalogError(error instanceof Error ? error.message : String(error));
       });
     return () => {
@@ -1635,10 +1688,14 @@ export function useAgentChatSession({
             : spaceIdForChatCreate(paintContextId, workspaceId || projectId),
           title: input?.title ?? null,
           origin: isolatedModal ? "quick" : "normal",
+          source: requestedSource,
         });
         const id = meta.id;
         activeIdRef.current = id;
         setActiveChatId(id);
+        setPersistedSource(
+          (await persistRequestedChatSource(id, meta.source, requestedSource)) || requestedSource,
+        );
         applyDescriptor(meta.descriptor, { keepComposerChrome: true });
         setProviderIdState(meta.provider_id || registry);
         const nextTitle = meta.title?.trim() || input?.title?.trim() || null;
@@ -1666,6 +1723,7 @@ export function useAgentChatSession({
       paintContextId,
       projectId,
       providerId,
+      requestedSource,
       workspaceId,
       applyDescriptor,
     ],
@@ -1723,9 +1781,14 @@ export function useAgentChatSession({
               : spaceIdForChatCreate(paintContextId, workspaceId || projectId),
             title: item.sessionTitle ?? null,
             origin: isolatedModal ? "quick" : "normal",
+            source: requestedSource,
           });
           applyDescriptor(meta.descriptor);
           setProviderIdState(meta.provider_id || registry);
+          setPersistedSource(
+            (await persistRequestedChatSource(meta.id, meta.source, requestedSource)) ||
+              requestedSource,
+          );
           id = meta.id;
           pendingSendRef.current = { text, attachmentPaths: item.attachmentPaths ?? [] };
           activeIdRef.current = id;
@@ -1773,6 +1836,7 @@ export function useAgentChatSession({
     ensureCreatedChat,
     projectId,
     providerId,
+    requestedSource,
     shiftQueuedAgentChatPrompt,
     messages.length,
     workspaceId,
@@ -2097,6 +2161,7 @@ export function useAgentChatSession({
         targetRegistryId?.trim() && targetRegistryId.trim() !== providerId,
       );
       if (targetRegistryId) {
+        armCatalogAuthPrompt(targetRegistryId);
         setProviderIdState(targetRegistryId);
         const cached =
           optionsByAgentRef.current[targetRegistryId] ??
@@ -2149,6 +2214,7 @@ export function useAgentChatSession({
       const previousId = activeIdRef.current;
       activeIdRef.current = "";
       creatingChatRef.current = null;
+      setPersistedSource(requestedSource);
       hydratingRef.current = false;
       resumeTranscriptRef.current = false;
       setIsResumingHistory(false);
@@ -2175,6 +2241,7 @@ export function useAgentChatSession({
       onOpenChat?.("");
     },
     [
+      armCatalogAuthPrompt,
       chatMode,
       cwd,
       instanceKey,
@@ -2183,6 +2250,7 @@ export function useAgentChatSession({
       onOpenChat,
       projectId,
       providerId,
+      requestedSource,
       workspaceId,
     ],
   );
@@ -2410,6 +2478,7 @@ export function useAgentChatSession({
     (next: string, opts?: { model?: string }) => {
       if (agentLocked) return;
       fastByModelRef.current = {};
+      armCatalogAuthPrompt(next);
       setProviderIdState(next);
       const cached =
         optionsByAgentRef.current[next] ?? readComposerLocalCache().optionsByAgent[next];
@@ -2457,6 +2526,7 @@ export function useAgentChatSession({
     },
     [
       agentLocked,
+      armCatalogAuthPrompt,
       installedAgents,
       instanceKey,
       persistConfig,
@@ -2613,6 +2683,7 @@ export function useAgentChatSession({
   return {
     isPanelOpen,
     isConnected: hydrated,
+    chatSource: persistedSource,
     isConnecting: !hydrated && isResumingHistory,
     connectionPhase: hydrated ? "connected" : "connecting_ws",
     error: sendError,
@@ -2656,6 +2727,7 @@ export function useAgentChatSession({
     capabilities: null,
     catalogModelsLoading: isOptionsModelsLoading(catalog, providerId),
     catalogModelsReloading: optionsRefreshing,
+    authRequiredAgentIds,
     refreshEmptyCatalog,
     reloadEmptyCatalog,
     configOptions,
@@ -2684,9 +2756,10 @@ export function useAgentChatSession({
             variant,
             workspaceId: workspaceId ?? paintHostScope.workspaceId,
             projectId: projectId ?? paintHostScope.projectId,
+            chatSource: requestedSource,
           }),
         );
-        setHistorySessions(chatsToHistoryRows(listed.items ?? []));
+        setHistorySessions(chatsToHistoryRows(listed.items ?? [], { chatSource: requestedSource }));
       } finally {
         setHistoryLoading(false);
       }

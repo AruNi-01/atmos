@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
   cn,
 } from "@workspace/ui";
-import { Bot, Check, ChevronDown } from "lucide-react";
+import { Bot, Check, ChevronDown, Lock } from "lucide-react";
 
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import type { RegistryAgent } from "@/api/ws-api";
@@ -23,6 +23,7 @@ export function ChatAgentPicker({
   trigger,
   align = "start",
   header,
+  authRequiredAgentIds = [],
 }: {
   agents: readonly RegistryAgent[];
   value: string;
@@ -32,6 +33,7 @@ export function ChatAgentPicker({
   trigger?: React.ReactNode;
   align?: "start" | "end";
   header?: React.ReactNode;
+  authRequiredAgentIds?: readonly string[];
 }) {
   const t = useTranslations("Agent.components");
   const [open, setOpen] = React.useState(false);
@@ -80,20 +82,33 @@ export function ChatAgentPicker({
         <div className="max-h-64 overflow-y-auto">
           {agents.map((agent) => {
             const isSelected = agent.id === value;
+            const needsAuth = authRequiredAgentIds.includes(agent.id);
             return (
               <DropdownMenuItem
                 key={agent.id}
                 className="cursor-pointer"
                 onSelect={() => onChange(agent.id)}
               >
-                <AgentIcon
-                  registryId={agent.id}
-                  name={agent.name}
-                  size={16}
-                  isCustom={agent.install_method === "custom"}
-                  registryIcon={agent.icon}
-                />
+                <span className="relative inline-flex">
+                  <AgentIcon
+                    registryId={agent.id}
+                    name={agent.name}
+                    size={16}
+                    isCustom={agent.install_method === "custom"}
+                    registryIcon={agent.icon}
+                  />
+                  {needsAuth ? (
+                    <Lock
+                      className="absolute -right-0.5 -bottom-0.5 size-2.5 text-muted-foreground"
+                      data-agent-auth-required=""
+                      aria-hidden
+                    />
+                  ) : null}
+                </span>
                 <span className="min-w-0 flex-1 truncate">{agent.name}</span>
+                {needsAuth ? (
+                  <Lock className="size-3 shrink-0 text-muted-foreground" aria-hidden />
+                ) : null}
                 {isSelected ? <Check className="size-3.5 shrink-0 text-primary" /> : null}
               </DropdownMenuItem>
             );

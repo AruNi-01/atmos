@@ -57,6 +57,11 @@ export interface UseAgentChatSessionOptions {
    * the visual paint bus so hidden chats keep folding without React commits.
    */
   surfaceVisible?: boolean;
+  /**
+   * Persist `AgentChatMeta.source` on create/backfill (same slot as automation
+   * `"automation"`). Live markdown passes `"md-live"`.
+   */
+  chatSource?: string | null;
   /** Prefer restoring this binding (from persisted widget source) over UI prefs. */
   initialSessionBinding?: AgentChatSessionBinding | null;
   /** Called when the live chat binding changes (persist to document). */
@@ -74,6 +79,8 @@ export interface UseAgentChatSessionReturn {
   connectionPhase: string;
   error: string | null;
   chatId: string;
+  /** Wire `AgentChatMeta.source`, e.g. `"md-live"`. */
+  chatSource: string | null;
   sessionCwd: string | null;
   messages: AgentMessage[];
   setMessages: React.Dispatch<React.SetStateAction<AgentMessage[]>>;
@@ -106,7 +113,13 @@ export interface UseAgentChatSessionReturn {
   configOptions: AgentConfigOption[];
   modelsLocked: boolean;
   modesLocked: boolean;
+  catalogModelsLoading: boolean;
+  catalogModelsReloading: boolean;
+  refreshEmptyCatalog: () => void;
+  reloadEmptyCatalog: () => void;
+  authRequiredAgentIds: string[];
   setConfigOption: (key: string, value: string) => void;
+  setProviderId: (next: string, opts?: { model?: string }) => void;
   persistPreferredRegistry: (registryId: string) => void;
   setAgentDefaultConfig: (configId: string, value: string) => void;
   sessionUsage: AgentSessionUsage | null;

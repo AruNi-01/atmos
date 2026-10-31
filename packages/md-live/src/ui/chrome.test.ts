@@ -52,6 +52,9 @@ describe("md-live ui chrome", () => {
     expect(editor).toContain("isMdLiveOverlayEventTarget");
     expect(editor).toContain("pointerdown");
     expect(editor).toContain("shouldShowMdLiveSelectionToolbar");
+    expect(editor).toContain("agentChatOpen");
+    expect(editor).toContain("MD_LIVE_HIDE_SELECTION_TOOLBAR_EVENT");
+    expect(editor).toContain("isMdLiveAgentPopoverOpen");
     expect(editor).toContain("mdLiveSelectionBlockKindId");
     expect(editor).toContain("mdLiveVisibleConvertIds");
     expect(editor).toContain("activeBlockId");
@@ -127,6 +130,15 @@ describe("md-live ui chrome", () => {
     const types = readFileSync(join(here, "types.ts"), "utf8");
     expect(types).toContain("MdLiveFocusCaret");
     expect(types).toContain("focus: (options?: { caret?: MdLiveFocusCaret }) => void");
+    expect(types).toContain("getSelectionViewportRect");
+    expect(types).toContain("selectAll");
+    expect(MD_LIVE_COPY_EN.toolbarAsk).toBe("Chat");
+    const selection = readFileSync(join(here, "selection.ts"), "utf8");
+    expect(selection).toContain("[data-md-live-agent-chat]");
+    expect(selection).toContain("MD_LIVE_HIDE_SELECTION_TOOLBAR_EVENT");
+    expect(selection).toContain("agentChatOpen");
+    expect(selection).toContain('[data-md-live-agent-placement="popover"]');
+    expect(actions).toContain("coordsAtPos");
     const tableChrome = readFileSync(join(here, "table-chrome.ts"), "utf8");
     expect(tableChrome).toContain("md-live-table-handle");
     expect(tableChrome).toContain("tableAddRowAbove");

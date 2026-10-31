@@ -97,6 +97,7 @@ impl WsMessageService {
             req.project_id.as_deref(),
             req.all,
             req.origin,
+            req.exclude_sources.as_deref(),
         )?;
         let limit = req.limit.unwrap_or(100).clamp(1, 200) as usize;
         let skip = req
@@ -162,19 +163,42 @@ impl WsMessageService {
         &self,
         req: AgentChatConfigureRequest,
     ) -> Result<Value> {
-        let meta = self
-            .agent_chat()
-            .configure(
-                &req.chat_id,
-                req.provider_id,
-                req.model,
-                req.thinking,
-                req.mode,
-                req.permission_mode,
-                req.fast,
-                req.context,
-            )
-            .await?;
+        let has_config_patch = req.provider_id.is_some()
+            || req.model.is_some()
+            || req.thinking.is_some()
+            || req.mode.is_some()
+            || req.permission_mode.is_some()
+            || req.fast.is_some()
+            || req.context.is_some();
+        let mut meta = if has_config_patch {
+            self.agent_chat()
+                .configure(
+                    &req.chat_id,
+                    req.provider_id,
+                    req.model,
+                    req.thinking,
+                    req.mode,
+                    req.permission_mode,
+                    req.fast,
+                    req.context,
+                )
+                .await?
+        } else {
+            self.agent_chat()
+                .set_source_if_empty(&req.chat_id, req.source.as_deref().unwrap_or(""))?
+        };
+        if has_config_patch {
+            if let Some(source) = req
+                .source
+                .as_deref()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            {
+                meta = self
+                    .agent_chat()
+                    .set_source_if_empty(&req.chat_id, source)?;
+            }
+        }
         agent_chat_meta_json(&meta)
             .map_err(|e| ServiceError::Processing(format!("serialize chat: {e}")))
     }
@@ -653,8 +677,8 @@ mod tests {
     use super::super::WsMessageService;
     use super::subscribe_race_pause;
     use crate::api::ws::message::{
-        AgentChatGetRequest, AgentChatIdRequest, AgentChatMessagesRequest,
-        AgentChatSubscribeRequest, AgentChatToolGetRequest,
+        AgentChatCreateRequest, AgentChatGetRequest, AgentChatIdRequest, AgentChatListRequest,
+        AgentChatMessagesRequest, AgentChatSubscribeRequest, AgentChatToolGetRequest,
     };
     use crate::api::ws::{ClientType, WsManager, WsMessageHandler};
 
@@ -694,6 +718,7 @@ mod tests {
             )),
             Arc::new(ReviewService::new(Arc::clone(&db))),
             Arc::new(QuotaUsageService::new(Vec::<Arc<dyn QuotaProvider>>::new())),
+            Arc::new(CanvasAgentRelay::new()),
             Arc::new(CanvasAgentRelay::new()),
             Arc::new(CanvasAgentRelay::new()),
             notification_service,
@@ -1531,5 +1556,89 @@ mod tests {
         assert!(tool_part.get("detail_omitted").is_none());
         assert_eq!(tool_part["result"]["type"], "diff");
         assert_eq!(tool_part["result"]["new_content"], "a\nb\nc\n");
+    }
+
+    fn create_chat_req(source: Option<&str>) -> AgentChatCreateRequest {
+        AgentChatCreateRequest {
+            workspace_id: None,
+            project_id: None,
+            space_id: None,
+            cwd: None,
+            provider_id: "claude".into(),
+            model: Some("opus".into()),
+            thinking: None,
+            mode: None,
+            permission_mode: None,
+            fast: None,
+            context: None,
+            title: None,
+            origin: None,
+            source: source.map(str::to_string),
+            automation_run_guid: None,
+        }
+    }
+
+    fn list_ids(value: &serde_json::Value) -> Vec<String> {
+        value["items"]
+            .as_array()
+            .expect("items")
+            .iter()
+            .filter_map(|item| item["id"].as_str().map(str::to_string))
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn list_default_excludes_created_md_live_and_empty_exclude_includes() {
+        let root = TempRoot(
+            std::env::temp_dir().join(format!("atmos-md-live-list-{}", uuid::Uuid::new_v4())),
+        );
+        std::fs::create_dir_all(&root.0).expect("temp root");
+        let service = service_at(&root.0).await;
+        let normal = service
+            .handle_agent_chat_create(create_chat_req(None))
+            .await
+            .expect("normal create");
+        let live = service
+            .handle_agent_chat_create(create_chat_req(Some("md-live")))
+            .await
+            .expect("md-live create");
+        let normal_id = normal["id"].as_str().expect("normal id").to_string();
+        let live_id = live["id"].as_str().expect("live id").to_string();
+        assert_eq!(live["source"].as_str(), Some("md-live"));
+        assert!(normal.get("source").is_none());
+
+        let default_list = service
+            .handle_agent_chat_list(AgentChatListRequest {
+                workspace_id: None,
+                project_id: None,
+                cwd: None,
+                cursor: None,
+                limit: None,
+                all: true,
+                origin: None,
+                exclude_sources: None,
+            })
+            .await
+            .expect("default list");
+        let default_ids = list_ids(&default_list);
+        assert!(default_ids.contains(&normal_id));
+        assert!(!default_ids.contains(&live_id));
+
+        let included = service
+            .handle_agent_chat_list(AgentChatListRequest {
+                workspace_id: None,
+                project_id: None,
+                cwd: None,
+                cursor: None,
+                limit: None,
+                all: true,
+                origin: None,
+                exclude_sources: Some(Vec::new()),
+            })
+            .await
+            .expect("include all");
+        let included_ids = list_ids(&included);
+        assert!(included_ids.contains(&normal_id));
+        assert!(included_ids.contains(&live_id));
     }
 }

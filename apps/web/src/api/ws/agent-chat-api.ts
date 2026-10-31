@@ -3,6 +3,7 @@ import type {
   AgentOptionsSnapshot,
   AgentChatOrigin,
   AgentChatIndexEntry,
+  AgentChatListRequest,
   AgentChatMeta,
   AgentChatPrefs,
   AgentChatPrefsSetRequest,
@@ -17,6 +18,7 @@ import type {
   AgentSessionUsage,
   AgentTurnUsage,
 } from "@atmos/api-types/ws/dto/agent-chat";
+import { filterDefaultHiddenAgentChatItems } from "@atmos/api-types/ws/dto/agent-chat";
 
 export type {
   AgentOptionsSnapshot,
@@ -39,17 +41,13 @@ export type {
 
 export const agentChatApi = {
   create: (input: AgentChatCreateRequest) => wsRequest("agent_chat_create", input),
-  list: (
-    input: {
-      workspace_id?: string | null;
-      project_id?: string | null;
-      cwd?: string | null;
-      cursor?: string | null;
-      limit?: number | null;
-      all?: boolean | null;
-      origin?: AgentChatOrigin | null;
-    } = {},
-  ) => wsRequest("agent_chat_list", input),
+  list: async (input: AgentChatListRequest = {}) => {
+    const listed = await wsRequest("agent_chat_list", input);
+    return {
+      ...listed,
+      items: filterDefaultHiddenAgentChatItems(listed.items ?? [], input.exclude_sources),
+    };
+  },
   get: (chat_id: string) => wsRequest("agent_chat_get", { chat_id }),
   rename: (chat_id: string, title: string) => wsRequest("agent_chat_rename", { chat_id, title }),
   configure: (chat_id: string, patch: Omit<AgentChatConfigureRequest, "chat_id">) =>
@@ -62,6 +60,7 @@ export const agentChatApi = {
       permission_mode: patch.permission_mode ?? null,
       fast: patch.fast ?? null,
       context: patch.context ?? null,
+      source: patch.source ?? null,
     }),
   delete: (chat_id: string) => wsRequest("agent_chat_delete", { chat_id }),
   subscribe: (chat_id: string, after_sequence?: number | null) =>

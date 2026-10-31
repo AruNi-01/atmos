@@ -1339,7 +1339,7 @@ async fn app069_s13_failed_session_op_does_not_set_rewind_view_or_fork() {
     let after = service.get(&meta.id).await.unwrap();
     assert!(after.meta.rewind_view.is_none());
     assert!(after.pending_session_op.is_none());
-    let listed = service.list(None, None, None, true, None).unwrap();
+    let listed = service.list(None, None, None, true, None, None).unwrap();
     assert_eq!(listed.len(), 1);
     assert_eq!(listed[0].id, meta.id);
 }
@@ -1370,7 +1370,7 @@ async fn app069_s16_applied_fork_creates_sibling_and_emits_session_forked() {
         .await
         .unwrap();
 
-    let listed = service.list(None, None, None, true, None).unwrap();
+    let listed = service.list(None, None, None, true, None, None).unwrap();
     assert_eq!(listed.len(), 2);
     let child = listed
         .iter()
@@ -3250,6 +3250,58 @@ async fn list_resource_roots_exposes_live_pid_for_workspace_chat() {
         .expect("chat root");
     assert_eq!(root.context_id, "ws-1");
     assert_eq!(root.root_pid, Some(4242));
+}
+
+#[test]
+fn live_session_chats_omits_unsourced_md_live_after_list_hydrate() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    let (_dir, service) = make_service(provider);
+    let mut normal = create_req("/tmp/normal");
+    normal.workspace_id = Some("ws-1".into());
+    let normal = service.create(normal).unwrap();
+    let mut live = create_req("/tmp/live");
+    live.workspace_id = Some("ws-1".into());
+    live.title = Some("@file:/tmp/note.md".into());
+    let live = service.create(live).unwrap();
+    service
+        .store()
+        .append_record(
+            &live.id,
+            &TranscriptEnvelope::new("turn-1", TranscriptEvent::TurnStarted),
+        )
+        .unwrap();
+    service
+        .store()
+        .append_record(
+            &live.id,
+            &TranscriptEnvelope::new(
+                "turn-1",
+                TranscriptEvent::UserMessage {
+                    message_id: "u1".into(),
+                    kind: UserMessageKind::Normal,
+                    text: "Read ~/.atmos/skills/.system/atmos-md-live-agent/SKILL.md\n\
+                           POST http://127.0.0.1:30303/api/md-live/agent/invoke"
+                        .into(),
+                    attachments: Vec::new(),
+                },
+            ),
+        )
+        .unwrap();
+    let chats = service.live_session_chats().unwrap();
+    assert!(chats.iter().any(|chat| chat.id == normal.id));
+    assert!(
+        chats.iter().all(|chat| chat.id != live.id),
+        "hydrated md-live must not appear in the sidebar live set: {chats:?}"
+    );
+    assert_eq!(
+        service
+            .store()
+            .get_meta(&live.id)
+            .unwrap()
+            .source
+            .as_deref(),
+        Some(crate::AGENT_CHAT_SOURCE_MD_LIVE)
+    );
 }
 
 #[tokio::test]

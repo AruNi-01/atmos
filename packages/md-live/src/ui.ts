@@ -12,6 +12,7 @@ export type {
   MdLiveSlashMenuProps,
   MdLiveSlashPick,
   MdLiveTaskMarker,
+  MdLiveViewportRect,
 } from "./ui/types";
 export {
   MD_LIVE_HEADING_LEVELS,
@@ -77,9 +78,11 @@ export {
 } from "./ui/composing";
 export {
   isMdLiveOverlayEventTarget,
+  isMdLiveAgentPopoverOpen,
   mdLiveBlockKindId,
   mdLiveSelectionBlockKindId,
   mdLiveUnifyBlockKindId,
+  MD_LIVE_HIDE_SELECTION_TOOLBAR_EVENT,
   shouldShowMdLiveSelectionToolbar,
 } from "./ui/selection";
 export {
@@ -93,6 +96,7 @@ export { MdLiveEditor, type MdLiveEditorProps } from "./ui/LiveEditor";
 export {
   getEditorMarkdown,
   getSelectionMarkdown,
+  getSelectionViewportRect,
   focusEditorCaret,
   insertMarkdown,
   sliceFromMarkdownDoc,
@@ -100,6 +104,7 @@ export {
   deleteSlashQuery,
   insertText,
   runBlockAction,
+  selectAll,
   startStream,
   pushStreamChunk,
   endStream,

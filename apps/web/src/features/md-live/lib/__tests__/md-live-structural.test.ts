@@ -151,41 +151,206 @@ describe("md-live structural gates", () => {
     expect(source).toContain("activateCenterChromeTab");
   });
 
-  test("composer dock reuses PromptComposer and has no terminal send", () => {
+  test("Live Agent Chat reuses one Agent Chat session for popover and bottom bar", () => {
     const source = readFileSync(
+      join(import.meta.dir, "../../components/MdLiveAgentChat.tsx"),
+      "utf8",
+    );
+    expect(source.match(/useAgentChatSession\(/g)?.length).toBe(1);
+    expect(source).toContain('chatIdProp || ""');
+    expect(source).toContain("selectedId={selectedSubagentId}");
+    expect(source).toContain("onSelect={setSelectedSubagentId}");
+    expect(source).toContain("mdLiveAgentChatInstanceKey");
+    expect(source).toContain("instanceKey={instanceKey}");
+    expect(source).toContain("chatSource: MD_LIVE_AGENT_CHAT_SOURCE");
+    const session = readFileSync(
+      join(import.meta.dir, "../../../agent/hooks/use-agent-chat-session.ts"),
+      "utf8",
+    );
+    expect(session).toContain("persistRequestedChatSource");
+    expect(session).toContain("chatSource: requestedSource");
+    expect(session).toContain("configure(id, { source: requestedSource })");
+    const api = readFileSync(join(import.meta.dir, "../../../../api/ws/agent-chat-api.ts"), "utf8");
+    expect(api).toContain("filterDefaultHiddenAgentChatItems");
+    expect(api).toContain("input.exclude_sources");
+    expect(source).toContain("AgentPromptComposer");
+    expect(source).toContain("AgentChatTranscriptList");
+    expect(source).toContain("data-md-live-agent-placement={placement}");
+    expect(source).toContain('placement === "popover"');
+    expect(source).toContain("data-md-live-agent-popover");
+    expect(source).toContain("data-md-live-agent-bar");
+    expect(source).toContain("data-md-live-message-agent");
+    expect(source).toContain('t("messageAgent")');
+    expect(source).toContain("LayoutGroup");
+    expect(source).toContain("layoutId={MD_LIVE_INVITE_LAYOUT_ID}");
+    expect(source).toContain("data-md-live-invite-hairline");
+    expect(source).toContain("data-md-live-invite-hit");
+    expect(source).toContain("MD_LIVE_INVITE_HAIRLINE_WIDTH_PX");
+    expect(source).toContain("MD_LIVE_INVITE_HAIRLINE_Y_PX");
+    expect(source).toContain("MD_LIVE_INVITE_PILL_HEIGHT_PX");
+    expect(source).toContain("flex justify-center pb-3");
+    expect(source).toContain("isMdLiveInviteHoverTarget");
+    expect(source).not.toContain("isMdLiveBarHoverZone");
+    expect(source).not.toContain("MD_LIVE_BAR_HOVER_PX");
+    expect(source).not.toContain('className="h-0.5 w-full rounded-full"');
+    expect(source).toContain("originY: 1");
+    expect(source).toContain("morphEntry && !showComposer");
+    expect(source).toContain("mdLiveInviteMorphs");
+    expect(source).toContain("mdLiveBarSurface");
+    expect(source).toContain("morphEntry && showComposer");
+    expect(source).toContain("data-md-live-working-pill");
+    expect(source).toContain("mdLiveShowWorkingPill");
+    expect(source).toContain("mdLiveIdleWorkedMs");
+    expect(source).toContain("AgentActivityStatusText");
+    expect(source).toContain("ActivityIndicator");
+    expect(source).toContain("formatWorkDuration");
+    expect(source).toContain('chatPanelT("workedFor"');
+    expect(source).toContain("AgentChatEdgeFades");
+    expect(source).toContain("rootRef={session.transcriptRef}");
+    expect(source).toContain("expandThread");
+    expect(source).not.toContain("working && !popover");
+    expect(source).not.toContain("Sparkles");
+    expect(source).not.toContain("data-md-live-source-badge");
+    expect(source).not.toContain('t("agentBadge")');
+    expect(source).not.toContain("isLiveSource");
+    expect(source).not.toContain("border-b border-border");
+    expect(source).not.toContain('data-md-live-expand=""');
+    expect(source).not.toContain("Maximize2");
+    expect(source).toContain("setExpanded(true)");
+    expect(source).toContain("setExpanded(false)");
+    expect(source).toContain("data-md-live-accept");
+    expect(source).toContain("data-md-live-reject");
+    expect(source).toContain("data-md-live-pin");
+    expect(source).toContain("data-md-live-new-session");
+    expect(source).toContain("minimizeToBar");
+    expect(source).toContain("isMdLiveAgentOverlayDismissTarget");
+    expect(source).toContain("if (pinned) return");
+    expect(source).toContain("prependMdLiveComposerContext");
+    expect(source).toContain("onDraftChange");
+    expect(source).toContain("mdLiveSelectionPopoverStyle");
+    expect(source).toContain("nextMdLiveBarMode");
+    expect(source).toContain("MD_LIVE_AGENT_PANEL_CLASS");
+    expect(source).toContain("MD_LIVE_AGENT_STACK_CLASS");
+    expect(source).toContain("MD_LIVE_AGENT_THREAD_MAX_CLASS");
+    expect(source).toContain("z-[60]");
+    expect(source).toContain('import "../md-live-agent-overlay.css"');
+    expect(source).toContain('promptClassName="bg-popover"');
+    expect(source).toContain('data-md-live-agent-thread-card=""');
+    expect(source).toContain("mdLiveShowThreadCard");
+    expect(source).toContain('data-md-live-minimize=""');
+    expect(source).not.toContain("min-h-[12rem]");
+    expect(source).not.toContain("min-h-[min(48vh,20rem)]");
+    expect(source).not.toContain('backgroundColor: "var(--popover)"');
+    expect(source).toContain('setPlacement("bottom")');
+    expect(source).toContain("setExpanded(false)");
+    expect(source).toContain("AgentChatTranscriptList");
+    const helpers = readFileSync(join(import.meta.dir, "../md-live-agent-chat.ts"), "utf8");
+    expect(helpers).toContain("bg-popover");
+    expect(helpers).toContain("MD_LIVE_AGENT_PANEL_CLASS");
+    expect(helpers).toContain("MD_LIVE_AGENT_STACK_CLASS");
+    expect(helpers).toContain("mdLiveShowThreadCard");
+    expect(helpers).toContain("mdLiveBarSurface");
+    expect(helpers).toContain("mdLiveInviteMorphs");
+    expect(helpers).toContain("MD_LIVE_INVITE_LAYOUT_ID");
+    expect(helpers).toContain("MD_LIVE_INVITE_HAIRLINE_WIDTH_PX = 104");
+    expect(helpers).toContain("MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX = 4");
+    expect(helpers).toContain("MD_LIVE_INVITE_PILL_HEIGHT_PX = 36");
+    expect(helpers).toContain("MD_LIVE_INVITE_HAIRLINE_Y_PX = 8");
+    expect(helpers).toContain("isMdLiveInviteHoverTarget");
+    expect(helpers).not.toContain("isMdLiveBarHoverZone");
+    expect(helpers).toContain('"invite"');
+    expect(helpers).toContain("mdLiveShowWorkingPill");
+    expect(helpers).toContain("mdLiveIdleWorkedMs");
+    expect(helpers).toContain('MD_LIVE_AGENT_CHAT_SOURCE = "md-live"');
+    expect(helpers).toContain("isMdLiveAgentOverlayDismissTarget");
+    expect(helpers).toContain("mdLiveAgentChromeStep");
+    expect(helpers).toContain("MD_LIVE_AGENT_CHROME_MAX_THREAD_PX = 576");
+    expect(helpers).toContain("MD_LIVE_AGENT_CHROME_MAX_MODEL_TEXT_PX = 448");
+    expect(helpers).toContain("MD_LIVE_AGENT_CHROME_MAX_MODE_LABEL_PX = 352");
+    expect(helpers).toContain("MD_LIVE_AGENT_CHROME_MAX_PERMISSION_LABEL_PX = 288");
+    const overlayCss = readFileSync(
+      join(import.meta.dir, "../../md-live-agent-overlay.css"),
+      "utf8",
+    );
+    expect(overlayCss).toContain("container-name: md-live-agent");
+    expect(overlayCss).toContain("[data-md-live-agent-thread-card]");
+    expect(overlayCss).toContain("[data-md-live-working-pill]");
+    expect(overlayCss).toContain("[data-md-live-message-agent]");
+    expect(overlayCss).toContain("[data-md-live-invite-hairline]");
+    expect(overlayCss).toContain("width: 104px");
+    expect(overlayCss).toContain("height: 4px");
+    expect(overlayCss).toMatch(/\[data-md-live-invite-hairline\]\s*\{[^}]*var\(--popover\) 78%/);
+    expect(overlayCss).not.toMatch(/\[data-md-live-invite-hairline\]\s*\{[^}]*foreground\) 34%/);
+    expect(overlayCss).toContain("inset-block: -8px");
+    expect(overlayCss).toContain("inset-inline: 0");
+    expect(overlayCss).not.toMatch(/\[data-md-live-invite-hairline\]\s*\{[^}]*\bwidth:\s*100%/);
+    expect(overlayCss).toContain("[data-md-live-agent-thread] .agent-chat-edge-fade");
+    expect(overlayCss).toContain("background-color: var(--popover) !important");
+    expect(overlayCss).not.toMatch(
+      /\[data-md-live-agent-popover\],\s*\[data-md-live-agent-bar\]\s*\{[^}]*background-color/,
+    );
+    expect(overlayCss.indexOf("max-width: 576px")).toBeGreaterThan(0);
+    expect(overlayCss.indexOf("max-width: 448px")).toBeGreaterThan(
+      overlayCss.indexOf("max-width: 576px"),
+    );
+    expect(overlayCss.indexOf("max-width: 352px")).toBeGreaterThan(
+      overlayCss.indexOf("max-width: 448px"),
+    );
+    expect(overlayCss.indexOf("max-width: 288px")).toBeGreaterThan(
+      overlayCss.indexOf("max-width: 352px"),
+    );
+    expect(overlayCss).toContain("[data-prompt-thread]");
+    expect(overlayCss).toContain("[data-prompt-model-label]");
+    expect(overlayCss).toContain("[data-prompt-mode]");
+    expect(overlayCss).toContain("[data-prompt-permission]");
+    expect(overlayCss).not.toContain("[data-agent-chat]");
+    const picker = readFileSync(
+      join(import.meta.dir, "../../../agent/components/AgentChatWorkingDirectoryPicker.tsx"),
+      "utf8",
+    );
+    expect(picker).toContain('data-prompt-thread=""');
+    expect(source).toContain("MD_LIVE_HIDE_SELECTION_TOOLBAR_EVENT");
+    expect(source).toContain("mdLiveOverlayTitle");
+    expect(source).toContain("data-md-live-agent-header");
+    expect(source).toContain("data-md-live-agent-chrome");
+    expect(source).toContain("hasComposerChrome ? (");
+    expect(source).toContain('mdLiveOverlayTitle(session.displaySessionTitle, "")');
+    expect(source).toContain("<Plus");
+    expect(source).toContain("<Pin");
+    expect(source).not.toContain("compact");
+    expect(source).not.toContain('t("chat")');
+    expect(source).not.toContain("<X");
+    expect(source).not.toContain("bg-background/95");
+    expect(source).not.toContain("drop-shadow-lg");
+    expect(source).not.toContain("showThread ? MD_LIVE_AGENT_PANEL_CLASS");
+    expect(source).not.toContain("insertFileMentionForInstanceKey");
+    expect(source).not.toContain("insertAiContextForInstanceKey");
+    expect(source).not.toContain("MD_LIVE_HEADLESS_PTY");
+    expect(source).not.toContain("createFenceExtractor");
+    expect(source).not.toContain("Send to terminal");
+    expect(source).toContain("useMdLiveAgentBridge");
+    const bridge = readFileSync(
+      join(import.meta.dir, "../../hooks/use-md-live-agent-bridge.ts"),
+      "utf8",
+    );
+    expect(bridge).toContain("applyMdLiveAgentToolToOpenDoc");
+    expect(bridge).toContain("md_live_agent_dispatch");
+    const host = readFileSync(join(import.meta.dir, "../md-live-edit-host.ts"), "utf8");
+    expect(host).toContain("isMdLiveMutatingTool");
+    expect(host).not.toContain("fs_write");
+  });
+
+  test("headless dock is unmounted as the primary Live Agent path", () => {
+    const chat = readFileSync(
+      join(import.meta.dir, "../../components/MdLiveAgentChat.tsx"),
+      "utf8",
+    );
+    const dock = readFileSync(
       join(import.meta.dir, "../../components/MdLiveAgentDock.tsx"),
       "utf8",
     );
-    expect(source).toContain("PromptComposer");
-    expect(source).toContain("@/features/welcome/components/PromptComposer");
-    expect(source).toContain("WelcomeAgentSelector");
-    expect(source).toContain("filterHeadlessAgents");
-    expect(source).toContain('triggerPlacement="inline"');
-    expect(source).toContain('purpose="automation"');
-    expect(source).not.toContain('variant="menu"');
-    expect(source).toContain('placeholder={t("placeholder")}');
-    expect(source).toContain("ArrowUp");
-    expect(source).not.toContain("copyMdLivePrompt");
-    expect(source).not.toContain("Send to terminal");
-    expect(source).not.toContain("EditorPromptComposer");
-    expect(source).not.toContain('{t("run")}\n        </Button>');
-    expect(source).toContain("isTerminalAgentInputShortcut");
-    expect(source).toContain("h-1 w-28 rounded-full");
-    expect(source).toContain("pointer-events-none absolute inset-x-0 bottom-1.5");
-    expect(source).toContain("grid-rows-[0fr]");
-    expect(source).toContain("grid-rows-[1fr]");
-    expect(source).toContain("MD_LIVE_HEADLESS_PTY");
-    expect(source).toContain("connectWhileHidden");
-    expect(source).toContain("shouldFireMdLiveFenceTimeout");
-    expect(source).toContain("stripTerminalAnsi");
-    expect(source).toContain("resolveMdLiveRunEditor");
-    expect(source).toContain("resolveMdLiveRunGrid");
-    const onRun = source.slice(source.indexOf("const onRun"));
-    expect(onRun.indexOf("resolveMdLiveRunEditor")).toBeGreaterThan(-1);
-    expect(onRun.indexOf("resolveMdLiveRunGrid")).toBeGreaterThan(-1);
-    expect(onRun.indexOf("resolveMdLiveRunEditor")).toBeLessThan(onRun.indexOf("lockMdLiveStream"));
-    expect(onRun.indexOf("resolveMdLiveRunGrid")).toBeLessThan(onRun.indexOf("lockMdLiveStream"));
-    expect(source).toContain("restoreAndUnlockMdLiveStream");
+    expect(chat).not.toContain("MdLiveAgentDock");
+    expect(dock).toContain("MD_LIVE_HEADLESS_PTY");
   });
 
   test("terminal grid handle is published from the frame callback ref", () => {

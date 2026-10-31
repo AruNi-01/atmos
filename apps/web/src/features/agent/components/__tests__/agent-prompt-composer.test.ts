@@ -71,6 +71,9 @@ describe("agent prompt composer", () => {
     expect(composer).toContain("modes={toModePromptModels");
     expect(composer).toContain("permissionModes={toPermissionPromptModels");
     expect(composer).toContain("onAgentChange={onProviderChange}");
+    expect(composer).toContain("authRequiredAgentIds");
+    expect(composer).toContain("data-agent-auth-required");
+    expect(composer).toContain('t("composer.authRequired")');
     expect(composer).toContain("agentTablist=");
     expect(composer).toContain('orientation="vertical"');
     expect(composer).toContain("CenterStageTabList");
@@ -135,6 +138,7 @@ describe("agent prompt composer", () => {
     expect(composer).toContain('modelLocked: t("composer.modelLocked")');
     expect(composer).toContain('modeLocked: t("composer.modeLocked")');
     expect(composer).toContain('permissionLocked: t("composer.permissionLocked")');
+    expect(composer).toContain("authRequiredAgentIds={authRequiredAgentIds}");
     expect(composer).toContain("onEmptyModelsOpen={onEmptyModelsOpen}");
     expect(composer).toContain("onLoadModels={onLoadModels}");
     expect(composer).toContain('loadModels: t("composer.loadModels")');
@@ -154,7 +158,8 @@ describe("agent prompt composer", () => {
   });
 
   it("renders image tiles and file pills in the composer header", () => {
-    expect(composer).toContain("header={<AgentComposerAttachments />}");
+    expect(composer).toContain("header={");
+    expect(composer).toContain("<AgentComposerAttachments");
     expect(composer).not.toContain('variant="inline"');
     expect(composer).not.toContain("AttachmentPreview");
     expect(composer).toContain("normalizeComposerImageFile");
@@ -181,6 +186,12 @@ describe("agent prompt composer", () => {
     expect(composer).toContain(
       '"min-h-5 max-h-40 select-text rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5"',
     );
+    expect(composer).not.toContain("whitespace-nowrap");
+    expect(composer).not.toContain("[&_[data-token]]:shrink-0");
+    expect(composer).toContain("header={<AgentComposerAttachments />}");
+    expect(composer).toContain("{leadingChrome ? (");
+    expect(composer).toContain("promptClassName?: string");
+    expect(composer).not.toContain("data-agent-chat-compact");
     expect(composer).not.toContain("data-agent-composer-landing");
   });
 

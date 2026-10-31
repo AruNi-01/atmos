@@ -24,6 +24,7 @@ interface AgentChatHistorySidebarProps {
   handleSelectHistorySession: (row: AgentChatHistoryRow) => void;
   handleCreateNewSession: (targetRegistryId?: string) => Promise<void>;
   onPreferredRegistryChange?: (registryId: string) => void;
+  authRequiredAgentIds?: readonly string[];
   installedAgents: RegistryAgent[];
   defaultRegistryId: string;
   activeRegistryId: string;
@@ -221,6 +222,7 @@ export function AgentChatHistorySidebar({
   handleSelectHistorySession,
   handleCreateNewSession,
   onPreferredRegistryChange,
+  authRequiredAgentIds,
   installedAgents,
   defaultRegistryId,
   activeRegistryId,
@@ -335,6 +337,7 @@ export function AgentChatHistorySidebar({
             <ChatAgentPicker
               agents={installedAgents}
               value={effectiveSelectedRegistryId}
+              authRequiredAgentIds={authRequiredAgentIds}
               align="end"
               onChange={(agentId) => {
                 setSelectedRegistryId(agentId);

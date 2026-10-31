@@ -41,6 +41,7 @@ const ALL_SYSTEM_SKILL_NAMES: &[&str] = &[
     "atmos-canvas-agent",
     // Prototype Design live board (APP-062)
     "atmos-pt-design-agent",
+    "atmos-md-live-agent",
     // Desktop capture / drive (APP-052)
     "atmos-desktop-use",
     "atmos-browser-use",
@@ -183,6 +184,7 @@ fn repo_skill_root(skill_name: &str) -> Option<&'static str> {
         "atmos-review-fix" => Some("skills/atmos-review-fix"),
         "atmos-canvas-agent" => Some("skills/atmos-canvas-agent"),
         "atmos-pt-design-agent" => Some("skills/atmos-pt-design-agent"),
+        "atmos-md-live-agent" => Some("skills/atmos-md-live-agent"),
         "atmos-device-preview" => Some("skills/atmos-device-preview"),
         "atmos-automation" => Some("skills/atmos-automation"),
         "atmos-agent-bridge" => Some("skills/atmos-agent-bridge"),
@@ -721,6 +723,15 @@ mod tests {
         assert_eq!(
             repo_skill_root("atmos-agent-bridge"),
             Some("skills/atmos-agent-bridge")
+        );
+    }
+
+    #[test]
+    fn md_live_agent_is_registered_as_a_system_skill() {
+        assert!(ALL_SYSTEM_SKILL_NAMES.contains(&"atmos-md-live-agent"));
+        assert_eq!(
+            repo_skill_root("atmos-md-live-agent"),
+            Some("skills/atmos-md-live-agent")
         );
     }
 

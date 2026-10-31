@@ -1,0 +1,107 @@
+/* Live Agent Chat overlay: two-layer stack + width-adaptive chrome.
+   Named container so sidebar Agent Chat is unaffected.
+   The popover/bar node is a transparent stack (gap must show the document).
+   Opaque fill lives on the thread card and [data-prompt-input] only.
+   Hide order (wide → narrow), px = overlay inline size:
+     ≤576 Thread, ≤448 model text (icon remains), ≤352 mode, ≤288 permission.
+   Wide still shows Default / Ask always / full model — not a permanent D/A compact.
+   --popover is opaque oklch (no alpha). !important beats PromptInput's
+   bg-foreground/[0.04] so document text cannot show through the input. */
+
+[data-md-live-agent-popover],
+[data-md-live-agent-bar] {
+  container-type: inline-size;
+  container-name: md-live-agent;
+  isolation: isolate;
+}
+
+[data-md-live-agent-thread-card],
+[data-md-live-agent-popover] [data-prompt-input],
+[data-md-live-agent-bar] [data-prompt-input] {
+  background-color: var(--popover) !important;
+  color: var(--popover-foreground);
+}
+
+[data-md-live-agent-popover] [data-agent-chat-composer],
+[data-md-live-agent-bar] [data-agent-chat-composer] {
+  padding: 0;
+}
+
+[data-md-live-working-pill],
+[data-md-live-message-agent] {
+  background-color: color-mix(in oklch, var(--popover) 82%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+[data-md-live-invite-hairline] {
+  width: 104px;
+  max-width: calc(100% - 1.5rem);
+  height: 4px;
+  /* Surface glass, not a text-colored stroke — readable on white glyphs and dark canvas. */
+  background-color: color-mix(in oklch, var(--popover) 78%, var(--background) 22%);
+  backdrop-filter: blur(12px);
+  box-shadow:
+    0 0 0 1px color-mix(in oklch, var(--foreground) 38%, transparent),
+    0 0 0 2px color-mix(in oklch, var(--background) 72%, black 28%);
+}
+
+[data-md-live-invite-hairline]::after {
+  content: "";
+  position: absolute;
+  inset-block: -8px;
+  inset-inline: 0;
+}
+
+[data-md-live-agent-thread] .agent-chat-edge-fade {
+  --agent-chat-fade-stops:
+    var(--popover) 0%, color-mix(in oklab, var(--popover) 88%, transparent) 24%,
+    color-mix(in oklab, var(--popover) 46%, transparent) 58%, transparent 100%;
+}
+
+@container md-live-agent (max-width: 576px) {
+  [data-prompt-thread] {
+    display: none;
+  }
+}
+
+@container md-live-agent (max-width: 448px) {
+  [data-prompt-model-label] {
+    display: none;
+  }
+
+  [data-prompt-model] {
+    width: 2rem;
+    max-width: 2rem;
+    justify-content: center;
+    padding-inline: 0;
+    gap: 0;
+  }
+}
+
+@container md-live-agent (max-width: 352px) {
+  [data-prompt-mode] [data-prompt-option-label] {
+    display: none;
+  }
+
+  [data-prompt-mode] {
+    width: 2rem;
+    max-width: 2rem;
+    justify-content: center;
+    padding-inline: 0;
+    gap: 0;
+  }
+}
+
+@container md-live-agent (max-width: 288px) {
+  [data-prompt-permission] [data-prompt-option-label] {
+    display: none;
+  }
+
+  [data-prompt-permission] {
+    width: 2rem;
+    max-width: 2rem;
+    justify-content: center;
+    padding-inline: 0;
+    gap: 0;
+  }
+}

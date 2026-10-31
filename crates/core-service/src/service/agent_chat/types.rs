@@ -213,6 +213,8 @@ pub struct AgentChatIndexEntry {
     pub space_id: Option<String>,
     #[serde(default)]
     pub origin: AgentChatOrigin,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
     pub provider_id: String,
     pub updated_at: DateTime<Utc>,
     #[serde(default)]
@@ -231,11 +233,111 @@ impl From<&AgentChatMeta> for AgentChatIndexEntry {
             project_id: meta.project_id.clone(),
             space_id: meta.space_id.clone(),
             origin: meta.origin,
+            source: meta.source.clone(),
             provider_id: meta.provider_id.clone(),
             updated_at: meta.updated_at,
             last_message_at: meta.last_message_at,
             deleted: meta.deleted,
         }
+    }
+}
+
+/// Same slot as automation (`"automation"`). Live markdown Agent Chat.
+pub const AGENT_CHAT_SOURCE_MD_LIVE: &str = "md-live";
+
+pub const DEFAULT_EXCLUDED_AGENT_CHAT_SOURCES: &[&str] = &[AGENT_CHAT_SOURCE_MD_LIVE];
+
+/// Injected by Live markdown `transformMdLivePrompt`.
+pub const MD_LIVE_TRANSCRIPT_SKILL_MARK: &str = "atmos-md-live-agent";
+/// Injected by Live markdown `transformMdLivePrompt` (`/invoke` included).
+pub const MD_LIVE_TRANSCRIPT_INVOKE_MARK: &str = "/api/md-live/agent";
+/// Older Live Document-edit user-message prefix (also becomes the chat title).
+pub const MD_LIVE_TRANSCRIPT_EDIT_PREFIX: &str = "You are editing the open Atmos";
+
+pub fn normalize_agent_chat_source(source: Option<String>) -> Option<String> {
+    source.and_then(|value| {
+        let trimmed = value.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed.to_string())
+        }
+    })
+}
+
+pub fn agent_chat_source_is_excluded(
+    source: Option<&str>,
+    exclude_sources: Option<&[String]>,
+) -> bool {
+    let Some(source) = source.map(str::trim).filter(|value| !value.is_empty()) else {
+        return false;
+    };
+    match exclude_sources {
+        None => DEFAULT_EXCLUDED_AGENT_CHAT_SOURCES.contains(&source),
+        Some(list) => list.iter().any(|skip| skip == source),
+    }
+}
+
+/// Unsourced chats created before `source=md-live` was persisted.
+/// Any one Live call trace is enough. Do not match fuzzy titles such as `@file:`.
+pub fn agent_chat_text_looks_like_md_live(text: &str) -> bool {
+    text.contains(MD_LIVE_TRANSCRIPT_INVOKE_MARK)
+        || text.contains(MD_LIVE_TRANSCRIPT_SKILL_MARK)
+        || text.contains(MD_LIVE_TRANSCRIPT_EDIT_PREFIX)
+}
+
+#[cfg(test)]
+mod md_live_source_tests {
+    use super::*;
+
+    #[test]
+    fn default_exclude_needs_a_written_source() {
+        assert!(!agent_chat_source_is_excluded(None, None));
+        assert!(!agent_chat_source_is_excluded(Some(""), None));
+        assert!(!agent_chat_source_is_excluded(Some("  "), None));
+        assert!(agent_chat_source_is_excluded(
+            Some(AGENT_CHAT_SOURCE_MD_LIVE),
+            None
+        ));
+        let empty: [String; 0] = [];
+        assert!(!agent_chat_source_is_excluded(
+            Some(AGENT_CHAT_SOURCE_MD_LIVE),
+            Some(&empty)
+        ));
+    }
+
+    #[test]
+    fn transcript_markers_match_any_live_call_trace() {
+        assert!(!agent_chat_text_looks_like_md_live("@file:/tmp/note.md"));
+        assert!(!agent_chat_text_looks_like_md_live(
+            "Please rewrite my Atmos notes about the editor."
+        ));
+        assert!(agent_chat_text_looks_like_md_live(
+            "Read ~/.atmos/skills/.system/atmos-md-live-agent/SKILL.md"
+        ));
+        assert!(agent_chat_text_looks_like_md_live(
+            "POST http://127.0.0.1:30303/api/md-live/agent/invoke"
+        ));
+        assert!(agent_chat_text_looks_like_md_live(
+            "You are editing the open Atmos Live markdown document."
+        ));
+        assert!(agent_chat_text_looks_like_md_live(
+            "You are editing the open Atmos L…"
+        ));
+        assert!(agent_chat_text_looks_like_md_live(
+            "Read ~/.atmos/skills/.system/atmos-md-live-agent/SKILL.md\n\
+             You MUST edit Live by HTTP POST http://127.0.0.1:30303/api/md-live/agent/invoke"
+        ));
+    }
+
+    #[test]
+    fn normalize_source_trims_and_drops_empty() {
+        assert_eq!(normalize_agent_chat_source(None), None);
+        assert_eq!(normalize_agent_chat_source(Some("  ".into())), None);
+        assert_eq!(
+            normalize_agent_chat_source(Some(" md-live ".into())).as_deref(),
+            Some(AGENT_CHAT_SOURCE_MD_LIVE)
+        );
     }
 }
 
@@ -246,6 +348,18 @@ pub enum AgentChatOrigin {
     Normal,
     Quick,
     Imported,
+}
+
+/// Filters for `AgentChatStore::list`.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct AgentChatListFilter<'a> {
+    pub cwd: Option<&'a str>,
+    pub workspace_id: Option<&'a str>,
+    pub project_id: Option<&'a str>,
+    pub include_deleted: bool,
+    pub all: bool,
+    pub origin: Option<AgentChatOrigin>,
+    pub exclude_sources: Option<&'a [String]>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
