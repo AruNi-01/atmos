@@ -71,6 +71,9 @@ describe("agent prompt composer", () => {
     expect(composer).toContain("modes={toModePromptModels");
     expect(composer).toContain("permissionModes={toPermissionPromptModels");
     expect(composer).toContain("onAgentChange={onProviderChange}");
+    expect(composer).toContain("authRequiredAgentIds");
+    expect(composer).toContain("data-agent-auth-required");
+    expect(composer).toContain('t("composer.authRequired")');
     expect(composer).toContain("agentTablist=");
     expect(composer).toContain('orientation="vertical"');
     expect(composer).toContain("CenterStageTabList");
@@ -135,6 +138,7 @@ describe("agent prompt composer", () => {
     expect(composer).toContain('modelLocked: t("composer.modelLocked")');
     expect(composer).toContain('modeLocked: t("composer.modeLocked")');
     expect(composer).toContain('permissionLocked: t("composer.permissionLocked")');
+    expect(composer).toContain("authRequiredAgentIds={authRequiredAgentIds}");
     expect(composer).toContain("onEmptyModelsOpen={onEmptyModelsOpen}");
     expect(composer).toContain("onLoadModels={onLoadModels}");
     expect(composer).toContain('loadModels: t("composer.loadModels")');

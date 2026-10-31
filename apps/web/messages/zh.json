@@ -3124,6 +3124,7 @@
         "choosePermission": "权限",
         "modelLocked": "当前会话中此 Agent 无法切换模型",
         "agentLocked": "当前会话无法切换 Agent",
+        "authRequired": "需要登录",
         "modeLocked": "当前会话中此 Agent 无法切换模式",
         "permissionLocked": "当前会话中此 Agent 无法切换权限",
         "backToAgents": "Agent",

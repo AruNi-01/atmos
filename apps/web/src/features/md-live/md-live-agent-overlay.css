@@ -33,6 +33,11 @@
   backdrop-filter: blur(12px);
 }
 
+[data-md-live-invite-hairline] {
+  height: 2px;
+  background-color: color-mix(in oklch, var(--foreground) 34%, transparent);
+}
+
 [data-md-live-agent-thread] .agent-chat-edge-fade {
   --agent-chat-fade-stops:
     var(--popover) 0%, color-mix(in oklab, var(--popover) 88%, transparent) 24%,

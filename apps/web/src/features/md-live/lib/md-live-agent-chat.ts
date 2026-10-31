@@ -1,6 +1,10 @@
 import { mdLivePopoverAnchorStyle, type MdLiveViewportRect } from "@atmos/md-live";
 
 export const MD_LIVE_BAR_HOVER_PX = 72;
+/** Shared layoutId for hairline ↔ Message Agent capsule ↔ composer. */
+export const MD_LIVE_INVITE_LAYOUT_ID = "md-live-invite-shell";
+/** Hairline / capsule / composer morph duration (seconds). */
+export const MD_LIVE_BAR_MORPH_S = 0.28;
 export const MD_LIVE_POPOVER_WIDTH = 420;
 export const MD_LIVE_AGENT_CAPABILITY = "md-live.v1";
 export const MD_LIVE_AGENT_SKILL_PATH = "~/.atmos/skills/.system/atmos-md-live-agent/SKILL.md";
@@ -68,13 +72,22 @@ export function nextMdLiveBarMode(input: {
   return "hidden";
 }
 
-/** Hover is the Message Agent pill. Click (focused/expanded) is the composer. */
+/** Hover is the Message Agent pill. Click (focused/expanded) is the composer. Hidden still paints a hairline. */
 export function mdLiveBarSurface(mode: MdLiveBarMode, popover: boolean): MdLiveBarSurface {
   if (popover) return "composer";
   if (mode === "invite") return "invite";
   if (mode === "collapsed") return "status";
   if (mode === "focused" || mode === "expanded") return "composer";
   return "hidden";
+}
+
+/** Empty-session entry morph: hairline ↔ capsule ↔ composer. Working/thread chrome stays on the layered path. */
+export function mdLiveInviteMorphs(
+  surface: MdLiveBarSurface,
+  input: { showThreadCard: boolean; hasComposerChrome: boolean },
+): boolean {
+  if (surface === "hidden" || surface === "invite") return true;
+  return surface === "composer" && !input.showThreadCard && !input.hasComposerChrome;
 }
 
 /** Message card only when there are messages. Working with 0 messages is a pill, not an empty shell. */

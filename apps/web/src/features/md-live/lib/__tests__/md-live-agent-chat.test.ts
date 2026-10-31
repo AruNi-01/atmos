@@ -16,8 +16,11 @@ import {
   MD_LIVE_AGENT_CHROME_MAX_THREAD_PX,
   MD_LIVE_AGENT_SKILL_PATH,
   MD_LIVE_BAR_HOVER_PX,
+  MD_LIVE_BAR_MORPH_S,
+  MD_LIVE_INVITE_LAYOUT_ID,
   MD_LIVE_POPOVER_WIDTH,
   mdLiveBarSurface,
+  mdLiveInviteMorphs,
   nextMdLiveBarMode,
   transformMdLivePrompt,
 } from "../md-live-agent-chat";
@@ -57,6 +60,23 @@ describe("md-live agent chat helpers", () => {
     expect(mdLiveBarSurface("hidden", true)).toBe("composer");
     expect(nextMdLiveBarMode({ ...base, hasThread: true })).toBe("collapsed");
     expect(nextMdLiveBarMode({ ...base, reviewPending: true })).toBe("collapsed");
+    expect(MD_LIVE_INVITE_LAYOUT_ID).toBe("md-live-invite-shell");
+    expect(MD_LIVE_BAR_MORPH_S).toBe(0.28);
+    expect(mdLiveInviteMorphs("hidden", { showThreadCard: false, hasComposerChrome: false })).toBe(
+      true,
+    );
+    expect(mdLiveInviteMorphs("invite", { showThreadCard: false, hasComposerChrome: false })).toBe(
+      true,
+    );
+    expect(
+      mdLiveInviteMorphs("composer", { showThreadCard: false, hasComposerChrome: false }),
+    ).toBe(true);
+    expect(mdLiveInviteMorphs("composer", { showThreadCard: true, hasComposerChrome: false })).toBe(
+      false,
+    );
+    expect(mdLiveInviteMorphs("status", { showThreadCard: false, hasComposerChrome: true })).toBe(
+      false,
+    );
   });
 
   test("Working stays visible without hover so the pill can expand/minimize", () => {

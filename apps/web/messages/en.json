@@ -3124,6 +3124,7 @@
         "choosePermission": "Permission",
         "modelLocked": "This agent cannot switch models in the current session",
         "agentLocked": "This session cannot switch agents",
+        "authRequired": "Needs sign-in",
         "modeLocked": "This agent cannot switch modes in the current session",
         "permissionLocked": "This agent cannot switch permission in the current session",
         "backToAgents": "Agents",

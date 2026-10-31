@@ -9,6 +9,7 @@ import {
   isNativeOauthMethodId,
   nativeAuthMethods,
   nativeCliLoginCommand,
+  nextAuthRequiredAgentIds,
   NATIVE_OAUTH_METHOD_PREFIX,
 } from "@/features/agent/lib/catalog-auth";
 
@@ -44,6 +45,14 @@ describe("catalog auth", () => {
     expect(nativeCliLoginCommand("claude-code")).toBe("claude auth login");
     expect(nativeAuthMethods("opencode")[0]?.id).toBe(`${CLI_LOGIN_METHOD_PREFIX}opencode`);
     expect(isCliLoginMethodId(nativeAuthMethods("opencode")[0]?.id ?? "")).toBe(true);
+  });
+
+  it("records auth-required agents without duplicating ids", () => {
+    const first = nextAuthRequiredAgentIds([], "codex", true);
+    expect(first).toEqual(["codex"]);
+    expect(nextAuthRequiredAgentIds(first, "codex", true)).toBe(first);
+    expect(nextAuthRequiredAgentIds(first, "grok", true)).toEqual(["codex", "grok"]);
+    expect(nextAuthRequiredAgentIds(first, "codex", false)).toEqual([]);
   });
 
   it("classifies browser, token, and CLI login methods", () => {

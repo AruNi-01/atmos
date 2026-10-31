@@ -113,7 +113,13 @@ export interface UseAgentChatSessionReturn {
   configOptions: AgentConfigOption[];
   modelsLocked: boolean;
   modesLocked: boolean;
+  catalogModelsLoading: boolean;
+  catalogModelsReloading: boolean;
+  refreshEmptyCatalog: () => void;
+  reloadEmptyCatalog: () => void;
+  authRequiredAgentIds: string[];
   setConfigOption: (key: string, value: string) => void;
+  setProviderId: (next: string, opts?: { model?: string }) => void;
   persistPreferredRegistry: (registryId: string) => void;
   setAgentDefaultConfig: (configId: string, value: string) => void;
   sessionUsage: AgentSessionUsage | null;

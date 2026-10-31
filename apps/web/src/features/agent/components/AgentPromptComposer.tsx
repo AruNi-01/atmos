@@ -147,6 +147,7 @@ function ComposerPromptInput({
   catalogModelsReloading,
   onEmptyModelsOpen,
   onLoadModels,
+  authRequiredAgentIds,
   installedAgents,
   modeOption,
   permissionOption,
@@ -207,6 +208,7 @@ function ComposerPromptInput({
   catalogModelsReloading?: boolean;
   onEmptyModelsOpen?: () => void;
   onLoadModels?: () => void;
+  authRequiredAgentIds?: readonly string[];
   installedAgents: RegistryAgent[];
   modeOption: AgentConfigOption | null;
   permissionOption: AgentConfigOption | null;
@@ -336,6 +338,7 @@ function ComposerPromptInput({
         modelsReloading={catalogModelsReloading}
         onEmptyModelsOpen={onEmptyModelsOpen}
         onLoadModels={onLoadModels}
+        authRequiredAgentIds={authRequiredAgentIds}
         modeOption={modeOption}
         modesLocked={modesLocked}
         permissionOption={permissionOption}
@@ -489,6 +492,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   catalogModelsReloading = false,
   onEmptyModelsOpen,
   onLoadModels,
+  authRequiredAgentIds,
   chatId = null,
   runtimeStatus = null,
   hasPersistenceHandle = false,
@@ -547,6 +551,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   catalogModelsReloading?: boolean;
   onEmptyModelsOpen?: () => void;
   onLoadModels?: () => void;
+  authRequiredAgentIds?: readonly string[];
   chatId?: string | null;
   runtimeStatus?: string | null;
   hasPersistenceHandle?: boolean;
@@ -866,6 +871,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
             catalogModelsReloading={catalogModelsReloading}
             onEmptyModelsOpen={onEmptyModelsOpen}
             onLoadModels={onLoadModels}
+            authRequiredAgentIds={authRequiredAgentIds}
             installedAgents={installedAgents}
             modeOption={modeOption}
             permissionOption={permissionOption}

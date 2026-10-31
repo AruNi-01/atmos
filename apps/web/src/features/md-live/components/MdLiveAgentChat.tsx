@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { LayoutGroup, motion, useReducedMotion } from "motion/react";
 import { useTranslations } from "next-intl";
 import {
   ActivityIndicator,
@@ -47,6 +47,8 @@ import {
   MD_LIVE_AGENT_PANEL_CLASS,
   MD_LIVE_AGENT_STACK_CLASS,
   MD_LIVE_AGENT_THREAD_MAX_CLASS,
+  MD_LIVE_BAR_MORPH_S,
+  MD_LIVE_INVITE_LAYOUT_ID,
   MD_LIVE_POPOVER_WIDTH,
   isMdLiveAgentOverlayDismissTarget,
   isMdLiveBarHoverZone,
@@ -56,6 +58,7 @@ import {
   mdLiveSelectionPopoverStyle,
   mdLiveBarSurface,
   mdLiveIdleWorkedMs,
+  mdLiveInviteMorphs,
   mdLiveShowThreadCard,
   mdLiveShowWorkingPill,
   mdLiveSummarizePrompt,
@@ -80,8 +83,9 @@ export function MdLiveAgentChat({
   const t = useTranslations("mdLive");
   const chatPanelT = useTranslations("Agent.components.chatPanel");
   const reduceMotion = Boolean(useReducedMotion());
-  const barMotion = reduceMotion ? { duration: 0 } : { duration: 0.2, ease: BAR_EASE };
-  const barSwapMotion = reduceMotion ? { duration: 0 } : { duration: 0.22, ease: BAR_EASE };
+  const barMorphMotion = reduceMotion
+    ? { duration: 0 }
+    : { duration: MD_LIVE_BAR_MORPH_S, ease: BAR_EASE };
   const instanceKey = mdLiveAgentChatInstanceKey(filePath);
   const chatId = chatIdProp || "";
   const [selectedSubagentId, setSelectedSubagentId] = useState<string | null>(null);
@@ -162,8 +166,11 @@ export function MdLiveAgentChat({
     busy: working,
     messageCount: session.messages.length,
   });
-  const showBar = popover || barSurface !== "hidden";
   const hasComposerChrome = !showThreadCard && (reviewPending || showWorkingPill);
+  const morphEntry = mdLiveInviteMorphs(barSurface, {
+    showThreadCard,
+    hasComposerChrome,
+  });
   const idleWorkedMs = mdLiveIdleWorkedMs(session.elapsedMs, session.messages);
 
   const openPopover = useCallback(
@@ -454,6 +461,12 @@ export function MdLiveAgentChat({
       loadingAgents={session.loadingAgents}
       isConnecting={session.isConnecting}
       isResumingHistory={session.isResumingHistory}
+      catalogModelsLoading={session.catalogModelsLoading}
+      catalogModelsReloading={session.catalogModelsReloading}
+      onEmptyModelsOpen={session.refreshEmptyCatalog}
+      onLoadModels={session.reloadEmptyCatalog}
+      onProviderChange={session.setProviderId}
+      authRequiredAgentIds={session.authRequiredAgentIds}
       chatId={session.chatId}
       runtimeStatus={session.runtimeStatus}
       hasPersistenceHandle={session.hasPersistenceHandle}
@@ -526,17 +539,6 @@ export function MdLiveAgentChat({
     </>
   );
 
-  const invitePill = (
-    <button
-      type="button"
-      data-md-live-message-agent=""
-      className="pointer-events-auto inline-flex h-9 items-center rounded-full border border-border/70 px-4 text-sm text-muted-foreground shadow-sm hover:text-foreground"
-      onClick={expandThread}
-    >
-      {t("messageAgent")}
-    </button>
-  );
-
   return (
     <SubagentOverlayProvider selectedId={selectedSubagentId} onSelect={setSelectedSubagentId}>
       <div
@@ -570,48 +572,52 @@ export function MdLiveAgentChat({
             {overlayLayers}
           </div>
         ) : (
-          <AnimatePresence>
-            {showBar ? (
-              <motion.div
-                key="md-live-agent-bar"
-                data-md-live-agent-bar=""
-                className={cn(
-                  "pointer-events-none absolute inset-x-0 bottom-3 mx-auto w-[min(100%-1.5rem,42rem)]",
-                  MD_LIVE_AGENT_STACK_CLASS,
-                )}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 12 }}
-                transition={barMotion}
-              >
-                <AnimatePresence initial={false}>
-                  {showInvite ? (
-                    <motion.div
-                      key="invite"
-                      className="flex justify-center"
-                      initial={{ opacity: 0, y: 8, scale: 0.96 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 6, scale: 0.98 }}
-                      transition={barSwapMotion}
-                    >
-                      {invitePill}
-                    </motion.div>
-                  ) : (
-                    <motion.div
-                      key={showComposer ? "composer" : "status"}
-                      className="pointer-events-auto"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 8 }}
-                      transition={barSwapMotion}
-                    >
-                      {overlayLayers}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.div>
-            ) : null}
-          </AnimatePresence>
+          <LayoutGroup id={`${instanceKey}:invite`}>
+            <div
+              data-md-live-agent-bar=""
+              className={cn(
+                "pointer-events-none absolute inset-x-0",
+                morphEntry
+                  ? "bottom-0 w-full"
+                  : cn("bottom-3 mx-auto w-[min(100%-1.5rem,42rem)]", MD_LIVE_AGENT_STACK_CLASS),
+              )}
+            >
+              {morphEntry && barSurface === "hidden" ? (
+                <motion.div
+                  layout
+                  layoutId={MD_LIVE_INVITE_LAYOUT_ID}
+                  data-md-live-invite-hairline=""
+                  className="h-0.5 w-full rounded-full"
+                  transition={barMorphMotion}
+                />
+              ) : morphEntry && showInvite ? (
+                <div className="flex justify-center pb-3">
+                  <motion.button
+                    type="button"
+                    layout
+                    layoutId={MD_LIVE_INVITE_LAYOUT_ID}
+                    data-md-live-message-agent=""
+                    className="pointer-events-auto inline-flex h-9 items-center rounded-full border border-border/70 px-4 text-sm text-muted-foreground shadow-sm hover:text-foreground"
+                    transition={barMorphMotion}
+                    onClick={expandThread}
+                  >
+                    {t("messageAgent")}
+                  </motion.button>
+                </div>
+              ) : morphEntry && showComposer ? (
+                <motion.div
+                  layout
+                  layoutId={MD_LIVE_INVITE_LAYOUT_ID}
+                  className="pointer-events-auto mx-auto mb-3 w-[min(100%-1.5rem,42rem)] overflow-hidden rounded-2xl"
+                  transition={barMorphMotion}
+                >
+                  {composer}
+                </motion.div>
+              ) : (
+                <div className="pointer-events-auto">{overlayLayers}</div>
+              )}
+            </div>
+          </LayoutGroup>
         )}
       </div>
       <AgentAuthDialog

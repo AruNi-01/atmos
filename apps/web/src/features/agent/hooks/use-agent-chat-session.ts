@@ -67,7 +67,7 @@ import {
 import {
   catalogAuthFromSnapshot,
   catalogAuthMethodKind,
-  catalogAuthToastDescription,
+  nextAuthRequiredAgentIds,
   type CatalogAuthStartResult,
 } from "@/features/agent/lib/catalog-auth";
 import {
@@ -265,6 +265,7 @@ export function useAgentChatSession({
   const tSessionHints = useTranslations("Agent.components.chatPanel.session.hints");
   const tChatPanel = useTranslations("Agent.components.chatPanel");
   const lastCatalogErrorToastRef = useRef("");
+  const pendingAuthPromptAgentIdRef = useRef("");
   const [authRequest, setAuthRequest] = useState<{
     message?: string;
     methods: { id: string; name: string; description?: string }[];
@@ -287,29 +288,18 @@ export function useAgentChatSession({
   const toastCatalogSnapshot = useCallback(
     (next: AgentOptionsSnapshot) => {
       const auth = catalogAuthFromSnapshot(next);
-      if (auth) {
-        const key = `auth:${next.agent_id}:${auth.methods.map((method) => method.id).join(",")}`;
-        if (lastCatalogErrorToastRef.current === key) return;
-        lastCatalogErrorToastRef.current = key;
-        toastManager.add({
-          title: tChatPanel("catalogError.title"),
-          description: catalogAuthToastDescription(auth, tChatPanel("catalogError.authRequired")),
-          type: "error",
-          timeout: 0,
-          actionProps: {
-            children: tChatPanel("catalogError.auth"),
-            onClick: () => {
-              setSelectedAuthMethodId("");
-              setAuthRequest(auth);
-            },
-          },
-        });
-        return;
+      if (pendingAuthPromptAgentIdRef.current === next.agent_id) {
+        pendingAuthPromptAgentIdRef.current = "";
+        if (auth) {
+          setSelectedAuthMethodId("");
+          setAuthRequest(auth);
+        }
       }
+      if (auth) return;
       if (next.status !== "error") return;
       toastCatalogError(next.message ?? "");
     },
-    [tChatPanel, toastCatalogError],
+    [toastCatalogError],
   );
   const urlContext = useContextParams();
   const {
@@ -379,13 +369,39 @@ export function useAgentChatSession({
   const optionsByAgentRef = useRef<Record<string, AgentOptionsSnapshot>>({
     ...readComposerLocalCache().optionsByAgent,
   });
-  const rememberOptions = useCallback((next: AgentOptionsSnapshot | null) => {
-    if (!next?.agent_id) return;
-    if (shouldRetainExistingOptions(next, optionsByAgentRef.current[next.agent_id])) return;
-    if (next.status === "probing" && next.models.length === 0 && next.modes.length === 0) return;
-    optionsByAgentRef.current[next.agent_id] = next;
-    rememberComposerOptions(next);
+  const [authRequiredAgentIds, setAuthRequiredAgentIds] = useState<string[]>(() =>
+    Object.values(readComposerLocalCache().optionsByAgent).flatMap((snap) =>
+      catalogAuthFromSnapshot(snap) ? [snap.agent_id] : [],
+    ),
+  );
+  const rememberAuthRequired = useCallback((next: AgentOptionsSnapshot) => {
+    setAuthRequiredAgentIds((current) =>
+      nextAuthRequiredAgentIds(current, next.agent_id, Boolean(catalogAuthFromSnapshot(next))),
+    );
   }, []);
+  const armCatalogAuthPrompt = useCallback((agentId: string) => {
+    const id = agentId.trim();
+    if (!id) return;
+    pendingAuthPromptAgentIdRef.current = id;
+    const cached = optionsByAgentRef.current[id] ?? readComposerLocalCache().optionsByAgent[id];
+    if (!cached) return;
+    const auth = catalogAuthFromSnapshot(cached);
+    if (!auth) return;
+    pendingAuthPromptAgentIdRef.current = "";
+    setSelectedAuthMethodId("");
+    setAuthRequest(auth);
+  }, []);
+  const rememberOptions = useCallback(
+    (next: AgentOptionsSnapshot | null) => {
+      if (!next?.agent_id) return;
+      rememberAuthRequired(next);
+      if (shouldRetainExistingOptions(next, optionsByAgentRef.current[next.agent_id])) return;
+      if (next.status === "probing" && next.models.length === 0 && next.modes.length === 0) return;
+      optionsByAgentRef.current[next.agent_id] = next;
+      rememberComposerOptions(next);
+    },
+    [rememberAuthRequired],
+  );
   const setCatalog = useCallback(
     (
       next:
@@ -412,6 +428,7 @@ export function useAgentChatSession({
         setOptionsRefreshing(false);
       }
       const existing = optionsByAgentRef.current[next.agent_id];
+      rememberAuthRequired(next);
       toastCatalogSnapshot(next);
       if (shouldRetainExistingOptions(next, existing)) return;
       setCatalog(next);
@@ -420,7 +437,7 @@ export function useAgentChatSession({
         rememberAgentSlashCommands(next.agent_id, commands);
       }
     },
-    [setCatalog, toastCatalogSnapshot],
+    [rememberAuthRequired, setCatalog, toastCatalogSnapshot],
   );
   const [installedAgents, setInstalledAgents] = useState<RegistryAgent[]>(
     composerSeed.installedAgents,
@@ -1381,6 +1398,9 @@ export function useAgentChatSession({
       })
       .catch((error) => {
         if (cancelled) return;
+        if (pendingAuthPromptAgentIdRef.current === providerId) {
+          pendingAuthPromptAgentIdRef.current = "";
+        }
         toastCatalogError(error instanceof Error ? error.message : String(error));
       });
     return () => {
@@ -2141,6 +2161,7 @@ export function useAgentChatSession({
         targetRegistryId?.trim() && targetRegistryId.trim() !== providerId,
       );
       if (targetRegistryId) {
+        armCatalogAuthPrompt(targetRegistryId);
         setProviderIdState(targetRegistryId);
         const cached =
           optionsByAgentRef.current[targetRegistryId] ??
@@ -2220,6 +2241,7 @@ export function useAgentChatSession({
       onOpenChat?.("");
     },
     [
+      armCatalogAuthPrompt,
       chatMode,
       cwd,
       instanceKey,
@@ -2456,6 +2478,7 @@ export function useAgentChatSession({
     (next: string, opts?: { model?: string }) => {
       if (agentLocked) return;
       fastByModelRef.current = {};
+      armCatalogAuthPrompt(next);
       setProviderIdState(next);
       const cached =
         optionsByAgentRef.current[next] ?? readComposerLocalCache().optionsByAgent[next];
@@ -2503,6 +2526,7 @@ export function useAgentChatSession({
     },
     [
       agentLocked,
+      armCatalogAuthPrompt,
       installedAgents,
       instanceKey,
       persistConfig,
@@ -2703,6 +2727,7 @@ export function useAgentChatSession({
     capabilities: null,
     catalogModelsLoading: isOptionsModelsLoading(catalog, providerId),
     catalogModelsReloading: optionsRefreshing,
+    authRequiredAgentIds,
     refreshEmptyCatalog,
     reloadEmptyCatalog,
     configOptions,

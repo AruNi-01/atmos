@@ -127,3 +127,16 @@ export function catalogAuthToastDescription(
   if (!message || message.startsWith("ACP_AUTH_REQUIRED::")) return fallback;
   return message;
 }
+
+/** Silent catalog probes record auth without prompting; keep the same list identity when unchanged. */
+export function nextAuthRequiredAgentIds(
+  current: readonly string[],
+  agentId: string,
+  required: boolean,
+): string[] {
+  const id = agentId.trim();
+  if (!id) return current as string[];
+  const has = current.includes(id);
+  if (required === has) return current as string[];
+  return required ? [...current, id] : current.filter((item) => item !== id);
+}

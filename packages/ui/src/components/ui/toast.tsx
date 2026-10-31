@@ -172,7 +172,7 @@ function Toasts({ position = "bottom-right" }: { position: ToastPosition }) {
                     : "items-center justify-between gap-1.5",
                 )}
               >
-                <div className="flex min-w-0 flex-1 items-start gap-2">
+                <div className="flex min-w-0 flex-1 items-center gap-2">
                   <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <div className="flex min-w-0 items-center gap-1.5">
                       {titlePrefix}
@@ -183,15 +183,27 @@ function Toasts({ position = "bottom-right" }: { position: ToastPosition }) {
                       data-slot="toast-description"
                     />
                   </div>
-                  {Icon && (
-                    <div
-                      className="shrink-0 pt-0.5 [&_svg]:pointer-events-none [&>svg]:size-4"
-                      data-slot="toast-icon"
-                    >
-                      <Icon className="in-data-[type=error]:text-destructive in-data-[type=info]:text-info in-data-[type=loading]:animate-spin in-data-[type=loading]:opacity-80 in-data-[type=success]:text-success in-data-[type=warning]:text-warning" />
-                    </div>
-                  )}
                 </div>
+                {Icon || toast.actionProps ? (
+                  <div className="flex shrink-0 items-center gap-1.5" data-slot="toast-auth-row">
+                    {Icon ? (
+                      <div
+                        className="flex shrink-0 items-center [&_svg]:pointer-events-none [&>svg]:size-4"
+                        data-slot="toast-icon"
+                      >
+                        <Icon className="in-data-[type=error]:text-destructive in-data-[type=info]:text-info in-data-[type=loading]:animate-spin in-data-[type=loading]:opacity-80 in-data-[type=success]:text-success in-data-[type=warning]:text-warning" />
+                      </div>
+                    ) : null}
+                    {customActions ? null : toast.actionProps ? (
+                      <Toast.Action
+                        className={buttonVariants({ size: "xs" })}
+                        data-slot="toast-action"
+                      >
+                        {toast.actionProps.children}
+                      </Toast.Action>
+                    ) : null}
+                  </div>
+                ) : null}
                 {customActions ? (
                   <div
                     className="flex shrink-0 items-center justify-end gap-1.5"
@@ -199,10 +211,6 @@ function Toasts({ position = "bottom-right" }: { position: ToastPosition }) {
                   >
                     {customActions}
                   </div>
-                ) : toast.actionProps ? (
-                  <Toast.Action className={buttonVariants({ size: "xs" })} data-slot="toast-action">
-                    {toast.actionProps.children}
-                  </Toast.Action>
                 ) : null}
               </Toast.Content>
               {progress != null ? <ToastProgressBar progress={progress} /> : null}
@@ -281,16 +289,7 @@ function AnchoredToasts() {
                         : "items-center justify-between gap-1.5",
                     )}
                   >
-                    <div className="flex min-w-0 flex-1 gap-2">
-                      {Icon && (
-                        <div
-                          className="[&_svg]:pointer-events-none [&_svg]:shrink-0 [&>svg]:h-lh [&>svg]:w-4"
-                          data-slot="toast-icon"
-                        >
-                          <Icon className="in-data-[type=error]:text-destructive in-data-[type=info]:text-info in-data-[type=loading]:animate-spin in-data-[type=loading]:opacity-80 in-data-[type=success]:text-success in-data-[type=warning]:text-warning" />
-                        </div>
-                      )}
-
+                    <div className="flex min-w-0 flex-1 items-center gap-2">
                       <div className="flex min-w-0 flex-col gap-0.5">
                         <div className="flex min-w-0 items-center gap-1.5">
                           {titlePrefix}
@@ -302,6 +301,29 @@ function AnchoredToasts() {
                         />
                       </div>
                     </div>
+                    {Icon || toast.actionProps ? (
+                      <div
+                        className="flex shrink-0 items-center gap-1.5"
+                        data-slot="toast-auth-row"
+                      >
+                        {Icon ? (
+                          <div
+                            className="flex shrink-0 items-center [&_svg]:pointer-events-none [&_svg]:shrink-0 [&>svg]:h-lh [&>svg]:w-4"
+                            data-slot="toast-icon"
+                          >
+                            <Icon className="in-data-[type=error]:text-destructive in-data-[type=info]:text-info in-data-[type=loading]:animate-spin in-data-[type=loading]:opacity-80 in-data-[type=success]:text-success in-data-[type=warning]:text-warning" />
+                          </div>
+                        ) : null}
+                        {customActions ? null : toast.actionProps ? (
+                          <Toast.Action
+                            className={buttonVariants({ size: "xs" })}
+                            data-slot="toast-action"
+                          >
+                            {toast.actionProps.children}
+                          </Toast.Action>
+                        ) : null}
+                      </div>
+                    ) : null}
                     {customActions ? (
                       <div
                         className="flex shrink-0 items-center justify-end gap-1.5"
@@ -309,13 +331,6 @@ function AnchoredToasts() {
                       >
                         {customActions}
                       </div>
-                    ) : toast.actionProps ? (
-                      <Toast.Action
-                        className={buttonVariants({ size: "xs" })}
-                        data-slot="toast-action"
-                      >
-                        {toast.actionProps.children}
-                      </Toast.Action>
                     ) : null}
                   </Toast.Content>
                 )}
