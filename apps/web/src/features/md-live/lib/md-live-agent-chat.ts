@@ -5,6 +5,9 @@ export const MD_LIVE_BAR_HOVER_PX = 72;
 export const MD_LIVE_INVITE_LAYOUT_ID = "md-live-invite-shell";
 /** Hairline / capsule / composer morph duration (seconds). */
 export const MD_LIVE_BAR_MORPH_S = 0.28;
+/** Centered short dash. Match Message Agent capsule scale — never the dock width. */
+export const MD_LIVE_INVITE_HAIRLINE_WIDTH_PX = 140;
+export const MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX = 2;
 export const MD_LIVE_POPOVER_WIDTH = 420;
 export const MD_LIVE_AGENT_CAPABILITY = "md-live.v1";
 export const MD_LIVE_AGENT_SKILL_PATH = "~/.atmos/skills/.system/atmos-md-live-agent/SKILL.md";

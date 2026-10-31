@@ -17,6 +17,8 @@ import {
   MD_LIVE_AGENT_SKILL_PATH,
   MD_LIVE_BAR_HOVER_PX,
   MD_LIVE_BAR_MORPH_S,
+  MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX,
+  MD_LIVE_INVITE_HAIRLINE_WIDTH_PX,
   MD_LIVE_INVITE_LAYOUT_ID,
   MD_LIVE_POPOVER_WIDTH,
   mdLiveBarSurface,
@@ -62,6 +64,9 @@ describe("md-live agent chat helpers", () => {
     expect(nextMdLiveBarMode({ ...base, reviewPending: true })).toBe("collapsed");
     expect(MD_LIVE_INVITE_LAYOUT_ID).toBe("md-live-invite-shell");
     expect(MD_LIVE_BAR_MORPH_S).toBe(0.28);
+    expect(MD_LIVE_INVITE_HAIRLINE_WIDTH_PX).toBe(140);
+    expect(MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX).toBe(2);
+    expect(MD_LIVE_INVITE_HAIRLINE_WIDTH_PX).toBeLessThan(280);
     expect(mdLiveInviteMorphs("hidden", { showThreadCard: false, hasComposerChrome: false })).toBe(
       true,
     );

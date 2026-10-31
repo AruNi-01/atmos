@@ -48,6 +48,8 @@ import {
   MD_LIVE_AGENT_STACK_CLASS,
   MD_LIVE_AGENT_THREAD_MAX_CLASS,
   MD_LIVE_BAR_MORPH_S,
+  MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX,
+  MD_LIVE_INVITE_HAIRLINE_WIDTH_PX,
   MD_LIVE_INVITE_LAYOUT_ID,
   MD_LIVE_POPOVER_WIDTH,
   isMdLiveAgentOverlayDismissTarget,
@@ -583,13 +585,19 @@ export function MdLiveAgentChat({
               )}
             >
               {morphEntry && barSurface === "hidden" ? (
-                <motion.div
-                  layout
-                  layoutId={MD_LIVE_INVITE_LAYOUT_ID}
-                  data-md-live-invite-hairline=""
-                  className="h-0.5 w-full rounded-full"
-                  transition={barMorphMotion}
-                />
+                <div className="flex justify-center pb-3">
+                  <motion.div
+                    layout
+                    layoutId={MD_LIVE_INVITE_LAYOUT_ID}
+                    data-md-live-invite-hairline=""
+                    className="max-w-[calc(100%-1.5rem)] rounded-full"
+                    style={{
+                      width: MD_LIVE_INVITE_HAIRLINE_WIDTH_PX,
+                      height: MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX,
+                    }}
+                    transition={barMorphMotion}
+                  />
+                </div>
               ) : morphEntry && showInvite ? (
                 <div className="flex justify-center pb-3">
                   <motion.button

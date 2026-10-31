@@ -184,6 +184,9 @@ describe("md-live structural gates", () => {
     expect(source).toContain("LayoutGroup");
     expect(source).toContain("layoutId={MD_LIVE_INVITE_LAYOUT_ID}");
     expect(source).toContain("data-md-live-invite-hairline");
+    expect(source).toContain("MD_LIVE_INVITE_HAIRLINE_WIDTH_PX");
+    expect(source).toContain("flex justify-center pb-3");
+    expect(source).not.toContain('className="h-0.5 w-full rounded-full"');
     expect(source).toContain("mdLiveInviteMorphs");
     expect(source).toContain("mdLiveBarSurface");
     expect(source).toContain("morphEntry && showComposer");
@@ -241,6 +244,8 @@ describe("md-live structural gates", () => {
     expect(helpers).toContain("mdLiveBarSurface");
     expect(helpers).toContain("mdLiveInviteMorphs");
     expect(helpers).toContain("MD_LIVE_INVITE_LAYOUT_ID");
+    expect(helpers).toContain("MD_LIVE_INVITE_HAIRLINE_WIDTH_PX = 140");
+    expect(helpers).toContain("MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX = 2");
     expect(helpers).toContain('"invite"');
     expect(helpers).toContain("mdLiveShowWorkingPill");
     expect(helpers).toContain("mdLiveIdleWorkedMs");
@@ -260,7 +265,9 @@ describe("md-live structural gates", () => {
     expect(overlayCss).toContain("[data-md-live-working-pill]");
     expect(overlayCss).toContain("[data-md-live-message-agent]");
     expect(overlayCss).toContain("[data-md-live-invite-hairline]");
+    expect(overlayCss).toContain("width: 140px");
     expect(overlayCss).toContain("var(--foreground) 34%");
+    expect(overlayCss).not.toMatch(/\[data-md-live-invite-hairline\]\s*\{[^}]*\bwidth:\s*100%/);
     expect(overlayCss).toContain("[data-md-live-agent-thread] .agent-chat-edge-fade");
     expect(overlayCss).toContain("background-color: var(--popover) !important");
     expect(overlayCss).not.toMatch(
