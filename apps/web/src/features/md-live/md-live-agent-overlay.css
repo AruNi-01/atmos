@@ -27,9 +27,10 @@
   padding: 0;
 }
 
-[data-md-live-working-pill] {
-  background-color: color-mix(in oklch, var(--popover) 68%, transparent);
-  backdrop-filter: blur(10px);
+[data-md-live-working-pill],
+[data-md-live-message-agent] {
+  background-color: color-mix(in oklch, var(--popover) 82%, transparent);
+  backdrop-filter: blur(12px);
 }
 
 [data-md-live-agent-thread] .agent-chat-edge-fade {

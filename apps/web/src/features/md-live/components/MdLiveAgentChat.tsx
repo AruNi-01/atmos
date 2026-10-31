@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useTranslations } from "next-intl";
 import {
   ActivityIndicator,
@@ -53,6 +54,7 @@ import {
   mdLiveOverlayTitle,
   mdLiveRewritePrompt,
   mdLiveSelectionPopoverStyle,
+  mdLiveBarSurface,
   mdLiveIdleWorkedMs,
   mdLiveShowThreadCard,
   mdLiveShowWorkingPill,
@@ -61,6 +63,8 @@ import {
   transformMdLivePrompt,
   type MdLiveAgentPlacement,
 } from "../lib/md-live-agent-chat";
+
+const BAR_EASE = [0.22, 1, 0.36, 1] as const;
 
 export function MdLiveAgentChat({
   filePath,
@@ -75,6 +79,9 @@ export function MdLiveAgentChat({
 }) {
   const t = useTranslations("mdLive");
   const chatPanelT = useTranslations("Agent.components.chatPanel");
+  const reduceMotion = Boolean(useReducedMotion());
+  const barMotion = reduceMotion ? { duration: 0 } : { duration: 0.2, ease: BAR_EASE };
+  const barSwapMotion = reduceMotion ? { duration: 0 } : { duration: 0.22, ease: BAR_EASE };
   const instanceKey = mdLiveAgentChatInstanceKey(filePath);
   const chatId = chatIdProp || "";
   const [selectedSubagentId, setSelectedSubagentId] = useState<string | null>(null);
@@ -140,7 +147,11 @@ export function MdLiveAgentChat({
     expanded: expanded && !popover,
     working,
     hasThread,
+    reviewPending,
   });
+  const barSurface = mdLiveBarSurface(barMode, popover);
+  const showInvite = barSurface === "invite";
+  const showComposer = barSurface === "composer";
   const showThreadCard = mdLiveShowThreadCard({
     popover,
     barExpanded: barMode === "expanded",
@@ -151,7 +162,7 @@ export function MdLiveAgentChat({
     busy: working,
     messageCount: session.messages.length,
   });
-  const showBar = popover || barMode !== "hidden";
+  const showBar = popover || barSurface !== "hidden";
   const hasComposerChrome = !showThreadCard && (reviewPending || showWorkingPill);
   const idleWorkedMs = mdLiveIdleWorkedMs(session.elapsedMs, session.messages);
 
@@ -259,7 +270,22 @@ export function MdLiveAgentChat({
   const expandThread = useCallback(() => {
     setPlacement("bottom");
     setExpanded(true);
+    setFocused(true);
   }, []);
+
+  useEffect(() => {
+    if (!showComposer) return;
+    const root = hostRef.current;
+    if (!root) return;
+    const id = window.requestAnimationFrame(() => {
+      root
+        .querySelector<HTMLElement>(
+          "[data-prompt-input] [contenteditable], [data-prompt-input] textarea",
+        )
+        ?.focus();
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [showComposer]);
 
   const barChrome = (
     <>
@@ -496,8 +522,19 @@ export function MdLiveAgentChat({
           {barChrome}
         </div>
       ) : null}
-      {composer}
+      {showComposer ? composer : null}
     </>
+  );
+
+  const invitePill = (
+    <button
+      type="button"
+      data-md-live-message-agent=""
+      className="pointer-events-auto inline-flex h-9 items-center rounded-full border border-border/70 px-4 text-sm text-muted-foreground shadow-sm hover:text-foreground"
+      onClick={expandThread}
+    >
+      {t("messageAgent")}
+    </button>
   );
 
   return (
@@ -512,6 +549,8 @@ export function MdLiveAgentChat({
         onBlurCapture={(event) => {
           if (hostRef.current?.contains(event.relatedTarget as Node)) return;
           setFocused(false);
+          if (hasDraft || working || reviewPending || session.messages.length > 0) return;
+          setExpanded(false);
         }}
       >
         {popover ? (
@@ -530,17 +569,50 @@ export function MdLiveAgentChat({
           >
             {overlayLayers}
           </div>
-        ) : showBar ? (
-          <div
-            data-md-live-agent-bar=""
-            className={cn(
-              "pointer-events-auto absolute inset-x-0 bottom-3 mx-auto w-[min(100%-1.5rem,42rem)]",
-              MD_LIVE_AGENT_STACK_CLASS,
-            )}
-          >
-            {overlayLayers}
-          </div>
-        ) : null}
+        ) : (
+          <AnimatePresence>
+            {showBar ? (
+              <motion.div
+                key="md-live-agent-bar"
+                data-md-live-agent-bar=""
+                className={cn(
+                  "pointer-events-none absolute inset-x-0 bottom-3 mx-auto w-[min(100%-1.5rem,42rem)]",
+                  MD_LIVE_AGENT_STACK_CLASS,
+                )}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 12 }}
+                transition={barMotion}
+              >
+                <AnimatePresence initial={false}>
+                  {showInvite ? (
+                    <motion.div
+                      key="invite"
+                      className="flex justify-center"
+                      initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 6, scale: 0.98 }}
+                      transition={barSwapMotion}
+                    >
+                      {invitePill}
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key={showComposer ? "composer" : "status"}
+                      className="pointer-events-auto"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 8 }}
+                      transition={barSwapMotion}
+                    >
+                      {overlayLayers}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+        )}
       </div>
       <AgentAuthDialog
         authRequest={session.authRequest}

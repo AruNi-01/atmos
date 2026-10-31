@@ -17,6 +17,7 @@ import {
   MD_LIVE_AGENT_SKILL_PATH,
   MD_LIVE_BAR_HOVER_PX,
   MD_LIVE_POPOVER_WIDTH,
+  mdLiveBarSurface,
   nextMdLiveBarMode,
   transformMdLivePrompt,
 } from "../md-live-agent-chat";
@@ -30,7 +31,7 @@ describe("md-live agent chat helpers", () => {
     expect(MD_LIVE_AGENT_CHAT_SOURCE).toBe("md-live");
   });
 
-  test("one-line bar expands from hover to focus/draft to working thread", () => {
+  test("hover shows the Message Agent pill instead of the composer", () => {
     const base = {
       popover: false,
       hover: false,
@@ -40,13 +41,22 @@ describe("md-live agent chat helpers", () => {
       working: false,
     };
     expect(nextMdLiveBarMode(base)).toBe("hidden");
-    expect(nextMdLiveBarMode({ ...base, hover: true })).toBe("collapsed");
+    expect(mdLiveBarSurface(nextMdLiveBarMode(base), false)).toBe("hidden");
+    expect(nextMdLiveBarMode({ ...base, hover: true })).toBe("invite");
+    expect(mdLiveBarSurface("invite", false)).toBe("invite");
+    expect(mdLiveBarSurface("invite", false)).not.toBe("composer");
     expect(nextMdLiveBarMode({ ...base, focused: true })).toBe("focused");
+    expect(mdLiveBarSurface("focused", false)).toBe("composer");
     expect(nextMdLiveBarMode({ ...base, hasDraft: true })).toBe("focused");
     expect(nextMdLiveBarMode({ ...base, working: true })).toBe("collapsed");
+    expect(mdLiveBarSurface("collapsed", false)).toBe("status");
+    expect(nextMdLiveBarMode({ ...base, hover: true, working: true })).toBe("collapsed");
     expect(nextMdLiveBarMode({ ...base, expanded: true, working: true })).toBe("expanded");
+    expect(mdLiveBarSurface("expanded", false)).toBe("composer");
     expect(nextMdLiveBarMode({ ...base, popover: true, expanded: true })).toBe("hidden");
+    expect(mdLiveBarSurface("hidden", true)).toBe("composer");
     expect(nextMdLiveBarMode({ ...base, hasThread: true })).toBe("collapsed");
+    expect(nextMdLiveBarMode({ ...base, reviewPending: true })).toBe("collapsed");
   });
 
   test("Working stays visible without hover so the pill can expand/minimize", () => {

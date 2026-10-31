@@ -38,7 +38,8 @@ export function mdLiveAgentChromeStep(widthPx: number): MdLiveAgentChromeStep {
 const MD_LIVE_OVERLAY_TITLE_NOISE =
   /^(You are editing|Rewrite the selected|Summarize the selected|Read ~\/\.atmos\/skills)/i;
 
-export type MdLiveBarMode = "hidden" | "collapsed" | "focused" | "expanded";
+export type MdLiveBarMode = "hidden" | "invite" | "collapsed" | "focused" | "expanded";
+export type MdLiveBarSurface = "hidden" | "invite" | "status" | "composer";
 export type MdLiveAgentPlacement = "popover" | "bottom";
 
 export function mdLiveAgentChatInstanceKey(filePath: string): string {
@@ -57,11 +58,22 @@ export function nextMdLiveBarMode(input: {
   expanded: boolean;
   working: boolean;
   hasThread?: boolean;
+  reviewPending?: boolean;
 }): MdLiveBarMode {
   if (input.popover) return "hidden";
   if (input.expanded) return "expanded";
   if (input.focused || input.hasDraft) return "focused";
-  if (input.working || input.hover || input.hasThread) return "collapsed";
+  if (input.working || input.hasThread || input.reviewPending) return "collapsed";
+  if (input.hover) return "invite";
+  return "hidden";
+}
+
+/** Hover is the Message Agent pill. Click (focused/expanded) is the composer. */
+export function mdLiveBarSurface(mode: MdLiveBarMode, popover: boolean): MdLiveBarSurface {
+  if (popover) return "composer";
+  if (mode === "invite") return "invite";
+  if (mode === "collapsed") return "status";
+  if (mode === "focused" || mode === "expanded") return "composer";
   return "hidden";
 }
 
