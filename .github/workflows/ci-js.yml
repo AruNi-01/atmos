@@ -1,6 +1,7 @@
 name: CI - JS
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
   pull_request:
@@ -15,6 +16,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          # Default fetch-depth is already 1 (shallow). blob:none is the extra
+          # partial-clone filter; working tree blobs for HEAD are still fetched.
+          filter: blob:none
       - uses: ./.github/actions/setup-bun
       - name: oxlint
         run: bun lint
@@ -24,6 +29,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          filter: blob:none
       - uses: ./.github/actions/setup-bun
       - name: oxfmt --check
         run: bun run fmt:check

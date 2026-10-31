@@ -1,6 +1,7 @@
 name: CI - Web
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
@@ -28,14 +29,19 @@ jobs:
     name: Plan web checks
     runs-on: ubuntu-latest
     outputs:
-      run_lint_typecheck: ${{ steps.changes.outputs.lint_typecheck }}
-      run_build: ${{ steps.changes.outputs.build }}
+      run_lint_typecheck: ${{ github.event_name == 'workflow_dispatch' && 'true' || steps.changes.outputs.lint_typecheck }}
+      run_build: ${{ github.event_name == 'workflow_dispatch' && 'true' || steps.changes.outputs.build }}
     steps:
       - uses: actions/checkout@v5
         with:
+          # Full history required by dorny/paths-filter (merge-base). Unchanged
+          # fetch-depth: 0. blob:none skips historical file contents; path-only
+          # diffs do not need those blobs.
           fetch-depth: 0
+          filter: blob:none
       - name: Detect changed paths
         id: changes
+        if: github.event_name != 'workflow_dispatch'
         uses: dorny/paths-filter@v3
         with:
           filters: |
@@ -48,6 +54,8 @@ jobs:
               - "packages/**"
               - "package.json"
               - "bun.lock"
+              - ".github/workflows/ci-web.yml"
+              - ".github/actions/setup-bun/**"
             build:
               - "apps/web/**"
               - "packages/**"
@@ -63,6 +71,8 @@ jobs:
     if: needs.plan.outputs.run_lint_typecheck == 'true'
     steps:
       - uses: actions/checkout@v5
+        with:
+          filter: blob:none
       - uses: ./.github/actions/setup-bun
       - name: Lint web
         run: bun --filter web lint
@@ -74,6 +84,8 @@ jobs:
     if: needs.plan.outputs.run_lint_typecheck == 'true'
     steps:
       - uses: actions/checkout@v5
+        with:
+          filter: blob:none
       - uses: ./.github/actions/setup-bun
       - name: Typecheck packages
         run: |
@@ -90,6 +102,8 @@ jobs:
     if: always() && needs.plan.outputs.run_build == 'true' && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && (needs.typecheck.result == 'success' || needs.typecheck.result == 'skipped')
     steps:
       - uses: actions/checkout@v5
+        with:
+          filter: blob:none
       - uses: ./.github/actions/setup-bun
       - name: Build web
         run: bun --filter web build
