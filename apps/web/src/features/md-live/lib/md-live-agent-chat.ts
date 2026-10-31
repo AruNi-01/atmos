@@ -4,6 +4,8 @@ export const MD_LIVE_BAR_HOVER_PX = 72;
 export const MD_LIVE_POPOVER_WIDTH = 420;
 export const MD_LIVE_AGENT_CAPABILITY = "md-live.v1";
 export const MD_LIVE_AGENT_SKILL_PATH = "~/.atmos/skills/.system/atmos-md-live-agent/SKILL.md";
+/** Same slot as automation `"automation"`. Written on Agent Chat create. */
+export const MD_LIVE_AGENT_CHAT_SOURCE = "md-live";
 export const MD_LIVE_AGENT_PANEL_CLASS =
   "flex flex-col overflow-hidden rounded-2xl border border-border bg-popover text-popover-foreground shadow-lg";
 
@@ -50,12 +52,30 @@ export function nextMdLiveBarMode(input: {
   hasDraft: boolean;
   expanded: boolean;
   working: boolean;
+  hasThread?: boolean;
 }): MdLiveBarMode {
   if (input.popover) return "hidden";
   if (input.expanded) return "expanded";
   if (input.focused || input.hasDraft) return "focused";
-  if (input.working || input.hover) return "collapsed";
+  if (input.working || input.hover || input.hasThread) return "collapsed";
   return "hidden";
+}
+
+const MD_LIVE_OVERLAY_DISMISS_IGNORE = "[data-morph-popover-portal], [role='dialog']";
+
+/** Unpinned popover click-outside. Ignore overlay chrome and portaled pickers. */
+export function isMdLiveAgentOverlayDismissTarget(
+  target: EventTarget | null,
+  host: { contains: (node: Node) => boolean } | null,
+): boolean {
+  if (!target || typeof target !== "object") return true;
+  const node = target as Node;
+  if (host?.contains(node)) return false;
+  const closest = (target as { closest?: (selector: string) => unknown }).closest;
+  if (typeof closest === "function" && closest.call(target, MD_LIVE_OVERLAY_DISMISS_IGNORE)) {
+    return false;
+  }
+  return true;
 }
 
 export function mdLiveSelectionPopoverStyle(

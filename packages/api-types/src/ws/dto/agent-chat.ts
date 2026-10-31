@@ -1,5 +1,8 @@
 export type AgentChatOrigin = "quick" | "normal" | "imported";
 
+/** Same slot as automation `"automation"`. Live markdown Agent Chat. */
+export const AGENT_CHAT_SOURCE_MD_LIVE = "md-live";
+
 export type AgentChatFavoriteModel = {
   agent_id: string;
   model: string;
@@ -58,6 +61,8 @@ export type AgentChatListRequest = {
   limit?: number | null;
   all?: boolean | null;
   origin?: AgentChatOrigin | null;
+  /** `undefined` → default-exclude `md-live`. `[]` includes every source. */
+  exclude_sources?: string[] | null;
 };
 
 export type AgentChatIdRequest = {
@@ -96,6 +101,7 @@ export type AgentChatConfigureRequest = {
   permission_mode?: string | null;
   fast?: string | null;
   context?: string | null;
+  source?: string | null;
 };
 
 export type AgentChatSubscribeRequest = {
@@ -350,6 +356,7 @@ export type AgentChatIndexEntry = {
   project_id: string | null;
   space_id?: string | null;
   origin?: AgentChatOrigin | null;
+  source?: string | null;
   provider_id: string;
   updated_at: string;
   last_message_at: string | null;

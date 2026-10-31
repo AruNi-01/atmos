@@ -250,6 +250,10 @@ Wiki setup / viewer / generate / source-toggle as today.
 
 Working pill (`data-md-live-working-pill`) calls `setExpanded(true)`. Minimize calls `setExpanded(false)`. Working keeps the collapsed bar visible without hover so the pill remains clickable.
 
+### S37 — `source: md-live` + overlay UX
+
+Create persists `source: "md-live"` on index and `AgentChatMetaWire`. `agent_chat_list` / store `list` default-exclude that source (`exclude_sources: []` includes). Empty overlay is composer-only; with content, Minimize + Pin (top-left), `+` (top-right), and a Live source badge. Unpinned click-outside docks to the bottom bar.
+
 ## Exploratory agent-browser checks
 
 - Live vs Source at desktop and a narrow width. Agent Chat chrome on Live-eligible tabs only.

@@ -55,6 +55,9 @@ pub struct AgentChatListRequest {
     pub all: bool,
     #[serde(default)]
     pub origin: Option<AgentChatOrigin>,
+    /// `None` → default-exclude `md-live`. `Some([])` includes every source.
+    #[serde(default)]
+    pub exclude_sources: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -224,6 +227,8 @@ pub struct AgentChatConfigureRequest {
     pub fast: Option<String>,
     #[serde(default)]
     pub context: Option<String>,
+    #[serde(default)]
+    pub source: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -288,6 +293,8 @@ pub struct AgentChatMetaWire {
     pub session_usage: Option<SessionUsage>,
     pub descriptor: AgentDescriptor,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub parent_chat_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rewind_view: Option<AgentChatRewindViewWire>,
@@ -323,6 +330,7 @@ impl From<&AgentChatMeta> for AgentChatMetaWire {
             available_commands: meta.available_commands.clone(),
             session_usage: meta.session_usage.clone(),
             descriptor: meta.descriptor.clone(),
+            source: meta.source.clone(),
             parent_chat_id: meta.parent_chat_id.clone(),
             rewind_view: meta
                 .rewind_view
@@ -435,6 +443,19 @@ mod wire_tests {
                 .and_then(|item| item.as_str()),
             Some("opus")
         );
+    }
+
+    #[test]
+    fn meta_wire_exposes_source() {
+        let mut meta = meta_with_applied();
+        meta.source = Some("md-live".into());
+        let value = agent_chat_meta_json(&meta).expect("serialize");
+        assert_eq!(
+            value.get("source").and_then(|item| item.as_str()),
+            Some("md-live")
+        );
+        let omitted = agent_chat_meta_json(&meta_with_applied()).expect("serialize");
+        assert!(omitted.get("source").is_none());
     }
 
     #[test]

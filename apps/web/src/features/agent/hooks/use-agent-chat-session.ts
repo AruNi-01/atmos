@@ -213,6 +213,7 @@ export function useAgentChatSession({
   instanceKey = null,
   paintContextId = null,
   surfaceVisible = true,
+  chatSource: chatSourceProp = null,
   chatId: chatIdProp,
   resumeTranscript = false,
   onChatStarted,
@@ -242,6 +243,8 @@ export function useAgentChatSession({
   onOpenChat?: (id: string) => void;
 }) {
   const chatId = chatIdProp.trim();
+  const requestedSource = chatSourceProp?.trim() || null;
+  const [persistedSource, setPersistedSource] = useState<string | null>(requestedSource);
   const t = useTranslations("agent.chatSessionTypes");
   const tSessionHints = useTranslations("Agent.components.chatPanel.session.hints");
   const tChatPanel = useTranslations("Agent.components.chatPanel");
@@ -671,6 +674,16 @@ export function useAgentChatSession({
       if (snapshotEpoch !== snapshotEpochRef.current) return;
       if (hydrateEpoch != null && hydrateEpoch !== hydrateEpochRef.current) return;
       const meta = snapshot.meta;
+      let source = meta.source?.trim() || "";
+      if (requestedSource && !source) {
+        try {
+          const updated = await agentChatApi.configure(id, { source: requestedSource });
+          source = updated.source?.trim() || requestedSource;
+        } catch {
+          source = requestedSource;
+        }
+      }
+      setPersistedSource(source || requestedSource);
       setTitle(meta.title?.trim() || null);
       const loadedMessages = withStableAgentMessageIds(
         (snapshot.messages ?? []).map((message) => ({
@@ -802,6 +815,7 @@ export function useAgentChatSession({
       lastSessionPrefKey,
       paintHostScope.projectId,
       paintHostScope.workspaceId,
+      requestedSource,
       variant,
       applyDescriptor,
     ],
@@ -1635,10 +1649,12 @@ export function useAgentChatSession({
             : spaceIdForChatCreate(paintContextId, workspaceId || projectId),
           title: input?.title ?? null,
           origin: isolatedModal ? "quick" : "normal",
+          source: requestedSource,
         });
         const id = meta.id;
         activeIdRef.current = id;
         setActiveChatId(id);
+        setPersistedSource(meta.source?.trim() || requestedSource);
         applyDescriptor(meta.descriptor, { keepComposerChrome: true });
         setProviderIdState(meta.provider_id || registry);
         const nextTitle = meta.title?.trim() || input?.title?.trim() || null;
@@ -1666,6 +1682,7 @@ export function useAgentChatSession({
       paintContextId,
       projectId,
       providerId,
+      requestedSource,
       workspaceId,
       applyDescriptor,
     ],
@@ -1723,9 +1740,11 @@ export function useAgentChatSession({
               : spaceIdForChatCreate(paintContextId, workspaceId || projectId),
             title: item.sessionTitle ?? null,
             origin: isolatedModal ? "quick" : "normal",
+            source: requestedSource,
           });
           applyDescriptor(meta.descriptor);
           setProviderIdState(meta.provider_id || registry);
+          setPersistedSource(meta.source?.trim() || requestedSource);
           id = meta.id;
           pendingSendRef.current = { text, attachmentPaths: item.attachmentPaths ?? [] };
           activeIdRef.current = id;
@@ -1773,6 +1792,7 @@ export function useAgentChatSession({
     ensureCreatedChat,
     projectId,
     providerId,
+    requestedSource,
     shiftQueuedAgentChatPrompt,
     messages.length,
     workspaceId,
@@ -2149,6 +2169,7 @@ export function useAgentChatSession({
       const previousId = activeIdRef.current;
       activeIdRef.current = "";
       creatingChatRef.current = null;
+      setPersistedSource(requestedSource);
       hydratingRef.current = false;
       resumeTranscriptRef.current = false;
       setIsResumingHistory(false);
@@ -2183,6 +2204,7 @@ export function useAgentChatSession({
       onOpenChat,
       projectId,
       providerId,
+      requestedSource,
       workspaceId,
     ],
   );
@@ -2613,6 +2635,7 @@ export function useAgentChatSession({
   return {
     isPanelOpen,
     isConnected: hydrated,
+    chatSource: persistedSource,
     isConnecting: !hydrated && isResumingHistory,
     connectionPhase: hydrated ? "connected" : "connecting_ws",
     error: sendError,

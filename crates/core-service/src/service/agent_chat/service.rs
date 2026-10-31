@@ -292,7 +292,7 @@ impl AgentChatService {
     pub fn live_session_chats(
         &self,
     ) -> Result<Vec<crate::service::agent_status::AgentSessionChatRef>> {
-        let entries = self.list(None, None, None, true, None)?;
+        let entries = self.list(None, None, None, true, None, None)?;
         Ok(entries
             .into_iter()
             .filter_map(|entry| {
@@ -348,9 +348,21 @@ impl AgentChatService {
         project_id: Option<&str>,
         all: bool,
         origin: Option<super::types::AgentChatOrigin>,
+        exclude_sources: Option<&[String]>,
     ) -> Result<Vec<super::types::AgentChatIndexEntry>> {
-        self.store
-            .list(cwd, workspace_id, project_id, false, all, origin)
+        self.store.list(
+            cwd,
+            workspace_id,
+            project_id,
+            false,
+            all,
+            origin,
+            exclude_sources,
+        )
+    }
+
+    pub fn set_source_if_empty(&self, id: &str, source: &str) -> Result<AgentChatMeta> {
+        self.store.set_source_if_empty(id, source)
     }
 
     pub async fn get(&self, id: &str) -> Result<AgentChatSnapshot> {
@@ -1735,7 +1747,7 @@ impl AgentChatService {
     pub async fn close_workspace(&self, workspace_id: &str) -> usize {
         let ids = self
             .store
-            .list(None, Some(workspace_id), None, true, false, None)
+            .list(None, Some(workspace_id), None, true, false, None, Some(&[]))
             .unwrap_or_default()
             .into_iter()
             .map(|entry| entry.id)

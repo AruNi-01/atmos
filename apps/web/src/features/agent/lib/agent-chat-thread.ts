@@ -8,6 +8,7 @@ import type {
   AgentOptionSupport,
   AgentThinkingSupport,
 } from "@atmos/api-types/ws/dto/agent-chat";
+import { AGENT_CHAT_SOURCE_MD_LIVE } from "@atmos/api-types/ws/dto/agent-chat";
 
 type ThinkingShape = {
   type?: string;
@@ -1643,15 +1644,21 @@ export function chatTitleFromPrompt(text: string): string {
   return `${chars.slice(0, CHAT_PROMPT_TITLE_MAX_CHARS).join("")}…`;
 }
 
+export function isMdLiveAgentChatSource(source: string | null | undefined): boolean {
+  return (source?.trim() || "") === AGENT_CHAT_SOURCE_MD_LIVE;
+}
+
 export function chatsToHistoryRows(items: AgentChatIndexEntry[]): AgentChatHistoryRow[] {
-  return items.map((item) => ({
-    chat_id: item.id,
-    provider_id: item.provider_id,
-    title: item.title,
-    cwd: item.cwd,
-    origin: item.origin === "quick" ? "quick" : "normal",
-    updated_at: item.updated_at,
-  }));
+  return items
+    .filter((item) => !isMdLiveAgentChatSource(item.source))
+    .map((item) => ({
+      chat_id: item.id,
+      provider_id: item.provider_id,
+      title: item.title,
+      cwd: item.cwd,
+      origin: item.origin === "quick" ? "quick" : "normal",
+      updated_at: item.updated_at,
+    }));
 }
 
 export function agentChatHistoryListRequest(input: {

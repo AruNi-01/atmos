@@ -16,12 +16,12 @@ use super::transcript_page::{
     LEFTOVER_TRANSCRIPT_TAIL_MAX,
 };
 use super::types::{
-    apply_rewind_view, apply_text_offset, chat_descriptor, flatten_messages,
-    sort_parts_by_recorded_ordinals, AgentChatIndexEntry, AgentChatMeta, AgentChatOrigin,
-    AgentChatSnapshot, CreateAgentChatRequest, FoldedMessage, FoldedTurn, MaterializedTextPart,
-    MessagePart, PendingPermission, QueueItem, RuntimeStatus, SessionHintTone,
-    SessionLifecycleAction, SessionLifecycleStatus, ToolCallState, TranscriptEnvelope,
-    TranscriptEvent, TurnStatus,
+    agent_chat_source_is_excluded, apply_rewind_view, apply_text_offset, chat_descriptor,
+    flatten_messages, sort_parts_by_recorded_ordinals, AgentChatIndexEntry, AgentChatMeta,
+    AgentChatOrigin, AgentChatSnapshot, CreateAgentChatRequest, FoldedMessage, FoldedTurn,
+    MaterializedTextPart, MessagePart, PendingPermission, QueueItem, RuntimeStatus,
+    SessionHintTone, SessionLifecycleAction, SessionLifecycleStatus, ToolCallState,
+    TranscriptEnvelope, TranscriptEvent, TurnStatus,
 };
 use agent::{
     AgentCurrentConfig, AgentEvent, AgentEventEnvelope, AgentPermissionRequest, TextKind, TurnStop,
@@ -325,6 +325,7 @@ impl AgentChatStore {
         include_deleted: bool,
         all: bool,
         origin: Option<AgentChatOrigin>,
+        exclude_sources: Option<&[String]>,
     ) -> Result<Vec<AgentChatIndexEntry>> {
         let entries = match self.read_index() {
             Ok(entries) if !entries.is_empty() => entries,
@@ -334,6 +335,9 @@ impl AgentChatStore {
             .into_iter()
             .filter(|entry| include_deleted || !entry.deleted)
             .filter(|entry| origin.is_none_or(|wanted| entry.origin == wanted))
+            .filter(|entry| {
+                !agent_chat_source_is_excluded(entry.source.as_deref(), exclude_sources)
+            })
             .filter(|entry| {
                 if cwd.is_some() || workspace_id.is_some() || project_id.is_some() {
                     return cwd.is_none_or(|cwd| entry.cwd == cwd)
@@ -346,6 +350,25 @@ impl AgentChatStore {
                 entry.workspace_id.is_none() && entry.project_id.is_none()
             })
             .collect())
+    }
+
+    /// Backfill Live markdown chats created before source was persisted.
+    /// Does not overwrite an existing source (including `"automation"`).
+    pub fn set_source_if_empty(&self, id: &str, source: &str) -> Result<AgentChatMeta> {
+        let source = source.trim();
+        if source.is_empty() {
+            return self.get_meta(id);
+        }
+        self.update_meta(id, |meta| {
+            if meta
+                .source
+                .as_deref()
+                .map(str::trim)
+                .is_none_or(|value| value.is_empty())
+            {
+                meta.source = Some(source.to_string());
+            }
+        })
     }
 
     pub fn rename(&self, id: &str, title: &str) -> Result<AgentChatMeta> {
@@ -1978,7 +2001,7 @@ fn io_err(error: std::io::Error) -> ServiceError {
 mod tests {
     use super::*;
     use crate::service::agent_chat::types::{
-        SessionConfigValueChange, TranscriptEnvelope, TranscriptEvent,
+        SessionConfigValueChange, TranscriptEnvelope, TranscriptEvent, AGENT_CHAT_SOURCE_MD_LIVE,
     };
     use agent::{
         AgentAskQuestion, AgentEvent, AgentEventEnvelope, AgentPermissionRequest, AgentTool,
@@ -4109,14 +4132,16 @@ mod tests {
         let (_dir, store) = store();
         create(&store, "/tmp/a");
         create(&store, "/tmp/b");
-        let listed = store.list(None, None, None, false, false, None).unwrap();
+        let listed = store
+            .list(None, None, None, false, false, None, None)
+            .unwrap();
         let mut cwds: Vec<_> = listed.iter().map(|e| e.cwd.as_str()).collect();
         cwds.sort();
         cwds.dedup();
         assert_eq!(cwds, ["/tmp/a", "/tmp/b"]);
         assert_eq!(
             store
-                .list(Some("/tmp/a"), None, None, false, false, None)
+                .list(Some("/tmp/a"), None, None, false, false, None, None)
                 .unwrap()
                 .len(),
             1
@@ -4148,17 +4173,19 @@ mod tests {
             .unwrap();
         assert_eq!(
             store
-                .list(None, None, None, false, false, None)
+                .list(None, None, None, false, false, None, None)
                 .unwrap()
                 .len(),
             1
         );
-        let all = store.list(None, None, None, false, true, None).unwrap();
+        let all = store
+            .list(None, None, None, false, true, None, None)
+            .unwrap();
         assert_eq!(all.len(), 2);
         assert!(all.iter().any(|entry| entry.cwd == "/tmp/workspace"));
         assert_eq!(
             store
-                .list(None, Some("ws-1"), None, false, false, None)
+                .list(None, Some("ws-1"), None, false, false, None, None)
                 .unwrap()
                 .len(),
             1
@@ -4189,14 +4216,30 @@ mod tests {
             })
             .unwrap();
         let quick = store
-            .list(None, None, None, false, true, Some(AgentChatOrigin::Quick))
+            .list(
+                None,
+                None,
+                None,
+                false,
+                true,
+                Some(AgentChatOrigin::Quick),
+                None,
+            )
             .unwrap();
         assert_eq!(quick.len(), 1);
         assert_eq!(quick[0].cwd, "/tmp/workspace");
         assert_eq!(quick[0].origin, AgentChatOrigin::Quick);
         assert_eq!(
             store
-                .list(None, None, None, false, true, Some(AgentChatOrigin::Normal))
+                .list(
+                    None,
+                    None,
+                    None,
+                    false,
+                    true,
+                    Some(AgentChatOrigin::Normal),
+                    None,
+                )
                 .unwrap()
                 .len(),
             1
@@ -4212,12 +4255,12 @@ mod tests {
         let deleted = store.delete(&meta.id).unwrap();
         assert!(deleted.deleted);
         assert!(store
-            .list(None, None, None, false, false, None)
+            .list(None, None, None, false, false, None, None)
             .unwrap()
             .is_empty());
         assert_eq!(
             store
-                .list(None, None, None, true, false, None)
+                .list(None, None, None, true, false, None, None)
                 .unwrap()
                 .len(),
             1
@@ -4228,5 +4271,87 @@ mod tests {
         .unwrap();
         assert!(on_disk.deleted);
         assert_eq!(on_disk.title.as_deref(), Some("My chat"));
+    }
+
+    #[test]
+    fn list_default_excludes_md_live_source_and_empty_exclude_includes() {
+        let (_dir, store) = store();
+        create(&store, "/tmp/normal");
+        let live = store
+            .create(CreateAgentChatRequest {
+                workspace_id: None,
+                project_id: None,
+                space_id: None,
+                cwd: "/tmp/live".into(),
+                origin: AgentChatOrigin::Normal,
+                provider_id: "claude".into(),
+                model: None,
+                thinking: None,
+                mode: None,
+                permission_mode: None,
+                fast: None,
+                context: None,
+                title: Some("Live chat".into()),
+                source: Some(AGENT_CHAT_SOURCE_MD_LIVE.into()),
+                automation_run_guid: None,
+            })
+            .unwrap();
+        assert_eq!(live.source.as_deref(), Some(AGENT_CHAT_SOURCE_MD_LIVE));
+        let default_list = store
+            .list(None, None, None, false, false, None, None)
+            .unwrap();
+        assert_eq!(default_list.len(), 1);
+        assert_eq!(default_list[0].cwd, "/tmp/normal");
+        assert!(default_list[0].source.is_none());
+        let included = store
+            .list(None, None, None, false, false, None, Some(&[]))
+            .unwrap();
+        assert_eq!(included.len(), 2);
+        let live_row = included
+            .iter()
+            .find(|entry| entry.id == live.id)
+            .expect("md-live row");
+        assert_eq!(live_row.source.as_deref(), Some(AGENT_CHAT_SOURCE_MD_LIVE));
+    }
+
+    #[test]
+    fn set_source_if_empty_backfills_without_overwriting() {
+        let (_dir, store) = store();
+        let unsourced = create(&store, "/tmp/old-live");
+        let filled = store
+            .set_source_if_empty(&unsourced.id, AGENT_CHAT_SOURCE_MD_LIVE)
+            .unwrap();
+        assert_eq!(filled.source.as_deref(), Some(AGENT_CHAT_SOURCE_MD_LIVE));
+        let listed = store
+            .list(None, None, None, false, false, None, None)
+            .unwrap();
+        assert!(listed.is_empty());
+        let kept = store
+            .set_source_if_empty(&unsourced.id, "automation")
+            .unwrap();
+        assert_eq!(kept.source.as_deref(), Some(AGENT_CHAT_SOURCE_MD_LIVE));
+        let automation = store
+            .create(CreateAgentChatRequest {
+                workspace_id: None,
+                project_id: None,
+                space_id: None,
+                cwd: "/tmp/auto".into(),
+                origin: AgentChatOrigin::Normal,
+                provider_id: "claude".into(),
+                model: None,
+                thinking: None,
+                mode: None,
+                permission_mode: None,
+                fast: None,
+                context: None,
+                title: None,
+                source: Some("automation".into()),
+                automation_run_guid: None,
+            })
+            .unwrap();
+        let unchanged = store
+            .set_source_if_empty(&automation.id, AGENT_CHAT_SOURCE_MD_LIVE)
+            .unwrap();
+        assert_eq!(unchanged.source.as_deref(), Some("automation"));
     }
 }

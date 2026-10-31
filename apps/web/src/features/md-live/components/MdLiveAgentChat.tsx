@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useTranslations } from "next-intl";
 import { Conversation, ConversationContent, cn } from "@workspace/ui";
-import { Maximize2, Minimize2, Sparkles, X } from "lucide-react";
+import { Maximize2, Minimize2, Pin, Plus, Sparkles } from "lucide-react";
 import "../md-live-agent-overlay.css";
 import { AgentAuthDialog } from "@/features/agent/components/AgentAuthDialog";
 import { AgentChatOwnSendRefsProvider } from "@/features/agent/components/agent-chat-own-send-context";
@@ -30,8 +30,10 @@ import { useMdLiveAgentBridge } from "../hooks/use-md-live-agent-bridge";
 import { finishMdLiveEditReview } from "../lib/md-live-edit-host";
 import { restoreAndUnlockMdLiveStream, useMdLiveStreamLocked } from "../lib/md-live-stream-lock";
 import {
+  MD_LIVE_AGENT_CHAT_SOURCE,
   MD_LIVE_AGENT_PANEL_CLASS,
   MD_LIVE_POPOVER_WIDTH,
+  isMdLiveAgentOverlayDismissTarget,
   isMdLiveBarHoverZone,
   mdLiveAgentChatInstanceKey,
   mdLiveOverlayTitle,
@@ -64,6 +66,7 @@ export function MdLiveAgentChat({
   const [hover, setHover] = useState(false);
   const [focused, setFocused] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [pinned, setPinned] = useState(false);
   const [hasDraft, setHasDraft] = useState(false);
   const [anchorRect, setAnchorRect] = useState<MdLiveViewportRect | null>(null);
   const selectionRef = useRef("");
@@ -94,6 +97,7 @@ export function MdLiveAgentChat({
     publishStatus: false,
     active: true,
     instanceKey,
+    chatSource: MD_LIVE_AGENT_CHAT_SOURCE,
     transformPrompt,
     chatId,
   });
@@ -102,6 +106,11 @@ export function MdLiveAgentChat({
   const handleSubmitRef = useRef(session.handleSubmit);
   handleSubmitRef.current = session.handleSubmit;
   const popover = placement === "popover";
+  const hasThread =
+    session.messages.length > 0 ||
+    working ||
+    Boolean(session.pendingPermission) ||
+    Boolean(session.pendingSessionOp);
   const barMode = nextMdLiveBarMode({
     popover,
     hover,
@@ -109,16 +118,13 @@ export function MdLiveAgentChat({
     hasDraft,
     expanded: expanded && !popover,
     working,
+    hasThread,
   });
-  const hasThread =
-    session.messages.length > 0 ||
-    working ||
-    Boolean(session.pendingPermission) ||
-    Boolean(session.pendingSessionOp);
   const showThread = (popover || barMode === "expanded") && hasThread;
   const showBar = popover || barMode !== "hidden";
   const canExpandThread = hasThread && !popover && !showThread;
-  const hasComposerChrome = !showThread && (popover || reviewPending || working || canExpandThread);
+  const hasComposerChrome = !showThread && (reviewPending || working || canExpandThread);
+  const isLiveSource = session.chatSource === MD_LIVE_AGENT_CHAT_SOURCE;
 
   const openPopover = useCallback(
     (selection: string) => {
@@ -132,10 +138,10 @@ export function MdLiveAgentChat({
     [filePath],
   );
 
-  const closePopover = useCallback(() => {
+  const minimizeToBar = useCallback(() => {
     setPlacement("bottom");
-    if (!hasThread) setExpanded(false);
-  }, [hasThread]);
+    setExpanded(false);
+  }, []);
 
   useEffect(() => {
     return subscribeMdLiveEditorEvents(filePath, (event) => {
@@ -192,11 +198,20 @@ export function MdLiveAgentChat({
     if (!popover) return;
     window.dispatchEvent(new Event(MD_LIVE_HIDE_SELECTION_TOOLBAR_EVENT));
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closePopover();
+      if (event.key === "Escape") minimizeToBar();
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      if (pinned) return;
+      if (!isMdLiveAgentOverlayDismissTarget(event.target, hostRef.current)) return;
+      minimizeToBar();
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [closePopover, popover]);
+    window.addEventListener("pointerdown", onPointerDown, true);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("pointerdown", onPointerDown, true);
+    };
+  }, [minimizeToBar, pinned, popover]);
 
   const popoverStyle = useMemo(() => {
     if (!anchorRect) return { bottom: 16, right: 16, left: "auto", top: "auto" } as const;
@@ -212,7 +227,7 @@ export function MdLiveAgentChat({
   const chromePillClass =
     "inline-flex h-6 shrink-0 items-center rounded-full border bg-muted px-2 text-xs hover:bg-muted/80";
 
-  const chrome = (
+  const barChrome = (
     <>
       {working && !popover ? (
         <button
@@ -263,37 +278,6 @@ export function MdLiveAgentChat({
           </button>
         </>
       ) : null}
-      {showThread ? (
-        <button
-          type="button"
-          className={chromePillClass}
-          aria-label={t("newChat")}
-          onClick={() => void session.handleCreateNewSession()}
-        >
-          {t("newChat")}
-        </button>
-      ) : null}
-      {showThread && !popover ? (
-        <button
-          type="button"
-          data-md-live-minimize=""
-          className={chromeButtonClass}
-          aria-label={t("minimize")}
-          onClick={() => setExpanded(false)}
-        >
-          <Minimize2 className="size-3.5" />
-        </button>
-      ) : null}
-      {popover ? (
-        <button
-          type="button"
-          className={chromeButtonClass}
-          aria-label={t("closeChat")}
-          onClick={closePopover}
-        >
-          <X className="size-3.5" />
-        </button>
-      ) : null}
     </>
   );
 
@@ -302,12 +286,51 @@ export function MdLiveAgentChat({
       data-md-live-agent-header=""
       className="flex shrink-0 items-center gap-1.5 border-b border-border px-3 py-1.5"
     >
+      <div className="flex shrink-0 items-center gap-0.5">
+        <button
+          type="button"
+          data-md-live-minimize=""
+          className={chromeButtonClass}
+          aria-label={t("minimize")}
+          onClick={popover ? minimizeToBar : () => setExpanded(false)}
+        >
+          <Minimize2 className="size-3.5" />
+        </button>
+        {popover ? (
+          <button
+            type="button"
+            data-md-live-pin=""
+            className={cn(chromeButtonClass, pinned && "text-foreground")}
+            aria-label={pinned ? t("unpin") : t("pin")}
+            aria-pressed={pinned}
+            onClick={() => setPinned((current) => !current)}
+          >
+            <Pin className={cn("size-3.5", pinned && "fill-current")} />
+          </button>
+        ) : null}
+      </div>
+      {isLiveSource ? (
+        <span
+          data-md-live-source-badge=""
+          className="shrink-0 rounded-full border border-border bg-muted px-1.5 py-0.5 text-[11px] leading-none text-muted-foreground"
+        >
+          {t("agentBadge")}
+        </span>
+      ) : null}
       {sessionTitle ? (
         <span className="min-w-0 flex-1 truncate text-sm">{sessionTitle}</span>
       ) : (
         <span className="min-w-0 flex-1" />
       )}
-      <div className="flex shrink-0 items-center gap-0.5">{chrome}</div>
+      <button
+        type="button"
+        data-md-live-new-session=""
+        className={chromeButtonClass}
+        aria-label={t("newChat")}
+        onClick={() => void session.handleCreateNewSession()}
+      >
+        <Plus className="size-3.5" />
+      </button>
     </div>
   ) : null;
 
@@ -390,7 +413,7 @@ export function MdLiveAgentChat({
       sessionUsage={session.sessionUsage}
       messages={session.messages}
       placeholderOverride={placeholder}
-      leadingChrome={hasComposerChrome ? chrome : null}
+      leadingChrome={hasComposerChrome ? barChrome : null}
       promptClassName="bg-popover"
       onDraftChange={setHasDraft}
       aboveInputOverlay={

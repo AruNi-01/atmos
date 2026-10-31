@@ -48,6 +48,7 @@ describe("S2 Agent Chat entry points", () => {
     expect(session).toContain("workspace_id: workspaceId");
     expect(session).toContain("project_id: projectId");
     expect(session).toContain('origin: isolatedModal ? "quick" : "normal"');
+    expect(session).toContain("source: requestedSource");
     expect(session).toContain("spaceIdForChatCreate");
     expect(session).toContain("ensureCreatedChat");
     expect(session).toContain("hostScopeFromPaintContext");

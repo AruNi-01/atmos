@@ -1,10 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import {
+  isMdLiveAgentOverlayDismissTarget,
   isMdLiveBarHoverZone,
   mdLiveAgentChatInstanceKey,
   mdLiveAgentChromeStep,
   mdLiveOverlayTitle,
   mdLiveSelectionPopoverStyle,
+  MD_LIVE_AGENT_CHAT_SOURCE,
   MD_LIVE_AGENT_CHROME_MAX_MODE_LABEL_PX,
   MD_LIVE_AGENT_CHROME_MAX_MODEL_TEXT_PX,
   MD_LIVE_AGENT_CHROME_MAX_PERMISSION_LABEL_PX,
@@ -22,6 +24,7 @@ describe("md-live agent chat helpers", () => {
     expect(mdLiveAgentChatInstanceKey("/tmp/note.md")).toBe(
       mdLiveAgentChatInstanceKey("/tmp/note.md"),
     );
+    expect(MD_LIVE_AGENT_CHAT_SOURCE).toBe("md-live");
   });
 
   test("one-line bar expands from hover to focus/draft to working thread", () => {
@@ -40,6 +43,7 @@ describe("md-live agent chat helpers", () => {
     expect(nextMdLiveBarMode({ ...base, working: true })).toBe("collapsed");
     expect(nextMdLiveBarMode({ ...base, expanded: true, working: true })).toBe("expanded");
     expect(nextMdLiveBarMode({ ...base, popover: true, expanded: true })).toBe("hidden");
+    expect(nextMdLiveBarMode({ ...base, hasThread: true })).toBe("collapsed");
   });
 
   test("Working stays visible without hover so the pill can expand/minimize", () => {
@@ -108,6 +112,26 @@ describe("md-live agent chat helpers", () => {
   test("hover zone is the bottom strip of the Live host", () => {
     expect(isMdLiveBarHoverZone(940, 1000)).toBe(true);
     expect(isMdLiveBarHoverZone(1000 - MD_LIVE_BAR_HOVER_PX - 1, 1000)).toBe(false);
+  });
+
+  test("unpinned popover ignores overlay and portaled picker clicks", () => {
+    const inside = { closest: () => null };
+    const host = { contains: (node: Node) => node === (inside as unknown as Node) };
+    expect(isMdLiveAgentOverlayDismissTarget(inside as unknown as EventTarget, host)).toBe(false);
+    expect(
+      isMdLiveAgentOverlayDismissTarget(
+        {
+          closest: (selector: string) =>
+            selector.includes("data-morph-popover-portal") ? {} : null,
+        } as unknown as EventTarget,
+        { contains: () => false },
+      ),
+    ).toBe(false);
+    expect(
+      isMdLiveAgentOverlayDismissTarget({ closest: () => null } as unknown as EventTarget, {
+        contains: () => false,
+      }),
+    ).toBe(true);
   });
 
   test("adaptive chrome hides Thread then model text then mode then permission", () => {

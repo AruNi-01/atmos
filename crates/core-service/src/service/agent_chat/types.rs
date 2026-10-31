@@ -213,6 +213,8 @@ pub struct AgentChatIndexEntry {
     pub space_id: Option<String>,
     #[serde(default)]
     pub origin: AgentChatOrigin,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
     pub provider_id: String,
     pub updated_at: DateTime<Utc>,
     #[serde(default)]
@@ -231,11 +233,32 @@ impl From<&AgentChatMeta> for AgentChatIndexEntry {
             project_id: meta.project_id.clone(),
             space_id: meta.space_id.clone(),
             origin: meta.origin,
+            source: meta.source.clone(),
             provider_id: meta.provider_id.clone(),
             updated_at: meta.updated_at,
             last_message_at: meta.last_message_at,
             deleted: meta.deleted,
         }
+    }
+}
+
+/// Same slot as automation (`"automation"`). Live markdown Agent Chat.
+pub const AGENT_CHAT_SOURCE_MD_LIVE: &str = "md-live";
+
+pub const DEFAULT_EXCLUDED_AGENT_CHAT_SOURCES: &[&str] = &[AGENT_CHAT_SOURCE_MD_LIVE];
+
+pub fn agent_chat_source_is_excluded(
+    source: Option<&str>,
+    exclude_sources: Option<&[String]>,
+) -> bool {
+    let Some(source) = source.map(str::trim).filter(|value| !value.is_empty()) else {
+        return false;
+    };
+    match exclude_sources {
+        None => DEFAULT_EXCLUDED_AGENT_CHAT_SOURCES
+            .iter()
+            .any(|skip| *skip == source),
+        Some(list) => list.iter().any(|skip| skip == source),
     }
 }
 

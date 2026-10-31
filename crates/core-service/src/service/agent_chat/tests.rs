@@ -1339,7 +1339,7 @@ async fn app069_s13_failed_session_op_does_not_set_rewind_view_or_fork() {
     let after = service.get(&meta.id).await.unwrap();
     assert!(after.meta.rewind_view.is_none());
     assert!(after.pending_session_op.is_none());
-    let listed = service.list(None, None, None, true, None).unwrap();
+    let listed = service.list(None, None, None, true, None, None).unwrap();
     assert_eq!(listed.len(), 1);
     assert_eq!(listed[0].id, meta.id);
 }
@@ -1370,7 +1370,7 @@ async fn app069_s16_applied_fork_creates_sibling_and_emits_session_forked() {
         .await
         .unwrap();
 
-    let listed = service.list(None, None, None, true, None).unwrap();
+    let listed = service.list(None, None, None, true, None, None).unwrap();
     assert_eq!(listed.len(), 2);
     let child = listed
         .iter()

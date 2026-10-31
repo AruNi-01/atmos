@@ -1091,7 +1091,20 @@ describe("agent chat helpers", () => {
         last_message_at: null,
         deleted: false,
       },
+      {
+        id: "chat-live",
+        title: "Live note",
+        cwd: "/tmp/app",
+        workspace_id: "ws-1",
+        project_id: null,
+        source: "md-live",
+        provider_id: "claude",
+        updated_at: "2026-08-28T00:00:00.000Z",
+        last_message_at: null,
+        deleted: false,
+      },
     ]);
+    expect(rows).toHaveLength(1);
     expect(rows[0]).toEqual({
       chat_id: "chat-1",
       provider_id: "claude",

@@ -39,7 +39,7 @@ pub use service::agent_chat::{
     OptionsPrefetchWorker, OptionsUpdated, QueueItem, QueueItemStatus, RuntimeStatus,
     TerminalAgentFavoriteModel, TerminalAgentLastPick, TerminalAgentPrefs, TerminalAgentPrefsPatch,
     TurnStatus, AGENT_CHAT_MESSAGE_PAGE_DEFAULT, AGENT_CHAT_MESSAGE_PAGE_MAX,
-    AGENT_CHAT_TOOL_GET_MAX, PREFETCH_POLL,
+    AGENT_CHAT_SOURCE_MD_LIVE, AGENT_CHAT_TOOL_GET_MAX, PREFETCH_POLL,
 };
 pub use service::automation::{
     enabled_session_agents, ensure_builtin_terminal_agents_upgraded, terminal_agent_command_names,

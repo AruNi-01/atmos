@@ -72,7 +72,7 @@ pub struct AgentChatBridgeHost {
 #[async_trait]
 impl BridgeChatHost for AgentChatBridgeHost {
     fn list_chats(&self) -> Result<Vec<LiveSession>> {
-        let rows = self.chat.list(None, None, None, true, None)?;
+        let rows = self.chat.list(None, None, None, true, None, None)?;
         Ok(rows
             .into_iter()
             .filter(|row| !row.deleted)

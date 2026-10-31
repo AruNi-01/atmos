@@ -97,6 +97,7 @@ impl WsMessageService {
             req.project_id.as_deref(),
             req.all,
             req.origin,
+            req.exclude_sources.as_deref(),
         )?;
         let limit = req.limit.unwrap_or(100).clamp(1, 200) as usize;
         let skip = req
@@ -162,19 +163,42 @@ impl WsMessageService {
         &self,
         req: AgentChatConfigureRequest,
     ) -> Result<Value> {
-        let meta = self
-            .agent_chat()
-            .configure(
-                &req.chat_id,
-                req.provider_id,
-                req.model,
-                req.thinking,
-                req.mode,
-                req.permission_mode,
-                req.fast,
-                req.context,
-            )
-            .await?;
+        let has_config_patch = req.provider_id.is_some()
+            || req.model.is_some()
+            || req.thinking.is_some()
+            || req.mode.is_some()
+            || req.permission_mode.is_some()
+            || req.fast.is_some()
+            || req.context.is_some();
+        let mut meta = if has_config_patch {
+            self.agent_chat()
+                .configure(
+                    &req.chat_id,
+                    req.provider_id,
+                    req.model,
+                    req.thinking,
+                    req.mode,
+                    req.permission_mode,
+                    req.fast,
+                    req.context,
+                )
+                .await?
+        } else {
+            self.agent_chat()
+                .set_source_if_empty(&req.chat_id, req.source.as_deref().unwrap_or(""))?
+        };
+        if has_config_patch {
+            if let Some(source) = req
+                .source
+                .as_deref()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            {
+                meta = self
+                    .agent_chat()
+                    .set_source_if_empty(&req.chat_id, source)?;
+            }
+        }
         agent_chat_meta_json(&meta)
             .map_err(|e| ServiceError::Processing(format!("serialize chat: {e}")))
     }
