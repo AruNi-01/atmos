@@ -11,7 +11,7 @@ export const MD_LIVE_AGENT_PANEL_CLASS =
   "flex flex-col rounded-2xl border border-border bg-popover text-popover-foreground shadow-lg";
 /** Transparent overlay stack: thread card (optional) + gap + composer. */
 export const MD_LIVE_AGENT_STACK_CLASS = "flex flex-col gap-2";
-export const MD_LIVE_AGENT_THREAD_MAX_CLASS = "max-h-[min(70vh,32rem)] overflow-y-auto";
+export const MD_LIVE_AGENT_THREAD_MAX_CLASS = "max-h-[min(70vh,32rem)] overflow-hidden";
 
 /** Overlay container queries (`md-live-agent-overlay.css`). Hide order, wide → narrow. */
 export const MD_LIVE_AGENT_CHROME_MAX_THREAD_PX = 576;
@@ -74,9 +74,26 @@ export function mdLiveShowThreadCard(input: {
   return (input.popover || input.barExpanded) && input.messageCount > 0;
 }
 
-/** Running-state pill above the composer when the thread card is minimized. */
-export function mdLiveShowWorkingPill(input: { showThreadCard: boolean; busy: boolean }): boolean {
-  return input.busy && !input.showThreadCard;
+/** Status pill above the composer when the thread card is minimized. */
+export function mdLiveShowWorkingPill(input: {
+  showThreadCard: boolean;
+  busy: boolean;
+  messageCount: number;
+}): boolean {
+  return !input.showThreadCard && (input.busy || input.messageCount > 0);
+}
+
+/** Frozen turn duration for the idle "Worked for …" pill. */
+export function mdLiveIdleWorkedMs(
+  elapsedMs: number,
+  messages: Array<{ role?: string; worked_ms?: number | null }>,
+): number {
+  if (elapsedMs > 0) return elapsedMs;
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const worked = messages[i]?.worked_ms;
+    if (messages[i]?.role === "assistant" && worked != null && worked > 0) return worked;
+  }
+  return 0;
 }
 
 const MD_LIVE_OVERLAY_DISMISS_IGNORE = "[data-morph-popover-portal], [role='dialog']";

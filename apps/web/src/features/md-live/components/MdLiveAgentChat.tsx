@@ -10,11 +10,12 @@ import {
   cn,
   pickActivityIndicatorStyle,
 } from "@workspace/ui";
-import { Maximize2, Minimize2, Pin, Plus } from "lucide-react";
+import { Minimize2, Pin, Plus } from "lucide-react";
 import "../md-live-agent-overlay.css";
 import { AgentAuthDialog } from "@/features/agent/components/AgentAuthDialog";
 import { AgentChatOwnSendRefsProvider } from "@/features/agent/components/agent-chat-own-send-context";
 import { AgentChatCwdProvider } from "@/features/agent/components/agent-chat-cwd-context";
+import { AgentChatEdgeFades } from "@/features/agent/components/AgentChatEdgeFades";
 import { AgentChatTranscriptList } from "@/features/agent/components/AgentChatTranscriptList";
 import {
   AgentActivityIndicator,
@@ -30,6 +31,7 @@ import { AgentSessionOpCard } from "@/features/agent/components/AgentSessionOpCa
 import { SubagentOverlayProvider } from "@/features/agent/components/subagent-overlay-context";
 import { useAgentChatSession } from "@/features/agent/hooks/use-agent-chat-session";
 import { DEFAULT_AGENT_CHAT_MODE } from "@/features/agent/types/index";
+import { formatWorkDuration } from "@/features/agent/lib/agent-chat-timing";
 import { AGENT_CHAT_SCROLL_CLASS } from "@/features/agent/lib/agent-chat-transcript-window";
 import { prependMdLiveComposerContext } from "@/features/agent/lib/agent/active-composer";
 import { useEditorStore } from "@/features/editor/store/use-editor-store";
@@ -51,6 +53,7 @@ import {
   mdLiveOverlayTitle,
   mdLiveRewritePrompt,
   mdLiveSelectionPopoverStyle,
+  mdLiveIdleWorkedMs,
   mdLiveShowThreadCard,
   mdLiveShowWorkingPill,
   mdLiveSummarizePrompt,
@@ -71,6 +74,7 @@ export function MdLiveAgentChat({
   chatId?: string | null;
 }) {
   const t = useTranslations("mdLive");
+  const chatPanelT = useTranslations("Agent.components.chatPanel");
   const instanceKey = mdLiveAgentChatInstanceKey(filePath);
   const chatId = chatIdProp || "";
   const [selectedSubagentId, setSelectedSubagentId] = useState<string | null>(null);
@@ -142,12 +146,14 @@ export function MdLiveAgentChat({
     barExpanded: barMode === "expanded",
     messageCount: session.messages.length,
   });
-  const showWorkingPill = mdLiveShowWorkingPill({ showThreadCard, busy: working });
+  const showWorkingPill = mdLiveShowWorkingPill({
+    showThreadCard,
+    busy: working,
+    messageCount: session.messages.length,
+  });
   const showBar = popover || barMode !== "hidden";
-  const canExpandThread = session.messages.length > 0 && !popover && !showThreadCard;
-  const hasComposerChrome =
-    !showThreadCard && (reviewPending || showWorkingPill || canExpandThread);
-  const isLiveSource = session.chatSource === MD_LIVE_AGENT_CHAT_SOURCE;
+  const hasComposerChrome = !showThreadCard && (reviewPending || showWorkingPill);
+  const idleWorkedMs = mdLiveIdleWorkedMs(session.elapsedMs, session.messages);
 
   const openPopover = useCallback(
     (selection: string) => {
@@ -257,7 +263,7 @@ export function MdLiveAgentChat({
 
   const barChrome = (
     <>
-      {showWorkingPill && session.agentActivity.busy ? (
+      {showWorkingPill ? (
         <button
           type="button"
           data-md-live-working-pill=""
@@ -265,24 +271,21 @@ export function MdLiveAgentChat({
           aria-label={t("expandChat")}
           onClick={expandThread}
         >
-          <span className="flex size-3.5 shrink-0 items-center justify-center">
-            <ActivityIndicator
-              style={session.agentActivity.kind === "thinking" ? "stars" : workingGlyphStyle}
-              size={14}
-            />
-          </span>
-          <AgentActivityStatusText activity={session.agentActivity} />
-        </button>
-      ) : null}
-      {canExpandThread && !working ? (
-        <button
-          type="button"
-          data-md-live-expand=""
-          className={chromeButtonClass}
-          aria-label={t("expandChat")}
-          onClick={() => setExpanded(true)}
-        >
-          <Maximize2 className="size-3.5" />
+          {session.agentActivity.busy ? (
+            <>
+              <span className="flex size-3.5 shrink-0 items-center justify-center">
+                <ActivityIndicator
+                  style={session.agentActivity.kind === "thinking" ? "stars" : workingGlyphStyle}
+                  size={14}
+                />
+              </span>
+              <AgentActivityStatusText activity={session.agentActivity} />
+            </>
+          ) : (
+            <span className="text-xs whitespace-nowrap">
+              {chatPanelT("workedFor", { duration: formatWorkDuration(idleWorkedMs) })}
+            </span>
+          )}
         </button>
       ) : null}
       {reviewPending ? (
@@ -317,7 +320,7 @@ export function MdLiveAgentChat({
   const panelHeader = showThreadCard ? (
     <div
       data-md-live-agent-header=""
-      className="sticky top-0 z-10 flex shrink-0 items-center gap-1.5 border-b border-border bg-popover px-3 py-1.5"
+      className="sticky top-0 z-10 flex shrink-0 items-center gap-1.5 bg-popover px-3 py-1.5"
     >
       <div className="flex shrink-0 items-center gap-0.5">
         <button
@@ -342,14 +345,6 @@ export function MdLiveAgentChat({
           </button>
         ) : null}
       </div>
-      {isLiveSource ? (
-        <span
-          data-md-live-source-badge=""
-          className="shrink-0 rounded-full border border-border bg-muted px-1.5 py-0.5 text-[11px] leading-none text-muted-foreground"
-        >
-          {t("agentBadge")}
-        </span>
-      ) : null}
       {sessionTitle ? (
         <span className="min-w-0 flex-1 truncate text-sm">{sessionTitle}</span>
       ) : (
@@ -368,10 +363,17 @@ export function MdLiveAgentChat({
   ) : null;
 
   const thread = showThreadCard ? (
-    <div data-md-live-agent-thread="" className="min-w-0">
+    <div
+      ref={session.transcriptRef}
+      data-md-live-agent-thread=""
+      className="relative min-h-0 min-w-0 overflow-hidden"
+    >
       <AgentChatOwnSendRefsProvider>
         <AgentChatCwdProvider cwd={session.sessionCwd} projectOrWorkspacePath={session.localPath}>
-          <Conversation className="flex-none overflow-visible" initial="smooth">
+          <Conversation
+            className="max-h-[min(62vh,28rem)] min-h-0 overflow-hidden"
+            initial="smooth"
+          >
             <ConversationContent
               className="gap-3 px-3 py-3"
               scrollClassName={AGENT_CHAT_SCROLL_CLASS}
@@ -397,6 +399,10 @@ export function MdLiveAgentChat({
           </Conversation>
         </AgentChatCwdProvider>
       </AgentChatOwnSendRefsProvider>
+      <AgentChatEdgeFades
+        rootRef={session.transcriptRef}
+        resetKey={session.chatId || instanceKey}
+      />
     </div>
   ) : null;
 

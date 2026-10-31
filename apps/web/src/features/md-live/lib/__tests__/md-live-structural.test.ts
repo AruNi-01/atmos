@@ -171,18 +171,28 @@ describe("md-live structural gates", () => {
     expect(source).toContain("data-md-live-agent-bar");
     expect(source).toContain("data-md-live-working-pill");
     expect(source).toContain("mdLiveShowWorkingPill");
+    expect(source).toContain("mdLiveIdleWorkedMs");
     expect(source).toContain("AgentActivityStatusText");
     expect(source).toContain("ActivityIndicator");
+    expect(source).toContain("formatWorkDuration");
+    expect(source).toContain('chatPanelT("workedFor"');
+    expect(source).toContain("AgentChatEdgeFades");
+    expect(source).toContain("rootRef={session.transcriptRef}");
     expect(source).toContain("expandThread");
     expect(source).not.toContain("working && !popover");
     expect(source).not.toContain("Sparkles");
+    expect(source).not.toContain("data-md-live-source-badge");
+    expect(source).not.toContain('t("agentBadge")');
+    expect(source).not.toContain("isLiveSource");
+    expect(source).not.toContain("border-b border-border");
+    expect(source).not.toContain('data-md-live-expand=""');
+    expect(source).not.toContain("Maximize2");
     expect(source).toContain("setExpanded(true)");
     expect(source).toContain("setExpanded(false)");
     expect(source).toContain("data-md-live-accept");
     expect(source).toContain("data-md-live-reject");
     expect(source).toContain("data-md-live-pin");
     expect(source).toContain("data-md-live-new-session");
-    expect(source).toContain("data-md-live-source-badge");
     expect(source).toContain("minimizeToBar");
     expect(source).toContain("isMdLiveAgentOverlayDismissTarget");
     expect(source).toContain("if (pinned) return");
@@ -199,7 +209,6 @@ describe("md-live structural gates", () => {
     expect(source).toContain('data-md-live-agent-thread-card=""');
     expect(source).toContain("mdLiveShowThreadCard");
     expect(source).toContain('data-md-live-minimize=""');
-    expect(source).toContain('data-md-live-expand=""');
     expect(source).not.toContain("min-h-[12rem]");
     expect(source).not.toContain("min-h-[min(48vh,20rem)]");
     expect(source).not.toContain('backgroundColor: "var(--popover)"');
@@ -212,6 +221,7 @@ describe("md-live structural gates", () => {
     expect(helpers).toContain("MD_LIVE_AGENT_STACK_CLASS");
     expect(helpers).toContain("mdLiveShowThreadCard");
     expect(helpers).toContain("mdLiveShowWorkingPill");
+    expect(helpers).toContain("mdLiveIdleWorkedMs");
     expect(helpers).toContain('MD_LIVE_AGENT_CHAT_SOURCE = "md-live"');
     expect(helpers).toContain("isMdLiveAgentOverlayDismissTarget");
     expect(helpers).toContain("mdLiveAgentChromeStep");
@@ -226,6 +236,7 @@ describe("md-live structural gates", () => {
     expect(overlayCss).toContain("container-name: md-live-agent");
     expect(overlayCss).toContain("[data-md-live-agent-thread-card]");
     expect(overlayCss).toContain("[data-md-live-working-pill]");
+    expect(overlayCss).toContain("[data-md-live-agent-thread] .agent-chat-edge-fade");
     expect(overlayCss).toContain("background-color: var(--popover) !important");
     expect(overlayCss).not.toMatch(
       /\[data-md-live-agent-popover\],\s*\[data-md-live-agent-bar\]\s*\{[^}]*background-color/,

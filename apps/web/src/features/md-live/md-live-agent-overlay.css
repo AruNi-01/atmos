@@ -32,6 +32,12 @@
   backdrop-filter: blur(10px);
 }
 
+[data-md-live-agent-thread] .agent-chat-edge-fade {
+  --agent-chat-fade-stops:
+    var(--popover) 0%, color-mix(in oklab, var(--popover) 88%, transparent) 24%,
+    color-mix(in oklab, var(--popover) 46%, transparent) 58%, transparent 100%;
+}
+
 @container md-live-agent (max-width: 576px) {
   [data-prompt-thread] {
     display: none;

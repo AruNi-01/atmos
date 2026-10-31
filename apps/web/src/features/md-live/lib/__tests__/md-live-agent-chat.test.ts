@@ -6,6 +6,7 @@ import {
   mdLiveAgentChromeStep,
   mdLiveOverlayTitle,
   mdLiveSelectionPopoverStyle,
+  mdLiveIdleWorkedMs,
   mdLiveShowThreadCard,
   mdLiveShowWorkingPill,
   MD_LIVE_AGENT_CHAT_SOURCE,
@@ -147,10 +148,27 @@ describe("md-live agent chat helpers", () => {
     );
   });
 
-  test("Working pill shows while busy and the thread card is minimized", () => {
-    expect(mdLiveShowWorkingPill({ showThreadCard: false, busy: true })).toBe(true);
-    expect(mdLiveShowWorkingPill({ showThreadCard: true, busy: true })).toBe(false);
-    expect(mdLiveShowWorkingPill({ showThreadCard: false, busy: false })).toBe(false);
+  test("status pill shows while busy or when a collapsed thread has messages", () => {
+    expect(mdLiveShowWorkingPill({ showThreadCard: false, busy: true, messageCount: 0 })).toBe(
+      true,
+    );
+    expect(mdLiveShowWorkingPill({ showThreadCard: false, busy: false, messageCount: 1 })).toBe(
+      true,
+    );
+    expect(mdLiveShowWorkingPill({ showThreadCard: true, busy: true, messageCount: 2 })).toBe(
+      false,
+    );
+    expect(mdLiveShowWorkingPill({ showThreadCard: false, busy: false, messageCount: 0 })).toBe(
+      false,
+    );
+  });
+
+  test("idle pill duration prefers elapsedMs then last assistant worked_ms", () => {
+    expect(mdLiveIdleWorkedMs(12_000, [])).toBe(12_000);
+    expect(
+      mdLiveIdleWorkedMs(0, [{ role: "user" }, { role: "assistant", worked_ms: 467_000 }]),
+    ).toBe(467_000);
+    expect(mdLiveIdleWorkedMs(0, [{ role: "user" }])).toBe(0);
   });
 
   test("adaptive chrome hides Thread then model text then mode then permission", () => {
