@@ -36,7 +36,7 @@
 [data-md-live-invite-hairline] {
   width: 140px;
   max-width: calc(100% - 1.5rem);
-  height: 2px;
+  height: 3px;
   background-color: color-mix(in oklch, var(--foreground) 34%, transparent);
 }
 

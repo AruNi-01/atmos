@@ -65,7 +65,7 @@ describe("md-live agent chat helpers", () => {
     expect(MD_LIVE_INVITE_LAYOUT_ID).toBe("md-live-invite-shell");
     expect(MD_LIVE_BAR_MORPH_S).toBe(0.28);
     expect(MD_LIVE_INVITE_HAIRLINE_WIDTH_PX).toBe(140);
-    expect(MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX).toBe(2);
+    expect(MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX).toBe(3);
     expect(MD_LIVE_INVITE_HAIRLINE_WIDTH_PX).toBeLessThan(280);
     expect(mdLiveInviteMorphs("hidden", { showThreadCard: false, hasComposerChrome: false })).toBe(
       true,
