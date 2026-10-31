@@ -29,11 +29,11 @@ use super::store::AgentChatStore;
 use super::transcript_view::page_messages;
 use super::types::{
     apply_rewind_view, resolve_session_config_select, text_suffix_from, AgentChatEvent,
-    AgentChatMeta, AgentChatPayload, AgentChatSessionOpOutcome, AgentChatSnapshot,
-    CreateAgentChatRequest, FoldedTurn, MaterializedTextPart, MessagePart, PartBody,
-    PendingPermission, PendingSessionOp, QueueItem, QueueItemStatus, ResolvedSessionConfig,
-    RewindView, RuntimeStatus, SessionLifecycleAction, SessionLifecycleStatus, TranscriptEnvelope,
-    TranscriptEvent, TurnStatus,
+    AgentChatListFilter, AgentChatMeta, AgentChatPayload, AgentChatSessionOpOutcome,
+    AgentChatSnapshot, CreateAgentChatRequest, FoldedTurn, MaterializedTextPart, MessagePart,
+    PartBody, PendingPermission, PendingSessionOp, QueueItem, QueueItemStatus,
+    ResolvedSessionConfig, RewindView, RuntimeStatus, SessionLifecycleAction,
+    SessionLifecycleStatus, TranscriptEnvelope, TranscriptEvent, TurnStatus,
 };
 use crate::service::agent_status::{self, AgentStatusService};
 
@@ -350,15 +350,15 @@ impl AgentChatService {
         origin: Option<super::types::AgentChatOrigin>,
         exclude_sources: Option<&[String]>,
     ) -> Result<Vec<super::types::AgentChatIndexEntry>> {
-        self.store.list(
+        self.store.list(AgentChatListFilter {
             cwd,
             workspace_id,
             project_id,
-            false,
+            include_deleted: false,
             all,
             origin,
             exclude_sources,
-        )
+        })
     }
 
     pub fn set_source_if_empty(&self, id: &str, source: &str) -> Result<AgentChatMeta> {
@@ -1747,7 +1747,12 @@ impl AgentChatService {
     pub async fn close_workspace(&self, workspace_id: &str) -> usize {
         let ids = self
             .store
-            .list(None, Some(workspace_id), None, true, false, None, Some(&[]))
+            .list(AgentChatListFilter {
+                workspace_id: Some(workspace_id),
+                include_deleted: true,
+                exclude_sources: Some(&[]),
+                ..Default::default()
+            })
             .unwrap_or_default()
             .into_iter()
             .map(|entry| entry.id)

@@ -255,9 +255,7 @@ pub fn agent_chat_source_is_excluded(
         return false;
     };
     match exclude_sources {
-        None => DEFAULT_EXCLUDED_AGENT_CHAT_SOURCES
-            .iter()
-            .any(|skip| *skip == source),
+        None => DEFAULT_EXCLUDED_AGENT_CHAT_SOURCES.contains(&source),
         Some(list) => list.iter().any(|skip| skip == source),
     }
 }
@@ -269,6 +267,18 @@ pub enum AgentChatOrigin {
     Normal,
     Quick,
     Imported,
+}
+
+/// Filters for `AgentChatStore::list`.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct AgentChatListFilter<'a> {
+    pub cwd: Option<&'a str>,
+    pub workspace_id: Option<&'a str>,
+    pub project_id: Option<&'a str>,
+    pub include_deleted: bool,
+    pub all: bool,
+    pub origin: Option<AgentChatOrigin>,
+    pub exclude_sources: Option<&'a [String]>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
