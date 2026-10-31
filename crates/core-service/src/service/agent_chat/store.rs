@@ -22,8 +22,7 @@ use super::types::{
     AgentChatSnapshot, CreateAgentChatRequest, FoldedMessage, FoldedTurn, MaterializedTextPart,
     MessagePart, PendingPermission, QueueItem, RuntimeStatus, SessionHintTone,
     SessionLifecycleAction, SessionLifecycleStatus, ToolCallState, TranscriptEnvelope,
-    TranscriptEvent, TurnStatus, AGENT_CHAT_SOURCE_MD_LIVE, MD_LIVE_TRANSCRIPT_INVOKE_MARK,
-    MD_LIVE_TRANSCRIPT_SKILL_MARK,
+    TranscriptEvent, TurnStatus, AGENT_CHAT_SOURCE_MD_LIVE,
 };
 use agent::{
     AgentCurrentConfig, AgentEvent, AgentEventEnvelope, AgentPermissionRequest, TextKind, TurnStop,
@@ -1989,8 +1988,6 @@ fn jsonl_looks_like_md_live(path: &Path) -> bool {
     let Ok(file) = File::open(path) else {
         return false;
     };
-    let mut skill = false;
-    let mut invoke = false;
     let mut seen = 0usize;
     let mut reader = BufReader::new(file);
     let mut line = String::new();
@@ -2002,13 +1999,7 @@ fn jsonl_looks_like_md_live(path: &Path) -> bool {
             Err(_) => break,
         };
         seen = seen.saturating_add(n);
-        if !skill && line.contains(MD_LIVE_TRANSCRIPT_SKILL_MARK) {
-            skill = true;
-        }
-        if !invoke && line.contains(MD_LIVE_TRANSCRIPT_INVOKE_MARK) {
-            invoke = true;
-        }
-        if skill && invoke {
+        if agent_chat_text_looks_like_md_live(&line) {
             return true;
         }
         if seen >= MD_LIVE_MARKER_SCAN_MAX_BYTES {
@@ -4491,6 +4482,45 @@ mod tests {
         assert_eq!(listed.len(), 1);
         assert_eq!(listed[0].id, chat.id);
         assert!(store.get_meta(&chat.id).unwrap().source.is_none());
+    }
+
+    #[test]
+    fn list_hydrates_unsourced_md_live_invoke_without_skill() {
+        let (_dir, store) = store();
+        let normal = create(&store, "/tmp/normal");
+        append_user_text(&store, &normal.id, "@file:/tmp/note.md rewrite this");
+        let leaked = store
+            .create(CreateAgentChatRequest {
+                workspace_id: None,
+                project_id: None,
+                space_id: None,
+                cwd: "/tmp/live".into(),
+                origin: AgentChatOrigin::Normal,
+                provider_id: "claude".into(),
+                model: None,
+                thinking: None,
+                mode: None,
+                permission_mode: None,
+                fast: None,
+                context: None,
+                title: Some("Tighten this paragraph.".into()),
+                source: None,
+                automation_run_guid: None,
+            })
+            .unwrap();
+        append_user_text(
+            &store,
+            &leaked.id,
+            "You MUST edit Live by HTTP POST http://127.0.0.1:30303/api/md-live/agent/invoke",
+        );
+        assert!(store.get_meta(&leaked.id).unwrap().source.is_none());
+        let default_list = store.list(AgentChatListFilter::default()).unwrap();
+        assert_eq!(default_list.len(), 1);
+        assert_eq!(default_list[0].id, normal.id);
+        assert_eq!(
+            store.get_meta(&leaked.id).unwrap().source.as_deref(),
+            Some(AGENT_CHAT_SOURCE_MD_LIVE)
+        );
     }
 
     #[test]
