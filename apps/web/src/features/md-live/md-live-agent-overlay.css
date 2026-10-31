@@ -27,6 +27,11 @@
   padding: 0;
 }
 
+[data-md-live-working-pill] {
+  background-color: color-mix(in oklch, var(--popover) 68%, transparent);
+  backdrop-filter: blur(10px);
+}
+
 @container md-live-agent (max-width: 576px) {
   [data-prompt-thread] {
     display: none;

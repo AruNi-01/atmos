@@ -7,6 +7,7 @@ import {
   mdLiveOverlayTitle,
   mdLiveSelectionPopoverStyle,
   mdLiveShowThreadCard,
+  mdLiveShowWorkingPill,
   MD_LIVE_AGENT_CHAT_SOURCE,
   MD_LIVE_AGENT_CHROME_MAX_MODE_LABEL_PX,
   MD_LIVE_AGENT_CHROME_MAX_MODEL_TEXT_PX,
@@ -144,6 +145,12 @@ describe("md-live agent chat helpers", () => {
     expect(mdLiveShowThreadCard({ popover: false, barExpanded: false, messageCount: 3 })).toBe(
       false,
     );
+  });
+
+  test("Working pill shows while busy and the thread card is minimized", () => {
+    expect(mdLiveShowWorkingPill({ showThreadCard: false, busy: true })).toBe(true);
+    expect(mdLiveShowWorkingPill({ showThreadCard: true, busy: true })).toBe(false);
+    expect(mdLiveShowWorkingPill({ showThreadCard: false, busy: false })).toBe(false);
   });
 
   test("adaptive chrome hides Thread then model text then mode then permission", () => {

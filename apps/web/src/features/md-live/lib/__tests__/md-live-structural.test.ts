@@ -170,6 +170,12 @@ describe("md-live structural gates", () => {
     expect(source).toContain("data-md-live-agent-popover");
     expect(source).toContain("data-md-live-agent-bar");
     expect(source).toContain("data-md-live-working-pill");
+    expect(source).toContain("mdLiveShowWorkingPill");
+    expect(source).toContain("AgentActivityStatusText");
+    expect(source).toContain("ActivityIndicator");
+    expect(source).toContain("expandThread");
+    expect(source).not.toContain("working && !popover");
+    expect(source).not.toContain("Sparkles");
     expect(source).toContain("setExpanded(true)");
     expect(source).toContain("setExpanded(false)");
     expect(source).toContain("data-md-live-accept");
@@ -205,6 +211,7 @@ describe("md-live structural gates", () => {
     expect(helpers).toContain("MD_LIVE_AGENT_PANEL_CLASS");
     expect(helpers).toContain("MD_LIVE_AGENT_STACK_CLASS");
     expect(helpers).toContain("mdLiveShowThreadCard");
+    expect(helpers).toContain("mdLiveShowWorkingPill");
     expect(helpers).toContain('MD_LIVE_AGENT_CHAT_SOURCE = "md-live"');
     expect(helpers).toContain("isMdLiveAgentOverlayDismissTarget");
     expect(helpers).toContain("mdLiveAgentChromeStep");
@@ -218,6 +225,7 @@ describe("md-live structural gates", () => {
     );
     expect(overlayCss).toContain("container-name: md-live-agent");
     expect(overlayCss).toContain("[data-md-live-agent-thread-card]");
+    expect(overlayCss).toContain("[data-md-live-working-pill]");
     expect(overlayCss).toContain("background-color: var(--popover) !important");
     expect(overlayCss).not.toMatch(
       /\[data-md-live-agent-popover\],\s*\[data-md-live-agent-bar\]\s*\{[^}]*background-color/,

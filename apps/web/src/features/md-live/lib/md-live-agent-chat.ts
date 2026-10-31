@@ -74,6 +74,11 @@ export function mdLiveShowThreadCard(input: {
   return (input.popover || input.barExpanded) && input.messageCount > 0;
 }
 
+/** Running-state pill above the composer when the thread card is minimized. */
+export function mdLiveShowWorkingPill(input: { showThreadCard: boolean; busy: boolean }): boolean {
+  return input.busy && !input.showThreadCard;
+}
+
 const MD_LIVE_OVERLAY_DISMISS_IGNORE = "[data-morph-popover-portal], [role='dialog']";
 
 /** Unpinned popover click-outside. Ignore overlay chrome and portaled pickers. */

@@ -2,14 +2,24 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useTranslations } from "next-intl";
-import { Conversation, ConversationContent, cn } from "@workspace/ui";
-import { Maximize2, Minimize2, Pin, Plus, Sparkles } from "lucide-react";
+import {
+  ActivityIndicator,
+  ActivityIndicatorGroup,
+  Conversation,
+  ConversationContent,
+  cn,
+  pickActivityIndicatorStyle,
+} from "@workspace/ui";
+import { Maximize2, Minimize2, Pin, Plus } from "lucide-react";
 import "../md-live-agent-overlay.css";
 import { AgentAuthDialog } from "@/features/agent/components/AgentAuthDialog";
 import { AgentChatOwnSendRefsProvider } from "@/features/agent/components/agent-chat-own-send-context";
 import { AgentChatCwdProvider } from "@/features/agent/components/agent-chat-cwd-context";
 import { AgentChatTranscriptList } from "@/features/agent/components/AgentChatTranscriptList";
-import { AgentActivityIndicator } from "@/features/agent/components/AgentActivityIndicator";
+import {
+  AgentActivityIndicator,
+  AgentActivityStatusText,
+} from "@/features/agent/components/AgentActivityIndicator";
 import {
   AgentPermissionCard,
   isPlanExitPermission,
@@ -42,6 +52,7 @@ import {
   mdLiveRewritePrompt,
   mdLiveSelectionPopoverStyle,
   mdLiveShowThreadCard,
+  mdLiveShowWorkingPill,
   mdLiveSummarizePrompt,
   nextMdLiveBarMode,
   transformMdLivePrompt,
@@ -72,6 +83,9 @@ export function MdLiveAgentChat({
   const [pinned, setPinned] = useState(false);
   const [hasDraft, setHasDraft] = useState(false);
   const [anchorRect, setAnchorRect] = useState<MdLiveViewportRect | null>(null);
+  const [workingGlyphStyle] = useState(() =>
+    pickActivityIndicatorStyle([ActivityIndicatorGroup.Lattice]),
+  );
   const selectionRef = useRef("");
   const hostRef = useRef<HTMLDivElement | null>(null);
   const reviewPending = useMdLiveStreamLocked(filePath);
@@ -128,9 +142,11 @@ export function MdLiveAgentChat({
     barExpanded: barMode === "expanded",
     messageCount: session.messages.length,
   });
+  const showWorkingPill = mdLiveShowWorkingPill({ showThreadCard, busy: working });
   const showBar = popover || barMode !== "hidden";
   const canExpandThread = session.messages.length > 0 && !popover && !showThreadCard;
-  const hasComposerChrome = !showThreadCard && (reviewPending || working || canExpandThread);
+  const hasComposerChrome =
+    !showThreadCard && (reviewPending || showWorkingPill || canExpandThread);
   const isLiveSource = session.chatSource === MD_LIVE_AGENT_CHAT_SOURCE;
 
   const openPopover = useCallback(
@@ -234,18 +250,28 @@ export function MdLiveAgentChat({
   const chromePillClass =
     "inline-flex h-6 shrink-0 items-center rounded-full border bg-muted px-2 text-xs hover:bg-muted/80";
 
+  const expandThread = useCallback(() => {
+    setPlacement("bottom");
+    setExpanded(true);
+  }, []);
+
   const barChrome = (
     <>
-      {working && !popover ? (
+      {showWorkingPill && session.agentActivity.busy ? (
         <button
           type="button"
           data-md-live-working-pill=""
-          className={`${chromePillClass} gap-1 text-muted-foreground hover:text-foreground`}
+          className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border border-border/70 px-2.5 text-muted-foreground shadow-sm hover:text-foreground"
           aria-label={t("expandChat")}
-          onClick={() => setExpanded(true)}
+          onClick={expandThread}
         >
-          <Sparkles className="size-3" />
-          {t("working")}
+          <span className="flex size-3.5 shrink-0 items-center justify-center">
+            <ActivityIndicator
+              style={session.agentActivity.kind === "thinking" ? "stars" : workingGlyphStyle}
+              size={14}
+            />
+          </span>
+          <AgentActivityStatusText activity={session.agentActivity} />
         </button>
       ) : null}
       {canExpandThread && !working ? (
