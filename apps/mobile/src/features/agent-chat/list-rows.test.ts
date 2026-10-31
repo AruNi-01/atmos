@@ -1,5 +1,9 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, test } from "bun:test";
+// @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
+import { readFileSync } from "node:fs";
+// @ts-expect-error node builtins are available to bun test but not in the mobile tsconfig types
+import { join } from "node:path";
 import type { AgentChatIndexEntry } from "@atmos/api-types/ws/dto/agent-chat";
 import { formatLocalDateTime } from "@atmos/shared/utils/time";
 import { historyPlaceLabel, historyTimeLabel, toChatListRows } from "./list-rows";
@@ -60,5 +64,16 @@ describe("toChatListRows", () => {
     expect(historyTimeLabel("  ")).toBeNull();
     expect(historyTimeLabel("not-a-date")).toBeNull();
     expect(historyPlaceLabel(null)).toBe("Thread");
+  });
+});
+
+describe("md-live chats stay off mobile lists", () => {
+  test("chat list and inbox title lookup reuse the default source filter", () => {
+    const here = import.meta.dir;
+    const list = readFileSync(join(here, "use-agent-chat-list.ts"), "utf8");
+    const inbox = readFileSync(join(here, "../sessions/use-session-inbox.ts"), "utf8");
+    expect(list).toContain("filterDefaultHiddenAgentChatItems");
+    expect(inbox).toContain("filterDefaultHiddenAgentChatItems");
+    expect(inbox).toContain("for (const item of filterDefaultHiddenAgentChatItems(batch))");
   });
 });

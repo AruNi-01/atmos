@@ -167,6 +167,22 @@ import {
 
 export type { AgentChatSlashCommand } from "@/features/agent/store/agent-slash-command-cache";
 
+async function persistRequestedChatSource(
+  chatId: string,
+  written: string | null | undefined,
+  requested: string | null,
+): Promise<string | null> {
+  const have = written?.trim() || "";
+  if (have) return have;
+  if (!requested) return null;
+  try {
+    const updated = await agentChatApi.configure(chatId, { source: requested });
+    return updated.source?.trim() || requested;
+  } catch {
+    return requested;
+  }
+}
+
 function pendingSessionConfigPatch(
   modelId: string,
   thinkingId: string,
@@ -780,9 +796,10 @@ export function useAgentChatSession({
             variant,
             workspaceId: meta.workspace_id ?? null,
             projectId: meta.project_id ?? null,
+            chatSource: requestedSource,
           }),
         );
-        setHistorySessions(chatsToHistoryRows(listed.items ?? []));
+        setHistorySessions(chatsToHistoryRows(listed.items ?? [], { chatSource: requestedSource }));
       } catch {
         // History is secondary. A list() failure must not reject load() after
         // get() already installed the snapshot, or abandonHydrate would fold
@@ -1026,10 +1043,11 @@ export function useAgentChatSession({
           variant,
           workspaceId: workspaceId ?? paintHostScope.workspaceId,
           projectId: projectId ?? paintHostScope.projectId,
+          chatSource: requestedSource,
         }),
       )
       .then((listed) => {
-        setHistorySessions(chatsToHistoryRows(listed.items ?? []));
+        setHistorySessions(chatsToHistoryRows(listed.items ?? [], { chatSource: requestedSource }));
       })
       .finally(() => {
         setHistoryLoading(false);
@@ -1040,6 +1058,7 @@ export function useAgentChatSession({
     paintHostScope.workspaceId,
     prefsRestored,
     projectId,
+    requestedSource,
     variant,
     workspaceId,
     wsConnected,
@@ -1654,7 +1673,9 @@ export function useAgentChatSession({
         const id = meta.id;
         activeIdRef.current = id;
         setActiveChatId(id);
-        setPersistedSource(meta.source?.trim() || requestedSource);
+        setPersistedSource(
+          (await persistRequestedChatSource(id, meta.source, requestedSource)) || requestedSource,
+        );
         applyDescriptor(meta.descriptor, { keepComposerChrome: true });
         setProviderIdState(meta.provider_id || registry);
         const nextTitle = meta.title?.trim() || input?.title?.trim() || null;
@@ -1744,7 +1765,10 @@ export function useAgentChatSession({
           });
           applyDescriptor(meta.descriptor);
           setProviderIdState(meta.provider_id || registry);
-          setPersistedSource(meta.source?.trim() || requestedSource);
+          setPersistedSource(
+            (await persistRequestedChatSource(meta.id, meta.source, requestedSource)) ||
+              requestedSource,
+          );
           id = meta.id;
           pendingSendRef.current = { text, attachmentPaths: item.attachmentPaths ?? [] };
           activeIdRef.current = id;
@@ -2707,9 +2731,10 @@ export function useAgentChatSession({
             variant,
             workspaceId: workspaceId ?? paintHostScope.workspaceId,
             projectId: projectId ?? paintHostScope.projectId,
+            chatSource: requestedSource,
           }),
         );
-        setHistorySessions(chatsToHistoryRows(listed.items ?? []));
+        setHistorySessions(chatsToHistoryRows(listed.items ?? [], { chatSource: requestedSource }));
       } finally {
         setHistoryLoading(false);
       }

@@ -163,6 +163,16 @@ describe("md-live structural gates", () => {
     expect(source).toContain("mdLiveAgentChatInstanceKey");
     expect(source).toContain("instanceKey={instanceKey}");
     expect(source).toContain("chatSource: MD_LIVE_AGENT_CHAT_SOURCE");
+    const session = readFileSync(
+      join(import.meta.dir, "../../../agent/hooks/use-agent-chat-session.ts"),
+      "utf8",
+    );
+    expect(session).toContain("persistRequestedChatSource");
+    expect(session).toContain("chatSource: requestedSource");
+    expect(session).toContain("configure(id, { source: requestedSource })");
+    const api = readFileSync(join(import.meta.dir, "../../../../api/ws/agent-chat-api.ts"), "utf8");
+    expect(api).toContain("filterDefaultHiddenAgentChatItems");
+    expect(api).toContain("input.exclude_sources");
     expect(source).toContain("AgentPromptComposer");
     expect(source).toContain("AgentChatTranscriptList");
     expect(source).toContain("data-md-live-agent-placement={placement}");

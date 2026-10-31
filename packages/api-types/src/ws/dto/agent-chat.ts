@@ -3,6 +3,25 @@ export type AgentChatOrigin = "quick" | "normal" | "imported";
 /** Same slot as automation `"automation"`. Live markdown Agent Chat. */
 export const AGENT_CHAT_SOURCE_MD_LIVE = "md-live";
 
+export function isAgentChatSourceMdLive(source?: string | null): boolean {
+  return (source?.trim() || "") === AGENT_CHAT_SOURCE_MD_LIVE;
+}
+
+/** `undefined`/`null` default-hides md-live. `[]` includes every source. */
+export function agentChatListHidesMdLive(excludeSources?: string[] | null): boolean {
+  if (excludeSources == null) return true;
+  if (excludeSources.length === 0) return false;
+  return excludeSources.includes(AGENT_CHAT_SOURCE_MD_LIVE);
+}
+
+export function filterDefaultHiddenAgentChatItems<T extends { source?: string | null }>(
+  items: T[],
+  excludeSources?: string[] | null,
+): T[] {
+  if (!agentChatListHidesMdLive(excludeSources)) return items;
+  return items.filter((item) => !isAgentChatSourceMdLive(item.source));
+}
+
 export type AgentChatFavoriteModel = {
   agent_id: string;
   model: string;

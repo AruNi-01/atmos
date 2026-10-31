@@ -247,6 +247,22 @@ pub const AGENT_CHAT_SOURCE_MD_LIVE: &str = "md-live";
 
 pub const DEFAULT_EXCLUDED_AGENT_CHAT_SOURCES: &[&str] = &[AGENT_CHAT_SOURCE_MD_LIVE];
 
+/// Injected by Live markdown `transformMdLivePrompt`.
+pub const MD_LIVE_TRANSCRIPT_SKILL_MARK: &str = "atmos-md-live-agent";
+/// Injected by Live markdown `transformMdLivePrompt`.
+pub const MD_LIVE_TRANSCRIPT_INVOKE_MARK: &str = "/api/md-live/agent";
+
+pub fn normalize_agent_chat_source(source: Option<String>) -> Option<String> {
+    source.and_then(|value| {
+        let trimmed = value.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed.to_string())
+        }
+    })
+}
+
 pub fn agent_chat_source_is_excluded(
     source: Option<&str>,
     exclude_sources: Option<&[String]>,
@@ -257,6 +273,57 @@ pub fn agent_chat_source_is_excluded(
     match exclude_sources {
         None => DEFAULT_EXCLUDED_AGENT_CHAT_SOURCES.contains(&source),
         Some(list) => list.iter().any(|skip| skip == source),
+    }
+}
+
+/// Unsourced chats created before `source=md-live` was persisted.
+pub fn agent_chat_text_looks_like_md_live(text: &str) -> bool {
+    text.contains(MD_LIVE_TRANSCRIPT_SKILL_MARK) && text.contains(MD_LIVE_TRANSCRIPT_INVOKE_MARK)
+}
+
+#[cfg(test)]
+mod md_live_source_tests {
+    use super::*;
+
+    #[test]
+    fn default_exclude_needs_a_written_source() {
+        assert!(!agent_chat_source_is_excluded(None, None));
+        assert!(!agent_chat_source_is_excluded(Some(""), None));
+        assert!(!agent_chat_source_is_excluded(Some("  "), None));
+        assert!(agent_chat_source_is_excluded(
+            Some(AGENT_CHAT_SOURCE_MD_LIVE),
+            None
+        ));
+        let empty: [String; 0] = [];
+        assert!(!agent_chat_source_is_excluded(
+            Some(AGENT_CHAT_SOURCE_MD_LIVE),
+            Some(&empty)
+        ));
+    }
+
+    #[test]
+    fn transcript_markers_require_skill_and_invoke() {
+        assert!(!agent_chat_text_looks_like_md_live("@file:/tmp/note.md"));
+        assert!(!agent_chat_text_looks_like_md_live(
+            "Read ~/.atmos/skills/.system/atmos-md-live-agent/SKILL.md"
+        ));
+        assert!(!agent_chat_text_looks_like_md_live(
+            "POST http://127.0.0.1:30303/api/md-live/agent/invoke"
+        ));
+        assert!(agent_chat_text_looks_like_md_live(
+            "Read ~/.atmos/skills/.system/atmos-md-live-agent/SKILL.md\n\
+             You MUST edit Live by HTTP POST http://127.0.0.1:30303/api/md-live/agent/invoke"
+        ));
+    }
+
+    #[test]
+    fn normalize_source_trims_and_drops_empty() {
+        assert_eq!(normalize_agent_chat_source(None), None);
+        assert_eq!(normalize_agent_chat_source(Some("  ".into())), None);
+        assert_eq!(
+            normalize_agent_chat_source(Some(" md-live ".into())).as_deref(),
+            Some(AGENT_CHAT_SOURCE_MD_LIVE)
+        );
     }
 }
 

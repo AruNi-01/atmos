@@ -3252,6 +3252,58 @@ async fn list_resource_roots_exposes_live_pid_for_workspace_chat() {
     assert_eq!(root.root_pid, Some(4242));
 }
 
+#[test]
+fn live_session_chats_omits_unsourced_md_live_after_list_hydrate() {
+    let provider = Arc::new(FakeAgentProvider::new("claude"));
+    let (_dir, service) = make_service(provider);
+    let mut normal = create_req("/tmp/normal");
+    normal.workspace_id = Some("ws-1".into());
+    let normal = service.create(normal).unwrap();
+    let mut live = create_req("/tmp/live");
+    live.workspace_id = Some("ws-1".into());
+    live.title = Some("@file:/tmp/note.md".into());
+    let live = service.create(live).unwrap();
+    service
+        .store()
+        .append_record(
+            &live.id,
+            &TranscriptEnvelope::new("turn-1", TranscriptEvent::TurnStarted),
+        )
+        .unwrap();
+    service
+        .store()
+        .append_record(
+            &live.id,
+            &TranscriptEnvelope::new(
+                "turn-1",
+                TranscriptEvent::UserMessage {
+                    message_id: "u1".into(),
+                    kind: UserMessageKind::Normal,
+                    text: "Read ~/.atmos/skills/.system/atmos-md-live-agent/SKILL.md\n\
+                           POST http://127.0.0.1:30303/api/md-live/agent/invoke"
+                        .into(),
+                    attachments: Vec::new(),
+                },
+            ),
+        )
+        .unwrap();
+    let chats = service.live_session_chats().unwrap();
+    assert!(chats.iter().any(|chat| chat.id == normal.id));
+    assert!(
+        chats.iter().all(|chat| chat.id != live.id),
+        "hydrated md-live must not appear in the sidebar live set: {chats:?}"
+    );
+    assert_eq!(
+        service
+            .store()
+            .get_meta(&live.id)
+            .unwrap()
+            .source
+            .as_deref(),
+        Some(crate::AGENT_CHAT_SOURCE_MD_LIVE)
+    );
+}
+
 #[tokio::test]
 async fn lifecycle_load_without_runtime_closes_leftover_open_parts() {
     let provider = Arc::new(FakeAgentProvider::new("claude"));

@@ -1,8 +1,9 @@
 import { useCallback, useRef } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import type {
-  AgentChatIndexEntry,
-  AgentChatListResponse,
+import {
+  filterDefaultHiddenAgentChatItems,
+  type AgentChatIndexEntry,
+  type AgentChatListResponse,
 } from "@atmos/api-types/ws/dto/agent-chat";
 import { wsActions } from "@/api/ws-actions";
 import { useMobileWs } from "@/providers/MobileWsProvider";
@@ -78,7 +79,11 @@ export function useAgentChatList(scopeId: string, options: AgentChatListOptions 
     loadNextPage(true);
   }, [loadNextPage]);
   const chatItems = enabled
-    ? uniqueChatItems(listQuery.data?.pages.flatMap((page) => page.items ?? []) ?? [])
+    ? uniqueChatItems(
+        filterDefaultHiddenAgentChatItems(
+          listQuery.data?.pages.flatMap((page) => page.items ?? []) ?? [],
+        ),
+      )
     : [];
 
   const loading =

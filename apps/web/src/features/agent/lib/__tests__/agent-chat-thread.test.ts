@@ -1113,6 +1113,36 @@ describe("agent chat helpers", () => {
       origin: "normal",
       updated_at: "2026-08-28T00:00:00.000Z",
     });
+    const liveRows = chatsToHistoryRows(
+      [
+        {
+          id: "chat-1",
+          title: "Fix auth",
+          cwd: "/tmp/app",
+          workspace_id: "ws-1",
+          project_id: null,
+          provider_id: "claude",
+          updated_at: "2026-08-28T00:00:00.000Z",
+          last_message_at: null,
+          deleted: false,
+        },
+        {
+          id: "chat-live",
+          title: "Live note",
+          cwd: "/tmp/app",
+          workspace_id: "ws-1",
+          project_id: null,
+          source: "md-live",
+          provider_id: "claude",
+          updated_at: "2026-08-28T00:00:00.000Z",
+          last_message_at: null,
+          deleted: false,
+        },
+      ],
+      { chatSource: "md-live" },
+    );
+    expect(liveRows).toHaveLength(1);
+    expect(liveRows[0]?.chat_id).toBe("chat-live");
   });
 
   it("lists every conversation on the standalone history sidebar", () => {
@@ -1137,6 +1167,18 @@ describe("agent chat helpers", () => {
     ).toEqual({
       workspace_id: "ws-1",
       project_id: "proj-1",
+    });
+    expect(
+      agentChatHistoryListRequest({
+        variant: "sidebar",
+        workspaceId: "ws-1",
+        projectId: "proj-1",
+        chatSource: "md-live",
+      }),
+    ).toEqual({
+      workspace_id: "ws-1",
+      project_id: "proj-1",
+      exclude_sources: [],
     });
   });
 

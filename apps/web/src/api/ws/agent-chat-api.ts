@@ -18,7 +18,7 @@ import type {
   AgentSessionUsage,
   AgentTurnUsage,
 } from "@atmos/api-types/ws/dto/agent-chat";
-import { AGENT_CHAT_SOURCE_MD_LIVE } from "@atmos/api-types/ws/dto/agent-chat";
+import { filterDefaultHiddenAgentChatItems } from "@atmos/api-types/ws/dto/agent-chat";
 
 export type {
   AgentOptionsSnapshot,
@@ -39,17 +39,13 @@ export type {
   AgentTurnUsage,
 };
 
-function excludeMdLiveAgentChatItems(items: AgentChatIndexEntry[]): AgentChatIndexEntry[] {
-  return items.filter((item) => item.source?.trim() !== AGENT_CHAT_SOURCE_MD_LIVE);
-}
-
 export const agentChatApi = {
   create: (input: AgentChatCreateRequest) => wsRequest("agent_chat_create", input),
   list: async (input: AgentChatListRequest = {}) => {
     const listed = await wsRequest("agent_chat_list", input);
     return {
       ...listed,
-      items: excludeMdLiveAgentChatItems(listed.items ?? []),
+      items: filterDefaultHiddenAgentChatItems(listed.items ?? [], input.exclude_sources),
     };
   },
   get: (chat_id: string) => wsRequest("agent_chat_get", { chat_id }),

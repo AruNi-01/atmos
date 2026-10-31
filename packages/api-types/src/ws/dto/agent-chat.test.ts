@@ -17,7 +17,12 @@ import type {
   AgentOptionSupport,
   AgentTool,
 } from "./agent-chat";
-import { AGENT_CHAT_SOURCE_MD_LIVE } from "./agent-chat";
+import {
+  AGENT_CHAT_SOURCE_MD_LIVE,
+  agentChatListHidesMdLive,
+  filterDefaultHiddenAgentChatItems,
+  isAgentChatSourceMdLive,
+} from "./agent-chat";
 
 type AssertNever<T extends never> = T;
 type CapsKeys = keyof AgentCapabilities;
@@ -164,6 +169,23 @@ describe("APP-069 S18 Agent Chat stays on main /ws", () => {
       /export type AgentChatIndexEntry = \{[\s\S]*?source\?: string \| null/,
     );
     expect(dtoSource).not.toContain('origin: "md-live"');
+    expect(isAgentChatSourceMdLive("md-live")).toBe(true);
+    expect(isAgentChatSourceMdLive("  md-live  ")).toBe(true);
+    expect(isAgentChatSourceMdLive(null)).toBe(false);
+    expect(agentChatListHidesMdLive(undefined)).toBe(true);
+    expect(agentChatListHidesMdLive(null)).toBe(true);
+    expect(agentChatListHidesMdLive([])).toBe(false);
+    expect(agentChatListHidesMdLive(["automation"])).toBe(false);
+    expect(agentChatListHidesMdLive(["md-live"])).toBe(true);
+    const items = [
+      { id: "normal", source: null },
+      { id: "live", source: "md-live" },
+    ];
+    expect(filterDefaultHiddenAgentChatItems(items).map((item) => item.id)).toEqual(["normal"]);
+    expect(filterDefaultHiddenAgentChatItems(items, []).map((item) => item.id)).toEqual([
+      "normal",
+      "live",
+    ]);
   });
 
   test("AgentChatPayload is text_chunk plus part_closed, not deltas", () => {

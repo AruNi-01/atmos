@@ -28,11 +28,11 @@ use super::queue::maybe_dispatch_queue;
 use super::store::AgentChatStore;
 use super::transcript_view::page_messages;
 use super::types::{
-    apply_rewind_view, resolve_session_config_select, text_suffix_from, AgentChatEvent,
-    AgentChatListFilter, AgentChatMeta, AgentChatPayload, AgentChatSessionOpOutcome,
-    AgentChatSnapshot, CreateAgentChatRequest, FoldedTurn, MaterializedTextPart, MessagePart,
-    PartBody, PendingPermission, PendingSessionOp, QueueItem, QueueItemStatus,
-    ResolvedSessionConfig, RewindView, RuntimeStatus, SessionLifecycleAction,
+    agent_chat_source_is_excluded, apply_rewind_view, resolve_session_config_select,
+    text_suffix_from, AgentChatEvent, AgentChatListFilter, AgentChatMeta, AgentChatPayload,
+    AgentChatSessionOpOutcome, AgentChatSnapshot, CreateAgentChatRequest, FoldedTurn,
+    MaterializedTextPart, MessagePart, PartBody, PendingPermission, PendingSessionOp, QueueItem,
+    QueueItemStatus, ResolvedSessionConfig, RewindView, RuntimeStatus, SessionLifecycleAction,
     SessionLifecycleStatus, TranscriptEnvelope, TranscriptEvent, TurnStatus,
 };
 use crate::service::agent_status::{self, AgentStatusService};
@@ -274,6 +274,9 @@ impl AgentChatService {
     }
 
     fn publish_opened_chat(&self, meta: &AgentChatMeta) {
+        if agent_chat_source_is_excluded(meta.source.as_deref(), None) {
+            return;
+        }
         let Some(status) = self.status.get() else {
             return;
         };

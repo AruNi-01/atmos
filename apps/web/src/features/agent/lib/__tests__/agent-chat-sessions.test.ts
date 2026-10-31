@@ -238,8 +238,8 @@ describe("agents sessions page uses Atmos chat history", () => {
     expect(view).toContain("agentChatApi.list");
     expect(view).toContain("all: true");
     const api = readFileSync(join(ROOT, "../../api/ws/agent-chat-api.ts"), "utf8");
-    expect(api).toContain("excludeMdLiveAgentChatItems");
-    expect(api).toContain("AGENT_CHAT_SOURCE_MD_LIVE");
+    expect(api).toContain("filterDefaultHiddenAgentChatItems");
+    expect(api).toContain("input.exclude_sources");
     expect(api).toContain("source: patch.source ?? null");
     expect(view).toContain("openAgentChatHistoryRow");
     expect(view).toContain("THREAD_SESSION_CONTEXT_ID");

@@ -34,6 +34,7 @@ import {
   type SessionInboxProject,
   type SessionWorkspaceRecord,
 } from "./session-inbox";
+import { filterDefaultHiddenAgentChatItems } from "@atmos/api-types/ws/dto/agent-chat";
 import type { AgentSessionStatusCounts } from "@atmos/api-types/ws/dto/agent-status";
 import { agentSessionStatusQueryKey } from "./session-status-page";
 import { useAgentSessionStatusList } from "./use-agent-session-status-list";
@@ -496,7 +497,7 @@ async function loadSessionChatTitles(
       limit: CHAT_TITLE_PAGE,
     });
     const batch = response.items ?? [];
-    for (const item of batch) {
+    for (const item of filterDefaultHiddenAgentChatItems(batch)) {
       titles[item.id] = item.deleted ? "" : (item.title?.trim() ?? "");
       const provider = item.provider_id?.trim() ?? "";
       if (provider && !item.deleted) providers[item.id] = provider;

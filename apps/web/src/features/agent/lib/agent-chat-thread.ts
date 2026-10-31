@@ -8,7 +8,7 @@ import type {
   AgentOptionSupport,
   AgentThinkingSupport,
 } from "@atmos/api-types/ws/dto/agent-chat";
-import { AGENT_CHAT_SOURCE_MD_LIVE } from "@atmos/api-types/ws/dto/agent-chat";
+import { isAgentChatSourceMdLive } from "@atmos/api-types/ws/dto/agent-chat";
 
 type ThinkingShape = {
   type?: string;
@@ -1645,12 +1645,18 @@ export function chatTitleFromPrompt(text: string): string {
 }
 
 export function isMdLiveAgentChatSource(source: string | null | undefined): boolean {
-  return (source?.trim() || "") === AGENT_CHAT_SOURCE_MD_LIVE;
+  return isAgentChatSourceMdLive(source);
 }
 
-export function chatsToHistoryRows(items: AgentChatIndexEntry[]): AgentChatHistoryRow[] {
+export function chatsToHistoryRows(
+  items: AgentChatIndexEntry[],
+  input: { chatSource?: string | null } = {},
+): AgentChatHistoryRow[] {
+  const ownLive = isMdLiveAgentChatSource(input.chatSource);
   return items
-    .filter((item) => !isMdLiveAgentChatSource(item.source))
+    .filter((item) =>
+      ownLive ? isMdLiveAgentChatSource(item.source) : !isMdLiveAgentChatSource(item.source),
+    )
     .map((item) => ({
       chat_id: item.id,
       provider_id: item.provider_id,
@@ -1665,17 +1671,23 @@ export function agentChatHistoryListRequest(input: {
   variant: "modal" | "sidebar" | "standalone" | "center";
   workspaceId?: string | null;
   projectId?: string | null;
+  chatSource?: string | null;
 }): AgentChatListRequest {
+  const includeOwnMdLive = isMdLiveAgentChatSource(input.chatSource);
   if (input.variant === "modal") {
-    return { all: true, origin: "quick" };
+    return includeOwnMdLive
+      ? { all: true, origin: "quick", exclude_sources: [] }
+      : { all: true, origin: "quick" };
   }
   if (input.variant === "standalone") {
+    if (includeOwnMdLive) return { all: true, exclude_sources: [] };
     return { all: true };
   }
-  return {
+  const scoped: AgentChatListRequest = {
     workspace_id: input.workspaceId ?? null,
     project_id: input.projectId ?? null,
   };
+  return includeOwnMdLive ? { ...scoped, exclude_sources: [] } : scoped;
 }
 
 export function filterAgentChatHistoryRows(
