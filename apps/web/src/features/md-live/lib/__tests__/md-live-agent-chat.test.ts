@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   isMdLiveAgentOverlayDismissTarget,
-  isMdLiveBarHoverZone,
+  isMdLiveInviteHoverTarget,
   mdLiveAgentChatInstanceKey,
   mdLiveAgentChromeStep,
   mdLiveOverlayTitle,
@@ -15,11 +15,13 @@ import {
   MD_LIVE_AGENT_CHROME_MAX_PERMISSION_LABEL_PX,
   MD_LIVE_AGENT_CHROME_MAX_THREAD_PX,
   MD_LIVE_AGENT_SKILL_PATH,
-  MD_LIVE_BAR_HOVER_PX,
   MD_LIVE_BAR_MORPH_S,
   MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX,
   MD_LIVE_INVITE_HAIRLINE_WIDTH_PX,
+  MD_LIVE_INVITE_HAIRLINE_Y_PX,
+  MD_LIVE_INVITE_HOVER_SELECTOR,
   MD_LIVE_INVITE_LAYOUT_ID,
+  MD_LIVE_INVITE_PILL_HEIGHT_PX,
   MD_LIVE_POPOVER_WIDTH,
   mdLiveBarSurface,
   mdLiveInviteMorphs,
@@ -63,10 +65,15 @@ describe("md-live agent chat helpers", () => {
     expect(nextMdLiveBarMode({ ...base, hasThread: true })).toBe("collapsed");
     expect(nextMdLiveBarMode({ ...base, reviewPending: true })).toBe("collapsed");
     expect(MD_LIVE_INVITE_LAYOUT_ID).toBe("md-live-invite-shell");
-    expect(MD_LIVE_BAR_MORPH_S).toBe(0.28);
-    expect(MD_LIVE_INVITE_HAIRLINE_WIDTH_PX).toBe(140);
-    expect(MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX).toBe(3);
-    expect(MD_LIVE_INVITE_HAIRLINE_WIDTH_PX).toBeLessThan(280);
+    expect(MD_LIVE_BAR_MORPH_S).toBe(0.32);
+    expect(MD_LIVE_INVITE_HAIRLINE_WIDTH_PX).toBe(104);
+    expect(MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX).toBe(4);
+    expect(MD_LIVE_INVITE_HAIRLINE_WIDTH_PX).toBeGreaterThanOrEqual(96);
+    expect(MD_LIVE_INVITE_HAIRLINE_WIDTH_PX).toBeLessThanOrEqual(112);
+    expect(MD_LIVE_INVITE_HAIRLINE_WIDTH_PX).toBeLessThan(MD_LIVE_INVITE_PILL_HEIGHT_PX * 4);
+    expect(MD_LIVE_INVITE_PILL_HEIGHT_PX).toBe(36);
+    expect(MD_LIVE_INVITE_HAIRLINE_Y_PX).toBe(8);
+    expect(MD_LIVE_INVITE_HOVER_SELECTOR).toContain("data-md-live-invite-hairline");
     expect(mdLiveInviteMorphs("hidden", { showThreadCard: false, hasComposerChrome: false })).toBe(
       true,
     );
@@ -147,9 +154,20 @@ describe("md-live agent chat helpers", () => {
     expect(mdLiveOverlayTitle(null, "")).toBe("");
   });
 
-  test("hover zone is the bottom strip of the Live host", () => {
-    expect(isMdLiveBarHoverZone(940, 1000)).toBe(true);
-    expect(isMdLiveBarHoverZone(1000 - MD_LIVE_BAR_HOVER_PX - 1, 1000)).toBe(false);
+  test("invite hover only matches the hairline or capsule, not the dock", () => {
+    expect(isMdLiveInviteHoverTarget(null)).toBe(false);
+    expect(isMdLiveInviteHoverTarget({ closest: () => null } as unknown as EventTarget)).toBe(
+      false,
+    );
+    expect(
+      isMdLiveInviteHoverTarget({
+        closest: (selector: string) => (selector === MD_LIVE_INVITE_HOVER_SELECTOR ? {} : null),
+      } as unknown as EventTarget),
+    ).toBe(true);
+    expect(MD_LIVE_INVITE_HOVER_SELECTOR).toContain("data-md-live-invite-hairline");
+    expect(MD_LIVE_INVITE_HOVER_SELECTOR).toContain("data-md-live-message-agent");
+    expect(MD_LIVE_INVITE_HOVER_SELECTOR).toContain("data-md-live-invite-hit");
+    expect(MD_LIVE_INVITE_HOVER_SELECTOR).not.toContain("data-md-live-agent-bar");
   });
 
   test("unpinned popover ignores overlay and portaled picker clicks", () => {

@@ -1,13 +1,18 @@
 import { mdLivePopoverAnchorStyle, type MdLiveViewportRect } from "@atmos/md-live";
 
-export const MD_LIVE_BAR_HOVER_PX = 72;
 /** Shared layoutId for hairline ↔ Message Agent capsule ↔ composer. */
 export const MD_LIVE_INVITE_LAYOUT_ID = "md-live-invite-shell";
 /** Hairline / capsule / composer morph duration (seconds). */
-export const MD_LIVE_BAR_MORPH_S = 0.28;
-/** Centered short dash. Match Message Agent capsule scale — never the dock width. */
-export const MD_LIVE_INVITE_HAIRLINE_WIDTH_PX = 140;
-export const MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX = 3;
+export const MD_LIVE_BAR_MORPH_S = 0.32;
+/** Centered short dash. Slightly shorter than the Message Agent capsule. */
+export const MD_LIVE_INVITE_HAIRLINE_WIDTH_PX = 104;
+export const MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX = 4;
+/** Capsule height (`h-9`) the dash expands into. */
+export const MD_LIVE_INVITE_PILL_HEIGHT_PX = 36;
+/** Hairline sits lower so the capsule morphs upward as it expands. */
+export const MD_LIVE_INVITE_HAIRLINE_Y_PX = 8;
+export const MD_LIVE_INVITE_HOVER_SELECTOR =
+  "[data-md-live-invite-hairline], [data-md-live-message-agent], [data-md-live-invite-hit]";
 export const MD_LIVE_POPOVER_WIDTH = 420;
 export const MD_LIVE_AGENT_CAPABILITY = "md-live.v1";
 export const MD_LIVE_AGENT_SKILL_PATH = "~/.atmos/skills/.system/atmos-md-live-agent/SKILL.md";
@@ -193,6 +198,10 @@ export function mdLiveSummarizePrompt(): string {
   return "Summarize the selected markdown in place using md_live_replace_selection.";
 }
 
-export function isMdLiveBarHoverZone(clientY: number, hostBottom: number): boolean {
-  return clientY >= hostBottom - MD_LIVE_BAR_HOVER_PX;
+/** Invite morph only when the pointer is on the short dash or capsule — never the dock. */
+export function isMdLiveInviteHoverTarget(target: EventTarget | null): boolean {
+  if (!target || typeof target !== "object") return false;
+  const closest = (target as { closest?: (selector: string) => unknown }).closest;
+  if (typeof closest !== "function") return false;
+  return Boolean(closest.call(target, MD_LIVE_INVITE_HOVER_SELECTOR));
 }

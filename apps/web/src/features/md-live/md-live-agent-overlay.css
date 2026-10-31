@@ -34,10 +34,22 @@
 }
 
 [data-md-live-invite-hairline] {
-  width: 140px;
+  width: 104px;
   max-width: calc(100% - 1.5rem);
-  height: 3px;
-  background-color: color-mix(in oklch, var(--foreground) 34%, transparent);
+  height: 4px;
+  /* Surface glass, not a text-colored stroke — readable on white glyphs and dark canvas. */
+  background-color: color-mix(in oklch, var(--popover) 78%, var(--background) 22%);
+  backdrop-filter: blur(12px);
+  box-shadow:
+    0 0 0 1px color-mix(in oklch, var(--foreground) 38%, transparent),
+    0 0 0 2px color-mix(in oklch, var(--background) 72%, black 28%);
+}
+
+[data-md-live-invite-hairline]::after {
+  content: "";
+  position: absolute;
+  inset-block: -8px;
+  inset-inline: 0;
 }
 
 [data-md-live-agent-thread] .agent-chat-edge-fade {
