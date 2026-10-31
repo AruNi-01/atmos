@@ -1,6 +1,7 @@
 name: CI - Backend (Rust)
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
@@ -31,6 +32,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          filter: blob:none
 
       - name: Install Rust (stable)
         uses: dtolnay/rust-toolchain@stable
@@ -45,6 +48,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          filter: blob:none
 
       - name: Install Rust (stable)
         uses: dtolnay/rust-toolchain@stable
@@ -65,6 +70,8 @@ jobs:
     needs: [fmt, clippy]
     steps:
       - uses: actions/checkout@v5
+        with:
+          filter: blob:none
 
       - name: Install Rust (stable)
         uses: dtolnay/rust-toolchain@stable
@@ -83,6 +90,8 @@ jobs:
     needs: [test]
     steps:
       - uses: actions/checkout@v5
+        with:
+          filter: blob:none
 
       - name: Install Rust (stable)
         uses: dtolnay/rust-toolchain@stable
