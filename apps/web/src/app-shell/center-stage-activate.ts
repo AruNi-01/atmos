@@ -73,6 +73,11 @@ export function activateCenterChromeTab(
      * after Close must not recreate a tab the user already dismissed.
      */
     createIfMissing?: boolean;
+    /**
+     * Last-tab fallback to Chat/terminal must not overwrite a file path that
+     * is still waiting on editor hydrate.
+     */
+    recordLastTab?: boolean;
   },
 ): void {
   if (!contextId || !tab) return;
@@ -140,7 +145,9 @@ export function activateCenterChromeTab(
     return;
   }
 
-  setCenterStageLastTab(contextId, resolvedTab);
+  if (opts?.recordLastTab !== false) {
+    setCenterStageLastTab(contextId, resolvedTab);
+  }
   recordCenterTabActivation(contextId, resolvedTab);
 
   if (resolvedTab === "overview") {

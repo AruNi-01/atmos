@@ -29,6 +29,7 @@ import {
   MD_LIVE_INVITE_LABEL_COLLAPSE_SCALE,
   MD_LIVE_INVITE_LAYOUT_ID,
   MD_LIVE_INVITE_PILL_HEIGHT_PX,
+  MD_LIVE_INVITE_SHELL_RADIUS_PX,
   MD_LIVE_POPOVER_WIDTH,
   mdLiveBarMorphTransition,
   mdLiveBarSurface,
@@ -45,6 +46,7 @@ import {
   mdLiveInviteMorphs,
   mdLiveInvitePaintComposer,
   mdLiveInviteShellBox,
+  mdLiveInviteShellRadiusIsCapsule,
   mdLiveInviteShowsMessageAgentLabel,
   nextMdLiveBarMode,
   transformMdLivePrompt,
@@ -273,7 +275,24 @@ describe("md-live agent chat helpers", () => {
         8,
       );
       expect(mdLiveInviteFrameIsEmptyCapsule(frame, pill)).toBe(false);
+      expect(frame.borderRadius).toBe(MD_LIVE_INVITE_SHELL_RADIUS_PX);
+      expect(mdLiveInviteShellRadiusIsCapsule(frame.borderRadius, frame.height)).toBe(true);
     }
+  });
+
+  test("pill morph keeps a capsule corner radius at every height", () => {
+    expect(MD_LIVE_INVITE_SHELL_RADIUS_PX).toBe(9999);
+    for (const height of [
+      MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX,
+      12,
+      20,
+      MD_LIVE_INVITE_PILL_HEIGHT_PX,
+      120,
+    ]) {
+      expect(mdLiveInviteShellRadiusIsCapsule(MD_LIVE_INVITE_SHELL_RADIUS_PX, height)).toBe(true);
+    }
+    expect(mdLiveInviteShellRadiusIsCapsule(16, 36)).toBe(false);
+    expect(mdLiveInviteShellRadiusIsCapsule(8, 20)).toBe(false);
   });
 
   test("click-outside from composer skips the Message Agent invite", () => {
@@ -306,6 +325,8 @@ describe("md-live agent chat helpers", () => {
     );
     for (const frame of composerFrames) {
       expect(frame.messageAgentLabel).toBe(false);
+      expect(frame.borderRadius).toBe(MD_LIVE_INVITE_SHELL_RADIUS_PX);
+      expect(mdLiveInviteShellRadiusIsCapsule(frame.borderRadius, frame.height)).toBe(true);
       expect(Math.abs(frame.width - 148) < 8 && Math.abs(frame.height - 36) < 4).toBe(false);
     }
   });

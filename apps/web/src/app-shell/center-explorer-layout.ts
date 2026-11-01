@@ -267,6 +267,9 @@ export function stabilizeExplorerHostPaneIds(
   hosts: ReadonlyArray<string | undefined>,
   options?: { singlePane?: boolean },
 ): Array<string | undefined> {
+  // Empty collect = no explorer surface on the active tab. Do not invent a
+  // root host — that right-anchors Files over Chat / the sibling pane.
+  if (hosts.length === 0) return [];
   const defined: string[] = [];
   const seen = new Set<string>();
   for (const id of hosts) {
@@ -279,7 +282,7 @@ export function stabilizeExplorerHostPaneIds(
     return defined.length > 0 ? [defined[0]!] : [undefined];
   }
   if (defined.length > 0) return defined;
-  return hosts.length > 0 ? [...hosts] : [undefined];
+  return [...hosts];
 }
 
 /**

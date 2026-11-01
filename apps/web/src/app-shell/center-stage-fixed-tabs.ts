@@ -47,14 +47,17 @@ export type CenterLastTabRestoreAction = "activate" | "wait" | "fallback";
 
 /**
  * Unpinned preview tabs live in the editor store. Restoring last-tab before
- * that store hydrates treats the path as missing and writes terminal over it.
+ * that store hydrates — or before connection bootstrap picks the instance —
+ * treats the path as missing and writes Chat over it.
  */
 export function resolveCenterLastTabRestore(input: {
   last: string;
   editorHydrated: boolean;
   openFilePaths: readonly string[];
+  connectionReady?: boolean;
 }): CenterLastTabRestoreAction {
   if (!isEditorDocumentLastTab(input.last)) return "activate";
+  if (input.connectionReady === false) return "wait";
   if (!input.editorHydrated) return "wait";
   if (!input.openFilePaths.includes(input.last)) return "fallback";
   return "activate";

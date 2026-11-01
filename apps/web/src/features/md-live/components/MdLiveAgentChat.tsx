@@ -64,6 +64,7 @@ import {
   MD_LIVE_INVITE_LABEL_COLLAPSE_SCALE,
   MD_LIVE_INVITE_LAYOUT_ID,
   MD_LIVE_INVITE_PILL_HEIGHT_PX,
+  MD_LIVE_INVITE_SHELL_RADIUS_PX,
   MD_LIVE_POPOVER_WIDTH,
   isMdLiveAgentOverlayDismissTarget,
   isMdLiveInviteHoverTarget,
@@ -219,6 +220,7 @@ export function MdLiveAgentChat({
           y: MD_LIVE_INVITE_HAIRLINE_Y_PX,
           paddingLeft: 0,
           paddingRight: 0,
+          borderRadius: MD_LIVE_INVITE_SHELL_RADIUS_PX,
         }
       : {
           width: pillWidthPx,
@@ -226,6 +228,7 @@ export function MdLiveAgentChat({
           y: 0,
           paddingLeft: 16,
           paddingRight: 16,
+          borderRadius: MD_LIVE_INVITE_SHELL_RADIUS_PX,
         };
 
   const setInviteHover = useCallback((next: boolean, immediate = false) => {
@@ -713,21 +716,26 @@ export function MdLiveAgentChat({
                 <motion.div
                   layoutId={MD_LIVE_INVITE_LAYOUT_ID}
                   className={cn(
-                    "mx-auto overflow-hidden rounded-2xl",
+                    "mx-auto overflow-hidden",
                     showComposer
                       ? "pointer-events-auto w-[min(100%-1.5rem,42rem)]"
                       : "pointer-events-none",
                   )}
-                  style={{ marginBottom: MD_LIVE_INVITE_BOTTOM_PX, originX: 0.5, originY: 1 }}
+                  style={{
+                    marginBottom: MD_LIVE_INVITE_BOTTOM_PX,
+                    originX: 0.5,
+                    originY: 1,
+                    borderRadius: MD_LIVE_INVITE_SHELL_RADIUS_PX,
+                  }}
                   initial={false}
                   animate={
                     barSurface === "hidden"
                       ? {
                           width: MD_LIVE_INVITE_HAIRLINE_WIDTH_PX,
                           height: MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX,
-                          borderRadius: 999,
+                          borderRadius: MD_LIVE_INVITE_SHELL_RADIUS_PX,
                         }
-                      : { borderRadius: 16 }
+                      : { borderRadius: MD_LIVE_INVITE_SHELL_RADIUS_PX }
                   }
                   transition={barMorphMotion}
                   onAnimationComplete={finishInviteCollapse}
@@ -762,12 +770,16 @@ export function MdLiveAgentChat({
                     data-md-live-message-agent={paintInviteChrome ? "" : undefined}
                     aria-label={t("messageAgent")}
                     className={cn(
-                      "pointer-events-auto relative box-border inline-flex min-h-0 max-w-[calc(100%-1.5rem)] appearance-none items-center justify-center rounded-full border-0 p-0 leading-none",
+                      "pointer-events-auto relative box-border inline-flex min-h-0 max-w-[calc(100%-1.5rem)] appearance-none items-center justify-center border-0 p-0 leading-none",
                       paintInviteChrome
                         ? "overflow-hidden border border-border/70 text-sm text-muted-foreground shadow-sm hover:text-foreground"
                         : "overflow-visible",
                     )}
-                    style={{ originX: 0.5, originY: 1 }}
+                    style={{
+                      originX: 0.5,
+                      originY: 1,
+                      borderRadius: MD_LIVE_INVITE_SHELL_RADIUS_PX,
+                    }}
                     initial={false}
                     animate={inviteShellAnimate}
                     transition={barMorphMotion}

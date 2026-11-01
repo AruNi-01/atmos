@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { partializeEditorState } from "@/features/editor/lib/editor-ui-persistence";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import {
+  partializeEditorState,
+  shouldPersistEditorUi,
+} from "@/features/editor/lib/editor-ui-persistence";
 import type { OpenFile } from "@/features/editor/store/editor-store-types";
 
 function file(path: string, isPreview: boolean): OpenFile {
@@ -41,5 +46,16 @@ describe("editor ui persistence", () => {
     expect(persisted.workspaceStates["ws-1"]?.activeFilePath).toBe("/repo/preview.md");
     expect(openFiles.every((item) => item.content === "")).toBe(true);
     expect(openFiles.every((item) => item.isLoading)).toBe(true);
+  });
+
+  test("does not persist the empty connection-wipe snapshot", () => {
+    expect(shouldPersistEditorUi({ _hasHydrated: false })).toBe(false);
+    expect(shouldPersistEditorUi({ _hasHydrated: true })).toBe(true);
+    const persist = readFileSync(join(import.meta.dir, "../editor-ui-persistence.ts"), "utf8");
+    expect(persist).toContain("flushEditorUiSave");
+    expect(persist).toContain("pagehide");
+    const store = readFileSync(join(import.meta.dir, "../../store/use-editor-store.ts"), "utf8");
+    expect(store).toContain("if (!shouldPersistEditorUi(state)) return");
+    expect(store).toContain("if (connectionEpoch === 0) return");
   });
 });

@@ -14,6 +14,11 @@ export const MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX = 4;
 /** Capsule height (`h-9`) the dash expands into. */
 export const MD_LIVE_INVITE_PILL_HEIGHT_PX = 36;
 /**
+ * Shared layoutId shell stays a capsule for every morph frame. Interpolating
+ * `rounded-2xl` (16) ↔ `rounded-full` (9999) passes through a near-square.
+ */
+export const MD_LIVE_INVITE_SHELL_RADIUS_PX = 9999;
+/**
  * Shared bottom inset for hairline and pill (viewport/editor bottom → control bottom).
  * Both states use the same edge so the pill contains the dash; height grows upward.
  */
@@ -329,6 +334,7 @@ export function mdLiveInviteCollapseFrame(
   height: number;
   labelOpacity: number;
   labelScale: number;
+  borderRadius: number;
 } {
   const p = Math.min(1, Math.max(0, progress));
   return {
@@ -338,7 +344,13 @@ export function mdLiveInviteCollapseFrame(
       (MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX - MD_LIVE_INVITE_PILL_HEIGHT_PX) * p,
     labelOpacity: 1 - p,
     labelScale: 1 + (MD_LIVE_INVITE_LABEL_COLLAPSE_SCALE - 1) * p,
+    borderRadius: MD_LIVE_INVITE_SHELL_RADIUS_PX,
   };
+}
+
+/** Capsule as long as radius is at least half the live height. */
+export function mdLiveInviteShellRadiusIsCapsule(radiusPx: number, heightPx: number): boolean {
+  return radiusPx >= heightPx / 2 - 0.01;
 }
 
 /** Empty-capsule flash: label already gone while the shell is still ~pill sized. */
@@ -375,6 +387,7 @@ export function mdLiveInviteComposerCollapseFrame(
   height: number;
   contentOpacity: number;
   messageAgentLabel: boolean;
+  borderRadius: number;
 } {
   const p = Math.min(1, Math.max(0, progress));
   return {
@@ -382,6 +395,7 @@ export function mdLiveInviteComposerCollapseFrame(
     height: composerHeightPx + (MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX - composerHeightPx) * p,
     contentOpacity: 1 - p,
     messageAgentLabel: false,
+    borderRadius: MD_LIVE_INVITE_SHELL_RADIUS_PX,
   };
 }
 

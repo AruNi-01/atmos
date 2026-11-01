@@ -85,7 +85,8 @@ describe("center-stage chrome", () => {
     expect(stage).toContain("panelActiveValue");
     expect(stage).toContain("activeValue={panelActiveValue}");
     expect(stage).toContain("activeTabIds={panelActiveTabIds}");
-    expect(stage).toContain("paneActiveTabById={panelPaneActiveTabById}");
+    expect(stage).toContain("paneActiveTabById={paneActiveTabById}");
+    expect(stage).not.toContain("panelPaneActiveTabById");
     expect(stage).toContain("activeValue={opts?.activeTabId ?? activeValue}");
 
     const frame = read("../workspace-center-frame.tsx");

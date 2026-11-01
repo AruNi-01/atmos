@@ -62,16 +62,40 @@ export function writeEditorUi(instanceId: ConnectionInstanceId, snapshot: Editor
 }
 
 let editorSaveTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingEditorSave: { instanceId: ConnectionInstanceId; snapshot: EditorUiPersisted } | null =
+  null;
+
+/** Connection wipe sets `_hasHydrated: false` with empty files — never persist that. */
+export function shouldPersistEditorUi(state: { _hasHydrated: boolean }): boolean {
+  return state._hasHydrated;
+}
+
+export function flushEditorUiSave(): void {
+  if (editorSaveTimer) {
+    clearTimeout(editorSaveTimer);
+    editorSaveTimer = null;
+  }
+  const pending = pendingEditorSave;
+  pendingEditorSave = null;
+  if (!pending) return;
+  writeEditorUi(pending.instanceId, pending.snapshot);
+}
 
 export function scheduleEditorUiSave(
   instanceId: ConnectionInstanceId,
   snapshot: EditorUiPersisted,
 ): void {
+  pendingEditorSave = { instanceId, snapshot };
   if (editorSaveTimer) {
     clearTimeout(editorSaveTimer);
   }
   editorSaveTimer = setTimeout(() => {
     editorSaveTimer = null;
-    writeEditorUi(instanceId, snapshot);
+    flushEditorUiSave();
   }, 50);
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("pagehide", flushEditorUiSave);
+  window.addEventListener("beforeunload", flushEditorUiSave);
 }

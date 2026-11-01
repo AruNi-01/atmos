@@ -483,6 +483,8 @@ const CenterStage: React.FC = () => {
   const selectBrowserInternalTab = useBrowserTabCommandsStore((state) => state.selectTab);
   const closeBrowserInternalTab = useBrowserTabCommandsStore((state) => state.closeTab);
   const activeInstanceId = useConnectionStore((state) => state.activeInstanceId);
+  const connectionEpoch = useConnectionStore((state) => state.connectionEpoch);
+  const connectionReady = connectionEpoch > 0;
   React.useEffect(() => {
     useUiPrefStore
       .getState()
@@ -692,6 +694,7 @@ const CenterStage: React.FC = () => {
       const decision = resolveCenterLastTabRestore({
         last: tab,
         editorHydrated: isEditorHydrated,
+        connectionReady,
         openFilePaths: useEditorStore
           .getState()
           .getOpenFiles(effectiveContextId)
@@ -704,6 +707,7 @@ const CenterStage: React.FC = () => {
     });
   }, [
     agentChatTabsHydrated,
+    connectionReady,
     effectiveContextId,
     isCenterContextSettled,
     isEditorHydrated,
@@ -722,6 +726,7 @@ const CenterStage: React.FC = () => {
     const lastTabDecision = resolveCenterLastTabRestore({
       last,
       editorHydrated: isEditorHydrated,
+      connectionReady,
       openFilePaths: useEditorStore
         .getState()
         .getOpenFiles(effectiveContextId)
@@ -733,6 +738,7 @@ const CenterStage: React.FC = () => {
         activateCenterChromeTab(effectiveContextId, fallbackCenterTab, {
           attach: false,
           createIfMissing: false,
+          recordLastTab: false,
         });
       }
       return;
@@ -757,6 +763,7 @@ const CenterStage: React.FC = () => {
     });
   }, [
     agentChatTabsHydrated,
+    connectionReady,
     effectiveContextId,
     isCenterContextSettled,
     isEditorHydrated,
@@ -3098,7 +3105,6 @@ const CenterStage: React.FC = () => {
   // can preempt a CI/PR mount instead of waiting on it.
   const panelActiveValue = React.useDeferredValue(activeValue);
   const panelActiveTabIds = React.useDeferredValue(multiActiveTabIds);
-  const panelPaneActiveTabById = React.useDeferredValue(paneActiveTabById);
   const focusedPaneIdRef = React.useRef(resolvedPaneLayout.focusedPaneId);
   focusedPaneIdRef.current = resolvedPaneLayout.focusedPaneId;
 
@@ -3431,7 +3437,7 @@ const CenterStage: React.FC = () => {
       activeTabIds={panelActiveTabIds}
       tabToPaneId={tabToPaneId}
       tabHostPaneIds={tabHostPaneIds}
-      paneActiveTabById={panelPaneActiveTabById}
+      paneActiveTabById={paneActiveTabById}
       paneSlotBoxes={paneSlotBoxes}
       paneSlotBoxCache={paneSlotBoxCache}
       fullscreenPaneId={activeFullscreenPaneId}

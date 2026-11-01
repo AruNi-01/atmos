@@ -448,6 +448,19 @@ describe("center explorer layout", () => {
       "pane-a",
       "pane-b",
     ]);
+    expect(stabilizeExplorerHostPaneIds([], { singlePane: true })).toEqual([]);
+    expect(stabilizeExplorerHostPaneIds([], { singlePane: false })).toEqual([]);
+    expect(
+      stabilizeExplorerHostPaneIds(
+        collectExplorerSidecarHostPaneIds({
+          paneActiveTabById: { "pane-main": "agent-chat:chat-1" },
+          frameActiveTab: "/repo/notes.md",
+          isSurfaceTab: (tabId) => isFileExplorerSurfaceTab(tabId, new Set(["/repo/notes.md"])),
+          singlePane: true,
+        }),
+        { singlePane: true },
+      ),
+    ).toEqual([]);
   });
 
   test("right-anchors when overlay hosts a single pane with multiActiveTabIds", () => {

@@ -72,6 +72,7 @@ describe("resolveCenterLastTabRestore", () => {
       resolveCenterLastTabRestore({
         last: "/repo/notes/draft.md",
         editorHydrated: true,
+        connectionReady: true,
         openFilePaths: ["/repo/pinned.ts"],
       }),
     ).toBe("fallback");
@@ -84,10 +85,23 @@ describe("resolveCenterLastTabRestore", () => {
     ).toBe("activate");
   });
 
+  test("waits until connection bootstrap before treating a missing preview as gone", () => {
+    expect(
+      resolveCenterLastTabRestore({
+        last: "/repo/notes/draft.md",
+        editorHydrated: true,
+        connectionReady: false,
+        openFilePaths: [],
+      }),
+    ).toBe("wait");
+  });
+
   test("CenterStage waits on editor hydrate before last-tab fallback", () => {
     const stage = readFileSync(join(import.meta.dir, "../CenterStage.tsx"), "utf8");
     expect(stage).toContain("resolveCenterLastTabRestore");
     expect(stage).toContain("editorHydrated: isEditorHydrated");
+    expect(stage).toContain("connectionReady");
+    expect(stage).toContain("recordLastTab: false");
     expect(stage).toContain('if (lastTabDecision === "wait") return');
     expect(stage).not.toContain("!FIXED_TABS.has(last)");
   });
