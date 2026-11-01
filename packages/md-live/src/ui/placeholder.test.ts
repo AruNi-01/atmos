@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { mdLivePlaceholderCopyKey, mdLivePlaceholderTravel } from "./placeholder";
 import type { Node } from "@milkdown/kit/prose/model";
 
@@ -52,5 +54,13 @@ describe("mdLivePlaceholderTravel", () => {
 
   test("stays in place when only the block type changes on the same line", () => {
     expect(mdLivePlaceholderTravel(80, 80.4, 14, 14).dir).toBe(0);
+  });
+});
+
+describe("mdLivePlaceholder scroller", () => {
+  test("binds to the per-file preview root instead of a shared id", () => {
+    const source = readFileSync(join(import.meta.dir, "placeholder.ts"), "utf8");
+    expect(source).toContain('closest("[data-editor-preview-root]")');
+    expect(source).not.toContain('closest("#editor-preview-root")');
   });
 });

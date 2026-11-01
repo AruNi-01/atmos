@@ -39,6 +39,8 @@ export function partializeEditorState(state: {
               originalContent: "",
               isLoading: true,
               isDirty: false,
+              // Keep italic unpinned preview tabs so a reload restores them.
+              isPreview: f.isPreview,
               lastOpenedAt: f.lastOpenedAt ?? 0,
               lastFocusedAt: f.lastFocusedAt ?? 0,
             })),

@@ -32,6 +32,10 @@ describe("CodeMirrorEditor live mount", () => {
     expect(source).toContain("data-center-explorer-chrome");
     expect(source).toContain("CENTER_EXPLORER_BODY_INSET_CLASS");
     expect(source).toContain('side="left"');
+    expect(source).toContain("editorPreviewRootDomId");
+    expect(source).toContain("markdownTocShouldMountForFile");
+    expect(source).toContain("data-editor-preview-root");
+    expect(source).not.toContain('id="editor-preview-root"');
     expect(source).toContain("MarkdownFindPanel");
     expect(source).toContain("FindHighlightProvider");
     expect(source).toContain("FindHighlightLayer");

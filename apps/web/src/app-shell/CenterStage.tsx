@@ -86,8 +86,8 @@ import { useWorkspaceSurfaceCacheStore } from "@/features/workspace/store/use-wo
 
 import { useExperimentSettingsStore } from "@/features/settings/store/experiment-settings-store";
 import {
-  FIXED_TABS,
   isTerminalCenterTabValue,
+  resolveCenterLastTabRestore,
   type TabGroupItem,
 } from "@/app-shell/center-stage-tabs";
 
@@ -688,6 +688,17 @@ const CenterStage: React.FC = () => {
     if (!agentChatTabsHydrated) return;
     const tab = tabFromUrl || readCenterStageLastTab(effectiveContextId);
     if (!tab) return;
+    if (!tabFromUrl) {
+      const decision = resolveCenterLastTabRestore({
+        last: tab,
+        editorHydrated: isEditorHydrated,
+        openFilePaths: useEditorStore
+          .getState()
+          .getOpenFiles(effectiveContextId)
+          .map((file) => file.path),
+      });
+      if (decision !== "activate") return;
+    }
     activateCenterChromeTab(effectiveContextId, tab, {
       createIfMissing: Boolean(tabFromUrl),
     });
@@ -695,6 +706,7 @@ const CenterStage: React.FC = () => {
     agentChatTabsHydrated,
     effectiveContextId,
     isCenterContextSettled,
+    isEditorHydrated,
     layoutDiskSynced,
     tabFromUrl,
   ]);
@@ -707,24 +719,23 @@ const CenterStage: React.FC = () => {
     if (isExtraCenterSpaceKey(effectiveContextId) && liveExtraSpaceEmpty) return;
     const last = readCenterStageLastTab(effectiveContextId);
     if (!last) return;
-    if (
-      !last.startsWith("github-") &&
-      !last.startsWith("git-commit:") &&
-      !last.startsWith("browser:") &&
-      !FIXED_TABS.has(last) &&
-      !isTerminalCenterTabValue(last) &&
-      !isAgentChatTabValue(last)
-    ) {
-      const files = useEditorStore.getState().getOpenFiles(effectiveContextId);
-      if (!files.some((file) => file.path === last)) {
-        if (fallbackCenterTab) {
-          activateCenterChromeTab(effectiveContextId, fallbackCenterTab, {
-            attach: false,
-            createIfMissing: false,
-          });
-        }
-        return;
+    const lastTabDecision = resolveCenterLastTabRestore({
+      last,
+      editorHydrated: isEditorHydrated,
+      openFilePaths: useEditorStore
+        .getState()
+        .getOpenFiles(effectiveContextId)
+        .map((file) => file.path),
+    });
+    if (lastTabDecision === "wait") return;
+    if (lastTabDecision === "fallback") {
+      if (fallbackCenterTab) {
+        activateCenterChromeTab(effectiveContextId, fallbackCenterTab, {
+          attach: false,
+          createIfMissing: false,
+        });
       }
+      return;
     }
     // Overview is opt-in. A leftover last-tab of "overview" from when it was
     // always-open must not reopen it on the default space's first pane.
@@ -748,6 +759,7 @@ const CenterStage: React.FC = () => {
     agentChatTabsHydrated,
     effectiveContextId,
     isCenterContextSettled,
+    isEditorHydrated,
     liveExtraSpaceEmpty,
     tabFromUrl,
     terminalTmux,
