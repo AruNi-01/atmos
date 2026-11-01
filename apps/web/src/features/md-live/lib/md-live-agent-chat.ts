@@ -4,13 +4,26 @@ import { mdLivePopoverAnchorStyle, type MdLiveViewportRect } from "@atmos/md-liv
 export const MD_LIVE_INVITE_LAYOUT_ID = "md-live-invite-shell";
 /** Hairline / capsule / composer morph duration (seconds). */
 export const MD_LIVE_BAR_MORPH_S = 0.32;
+export const MD_LIVE_BAR_COLLAPSE_MORPH_S = 0.28;
+/** Snappy ease-out. Collapse uses a monotonic tween so the shell never inflates first. */
+export const MD_LIVE_BAR_EXPAND_EASE = [0.22, 1, 0.36, 1] as const;
+export const MD_LIVE_BAR_COLLAPSE_EASE = [0.45, 0.05, 0.55, 0.95] as const;
 /** Centered short dash. Slightly shorter than the Message Agent capsule. */
 export const MD_LIVE_INVITE_HAIRLINE_WIDTH_PX = 104;
 export const MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX = 4;
 /** Capsule height (`h-9`) the dash expands into. */
 export const MD_LIVE_INVITE_PILL_HEIGHT_PX = 36;
-/** Hairline sits lower so the capsule morphs upward as it expands. */
-export const MD_LIVE_INVITE_HAIRLINE_Y_PX = 8;
+/**
+ * Shared bottom inset for hairline and pill (viewport/editor bottom → control bottom).
+ * Both states use the same edge so the pill contains the dash; height grows upward.
+ */
+export const MD_LIVE_INVITE_BOTTOM_PX = 16;
+/** TranslateY stays 0. A positive y used to shove the dash out of the pill hit box. */
+export const MD_LIVE_INVITE_HAIRLINE_Y_PX = 0;
+/** Extra hit above the 4px dash only (must stay inside the expanded pill). */
+export const MD_LIVE_INVITE_HAIRLINE_HIT_ABOVE_PX = 8;
+/** Swallow one-frame leave while the shell morphs; short enough not to feel sticky. */
+export const MD_LIVE_INVITE_HOVER_LEAVE_MS = 48;
 export const MD_LIVE_INVITE_HOVER_SELECTOR =
   "[data-md-live-invite-hairline], [data-md-live-message-agent], [data-md-live-invite-hit]";
 export const MD_LIVE_POPOVER_WIDTH = 420;
@@ -204,4 +217,119 @@ export function isMdLiveInviteHoverTarget(target: EventTarget | null): boolean {
   const closest = (target as { closest?: (selector: string) => unknown }).closest;
   if (typeof closest !== "function") return false;
   return Boolean(closest.call(target, MD_LIVE_INVITE_HOVER_SELECTOR));
+}
+
+export type MdLiveInviteShellSurface = "hidden" | "invite";
+
+export type MdLiveInviteBox = {
+  width: number;
+  height: number;
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+};
+
+/** Gap from the window/editor bottom to the hairline's bottom edge. */
+export function mdLiveInviteHairlineGapFromBottomPx(
+  bottomPx = MD_LIVE_INVITE_BOTTOM_PX,
+  yPx = MD_LIVE_INVITE_HAIRLINE_Y_PX,
+): number {
+  return bottomPx - yPx;
+}
+
+export function mdLiveInviteShellBox(input: {
+  surface: MdLiveInviteShellSurface;
+  viewportWidth: number;
+  viewportHeight: number;
+  pillWidthPx: number;
+  bottomPx?: number;
+  hairlineYPx?: number;
+}): MdLiveInviteBox {
+  const bottomPx = input.bottomPx ?? MD_LIVE_INVITE_BOTTOM_PX;
+  const yPx = input.surface === "hidden" ? (input.hairlineYPx ?? MD_LIVE_INVITE_HAIRLINE_Y_PX) : 0;
+  const width = input.surface === "hidden" ? MD_LIVE_INVITE_HAIRLINE_WIDTH_PX : input.pillWidthPx;
+  const height =
+    input.surface === "hidden" ? MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX : MD_LIVE_INVITE_PILL_HEIGHT_PX;
+  const left = (input.viewportWidth - width) / 2;
+  const boxBottom = input.viewportHeight - bottomPx + yPx;
+  return { width, height, left, top: boxBottom - height, right: left + width, bottom: boxBottom };
+}
+
+export function mdLiveInviteBoxContains(
+  box: MdLiveInviteBox,
+  point: { x: number; y: number },
+): boolean {
+  return point.x >= box.left && point.x <= box.right && point.y >= box.top && point.y <= box.bottom;
+}
+
+export function mdLiveInviteHairlineHitBox(box: MdLiveInviteBox): MdLiveInviteBox {
+  return {
+    ...box,
+    top: box.top - MD_LIVE_INVITE_HAIRLINE_HIT_ABOVE_PX,
+    height: box.height + MD_LIVE_INVITE_HAIRLINE_HIT_ABOVE_PX,
+  };
+}
+
+/** Hairline (and its above-only slop) must sit inside the pill so a still pointer cannot leave. */
+export function mdLiveInviteHoverContainsHairline(pillWidthPx: number): boolean {
+  const viewport = { viewportWidth: 800, viewportHeight: 600, pillWidthPx };
+  const hairline = mdLiveInviteHairlineHitBox(
+    mdLiveInviteShellBox({ surface: "hidden", ...viewport }),
+  );
+  const pill = mdLiveInviteShellBox({ surface: "invite", ...viewport });
+  const points = [
+    { x: hairline.left, y: hairline.top },
+    { x: hairline.right, y: hairline.top },
+    { x: hairline.left, y: hairline.bottom },
+    { x: hairline.right, y: hairline.bottom },
+    { x: (hairline.left + hairline.right) / 2, y: (hairline.top + hairline.bottom) / 2 },
+  ];
+  return points.every((point) => mdLiveInviteBoxContains(pill, point));
+}
+
+export type MdLiveInviteMorphKind = "expand" | "collapse";
+
+export function mdLiveBarMorphTransition(kind: MdLiveInviteMorphKind): {
+  type: "tween";
+  duration: number;
+  ease: readonly [number, number, number, number];
+  layout: { type: "tween"; duration: number; ease: readonly [number, number, number, number] };
+  width: { type: "tween"; duration: number; ease: readonly [number, number, number, number] };
+  height: { type: "tween"; duration: number; ease: readonly [number, number, number, number] };
+  y: { type: "tween"; duration: number; ease: readonly [number, number, number, number] };
+} {
+  const duration = kind === "collapse" ? MD_LIVE_BAR_COLLAPSE_MORPH_S : MD_LIVE_BAR_MORPH_S;
+  const ease = kind === "collapse" ? MD_LIVE_BAR_COLLAPSE_EASE : MD_LIVE_BAR_EXPAND_EASE;
+  const axis = { type: "tween" as const, duration, ease };
+  return { type: "tween", duration, ease, layout: axis, width: axis, height: axis, y: axis };
+}
+
+/** Direct keyframes — composer/pill → hairline must not pass through a larger box. */
+export function mdLiveInviteMorphKeyframes(
+  from: "hidden" | "invite" | "composer",
+  to: "hidden" | "invite" | "composer",
+  sizes: { pillWidthPx: number; composerWidthPx: number; composerHeightPx: number },
+): Array<{ width: number; height: number }> {
+  const sizeOf = (surface: typeof from) => {
+    if (surface === "hidden") {
+      return { width: MD_LIVE_INVITE_HAIRLINE_WIDTH_PX, height: MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX };
+    }
+    if (surface === "invite") {
+      return { width: sizes.pillWidthPx, height: MD_LIVE_INVITE_PILL_HEIGHT_PX };
+    }
+    return { width: sizes.composerWidthPx, height: sizes.composerHeightPx };
+  };
+  return [sizeOf(from), sizeOf(to)];
+}
+
+export function mdLiveInviteMorphIsMonotonicShrink(
+  from: "invite" | "composer",
+  to: "hidden" | "invite",
+  sizes: { pillWidthPx: number; composerWidthPx: number; composerHeightPx: number },
+): boolean {
+  const frames = mdLiveInviteMorphKeyframes(from, to, sizes);
+  if (frames.length !== 2) return false;
+  const [start, end] = frames;
+  return end.width <= start.width && end.height <= start.height;
 }

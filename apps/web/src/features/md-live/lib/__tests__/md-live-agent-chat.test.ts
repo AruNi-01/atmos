@@ -15,16 +15,30 @@ import {
   MD_LIVE_AGENT_CHROME_MAX_PERMISSION_LABEL_PX,
   MD_LIVE_AGENT_CHROME_MAX_THREAD_PX,
   MD_LIVE_AGENT_SKILL_PATH,
+  MD_LIVE_BAR_COLLAPSE_EASE,
+  MD_LIVE_BAR_COLLAPSE_MORPH_S,
+  MD_LIVE_BAR_EXPAND_EASE,
   MD_LIVE_BAR_MORPH_S,
+  MD_LIVE_INVITE_BOTTOM_PX,
   MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX,
+  MD_LIVE_INVITE_HAIRLINE_HIT_ABOVE_PX,
   MD_LIVE_INVITE_HAIRLINE_WIDTH_PX,
   MD_LIVE_INVITE_HAIRLINE_Y_PX,
+  MD_LIVE_INVITE_HOVER_LEAVE_MS,
   MD_LIVE_INVITE_HOVER_SELECTOR,
   MD_LIVE_INVITE_LAYOUT_ID,
   MD_LIVE_INVITE_PILL_HEIGHT_PX,
   MD_LIVE_POPOVER_WIDTH,
+  mdLiveBarMorphTransition,
   mdLiveBarSurface,
+  mdLiveInviteBoxContains,
+  mdLiveInviteHairlineGapFromBottomPx,
+  mdLiveInviteHairlineHitBox,
+  mdLiveInviteHoverContainsHairline,
+  mdLiveInviteMorphIsMonotonicShrink,
+  mdLiveInviteMorphKeyframes,
   mdLiveInviteMorphs,
+  mdLiveInviteShellBox,
   nextMdLiveBarMode,
   transformMdLivePrompt,
 } from "../md-live-agent-chat";
@@ -49,6 +63,10 @@ describe("md-live agent chat helpers", () => {
     };
     expect(nextMdLiveBarMode(base)).toBe("hidden");
     expect(mdLiveBarSurface(nextMdLiveBarMode(base), false)).toBe("hidden");
+    for (let cycle = 0; cycle < 5; cycle += 1) {
+      expect(nextMdLiveBarMode({ ...base, hover: true })).toBe("invite");
+      expect(nextMdLiveBarMode({ ...base, hover: false })).toBe("hidden");
+    }
     expect(nextMdLiveBarMode({ ...base, hover: true })).toBe("invite");
     expect(mdLiveBarSurface("invite", false)).toBe("invite");
     expect(mdLiveBarSurface("invite", false)).not.toBe("composer");
@@ -72,7 +90,13 @@ describe("md-live agent chat helpers", () => {
     expect(MD_LIVE_INVITE_HAIRLINE_WIDTH_PX).toBeLessThanOrEqual(112);
     expect(MD_LIVE_INVITE_HAIRLINE_WIDTH_PX).toBeLessThan(MD_LIVE_INVITE_PILL_HEIGHT_PX * 4);
     expect(MD_LIVE_INVITE_PILL_HEIGHT_PX).toBe(36);
-    expect(MD_LIVE_INVITE_HAIRLINE_Y_PX).toBe(8);
+    expect(MD_LIVE_INVITE_HAIRLINE_Y_PX).toBe(0);
+    expect(MD_LIVE_INVITE_BOTTOM_PX).toBeGreaterThanOrEqual(16);
+    expect(mdLiveInviteHairlineGapFromBottomPx()).toBeGreaterThanOrEqual(16);
+    expect(mdLiveInviteHairlineGapFromBottomPx()).toBeGreaterThan(
+      mdLiveInviteHairlineGapFromBottomPx(12, 8),
+    );
+    expect(MD_LIVE_INVITE_HOVER_LEAVE_MS).toBeLessThanOrEqual(80);
     expect(MD_LIVE_INVITE_HOVER_SELECTOR).toContain("data-md-live-invite-hairline");
     expect(mdLiveInviteMorphs("hidden", { showThreadCard: false, hasComposerChrome: false })).toBe(
       true,
@@ -152,6 +176,62 @@ describe("md-live agent chat helpers", () => {
     ).toBe("");
     expect(mdLiveOverlayTitle("Tighten this paragraph.", "")).toBe("Tighten this paragraph.");
     expect(mdLiveOverlayTitle(null, "")).toBe("");
+  });
+
+  test("hairline sits inside the pill so a still pointer cannot leave on expand", () => {
+    const pillWidth = 148;
+    const viewport = {
+      viewportWidth: 800,
+      viewportHeight: 600,
+      pillWidthPx: pillWidth,
+    };
+    expect(mdLiveInviteHoverContainsHairline(pillWidth)).toBe(true);
+
+    const oldHairline = mdLiveInviteHairlineHitBox(
+      mdLiveInviteShellBox({
+        surface: "hidden",
+        ...viewport,
+        bottomPx: 12,
+        hairlineYPx: 8,
+      }),
+    );
+    const oldPill = mdLiveInviteShellBox({
+      surface: "invite",
+      ...viewport,
+      bottomPx: 12,
+      hairlineYPx: 8,
+    });
+    const oldCenter = {
+      x: (oldHairline.left + oldHairline.right) / 2,
+      y: (oldHairline.top + oldHairline.bottom) / 2,
+    };
+    expect(mdLiveInviteBoxContains(oldPill, oldCenter)).toBe(false);
+
+    const nextHairline = mdLiveInviteShellBox({ surface: "hidden", ...viewport });
+    expect(viewport.viewportHeight - nextHairline.bottom).toBe(MD_LIVE_INVITE_BOTTOM_PX);
+    expect(MD_LIVE_INVITE_HAIRLINE_HIT_ABOVE_PX).toBe(8);
+  });
+
+  test("collapse morph is a one-step shrink, not pill-then-hairline", () => {
+    const sizes = { pillWidthPx: 148, composerWidthPx: 672, composerHeightPx: 120 };
+    expect(mdLiveInviteMorphKeyframes("composer", "hidden", sizes)).toEqual([
+      { width: 672, height: 120 },
+      { width: MD_LIVE_INVITE_HAIRLINE_WIDTH_PX, height: MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX },
+    ]);
+    expect(mdLiveInviteMorphIsMonotonicShrink("composer", "hidden", sizes)).toBe(true);
+    expect(mdLiveInviteMorphIsMonotonicShrink("invite", "hidden", sizes)).toBe(true);
+    const collapse = mdLiveBarMorphTransition("collapse");
+    const expand = mdLiveBarMorphTransition("expand");
+    expect(collapse.type).toBe("tween");
+    expect(expand.type).toBe("tween");
+    expect(collapse.ease).toEqual(MD_LIVE_BAR_COLLAPSE_EASE);
+    expect(expand.ease).toEqual(MD_LIVE_BAR_EXPAND_EASE);
+    expect(collapse.duration).toBe(MD_LIVE_BAR_COLLAPSE_MORPH_S);
+    expect(collapse.height.duration).toBe(collapse.width.duration);
+    expect(collapse.ease[1]).toBeGreaterThanOrEqual(0);
+    expect(collapse.ease[1]).toBeLessThanOrEqual(1);
+    expect(collapse.ease[3]).toBeGreaterThanOrEqual(0);
+    expect(collapse.ease[3]).toBeLessThanOrEqual(1);
   });
 
   test("invite hover only matches the hairline or capsule, not the dock", () => {

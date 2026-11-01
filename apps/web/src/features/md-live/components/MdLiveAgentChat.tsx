@@ -1,6 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 import { LayoutGroup, motion, useReducedMotion } from "motion/react";
 import { useTranslations } from "next-intl";
 import {
@@ -47,15 +55,17 @@ import {
   MD_LIVE_AGENT_PANEL_CLASS,
   MD_LIVE_AGENT_STACK_CLASS,
   MD_LIVE_AGENT_THREAD_MAX_CLASS,
-  MD_LIVE_BAR_MORPH_S,
+  MD_LIVE_INVITE_BOTTOM_PX,
   MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX,
   MD_LIVE_INVITE_HAIRLINE_WIDTH_PX,
   MD_LIVE_INVITE_HAIRLINE_Y_PX,
+  MD_LIVE_INVITE_HOVER_LEAVE_MS,
   MD_LIVE_INVITE_LAYOUT_ID,
   MD_LIVE_INVITE_PILL_HEIGHT_PX,
   MD_LIVE_POPOVER_WIDTH,
   isMdLiveAgentOverlayDismissTarget,
   isMdLiveInviteHoverTarget,
+  mdLiveBarMorphTransition,
   mdLiveAgentChatInstanceKey,
   mdLiveOverlayTitle,
   mdLiveRewritePrompt,
@@ -71,8 +81,6 @@ import {
   type MdLiveAgentPlacement,
 } from "../lib/md-live-agent-chat";
 
-const BAR_EASE = [0.22, 1, 0.36, 1] as const;
-
 export function MdLiveAgentChat({
   filePath,
   scopeRef,
@@ -87,15 +95,6 @@ export function MdLiveAgentChat({
   const t = useTranslations("mdLive");
   const chatPanelT = useTranslations("Agent.components.chatPanel");
   const reduceMotion = Boolean(useReducedMotion());
-  const barMorphMotion = reduceMotion
-    ? { duration: 0 }
-    : {
-        duration: MD_LIVE_BAR_MORPH_S,
-        ease: BAR_EASE,
-        width: { duration: MD_LIVE_BAR_MORPH_S, ease: BAR_EASE },
-        height: { duration: MD_LIVE_BAR_MORPH_S + 0.04, ease: BAR_EASE },
-        y: { duration: MD_LIVE_BAR_MORPH_S, ease: BAR_EASE },
-      };
   const instanceKey = mdLiveAgentChatInstanceKey(filePath);
   const chatId = chatIdProp || "";
   const [selectedSubagentId, setSelectedSubagentId] = useState<string | null>(null);
@@ -113,6 +112,9 @@ export function MdLiveAgentChat({
   );
   const selectionRef = useRef("");
   const hostRef = useRef<HTMLDivElement | null>(null);
+  const inviteLabelRef = useRef<HTMLSpanElement | null>(null);
+  const inviteHoverLeaveRef = useRef<number>(0);
+  const [pillWidthPx, setPillWidthPx] = useState(148);
   const reviewPending = useMdLiveStreamLocked(filePath);
 
   useEffect(() => {
@@ -182,6 +184,48 @@ export function MdLiveAgentChat({
     hasComposerChrome,
   });
   const idleWorkedMs = mdLiveIdleWorkedMs(session.elapsedMs, session.messages);
+  const collapsingInvite = barSurface === "hidden";
+  const barMorphMotion = reduceMotion
+    ? { duration: 0 }
+    : mdLiveBarMorphTransition(collapsingInvite ? "collapse" : "expand");
+  const inviteShellAnimate =
+    barSurface === "hidden"
+      ? {
+          width: MD_LIVE_INVITE_HAIRLINE_WIDTH_PX,
+          height: MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX,
+          y: MD_LIVE_INVITE_HAIRLINE_Y_PX,
+          paddingLeft: 0,
+          paddingRight: 0,
+        }
+      : {
+          width: pillWidthPx,
+          height: MD_LIVE_INVITE_PILL_HEIGHT_PX,
+          y: 0,
+          paddingLeft: 16,
+          paddingRight: 16,
+        };
+
+  const setInviteHover = useCallback((next: boolean) => {
+    window.clearTimeout(inviteHoverLeaveRef.current);
+    if (next) {
+      setHover(true);
+      return;
+    }
+    inviteHoverLeaveRef.current = window.setTimeout(() => {
+      setHover(false);
+    }, MD_LIVE_INVITE_HOVER_LEAVE_MS);
+  }, []);
+
+  useEffect(() => {
+    return () => window.clearTimeout(inviteHoverLeaveRef.current);
+  }, []);
+
+  useLayoutEffect(() => {
+    const node = inviteLabelRef.current;
+    if (!node) return;
+    const next = Math.ceil(node.scrollWidth) + 34;
+    if (next >= MD_LIVE_INVITE_HAIRLINE_WIDTH_PX) setPillWidthPx(next);
+  }, [t, barSurface]);
 
   const openPopover = useCallback(
     (selection: string) => {
@@ -234,16 +278,16 @@ export function MdLiveAgentChat({
     const host = scopeRef?.current;
     if (!host) return;
     const onMove = (event: PointerEvent) => {
-      setHover(isMdLiveInviteHoverTarget(event.target));
+      if (isMdLiveInviteHoverTarget(event.target)) setInviteHover(true);
     };
-    const onLeave = () => setHover(false);
+    const onLeave = () => setInviteHover(false);
     host.addEventListener("pointermove", onMove);
     host.addEventListener("pointerleave", onLeave);
     return () => {
       host.removeEventListener("pointermove", onMove);
       host.removeEventListener("pointerleave", onLeave);
     };
-  }, [scopeRef]);
+  }, [scopeRef, setInviteHover]);
 
   useEffect(() => {
     if (!popover) return;
@@ -587,45 +631,35 @@ export function MdLiveAgentChat({
               )}
             >
               {morphEntry && !showComposer ? (
-                <div className="flex justify-center pb-3">
+                <div
+                  className="pointer-events-none flex items-end justify-center"
+                  style={{
+                    paddingBottom: MD_LIVE_INVITE_BOTTOM_PX,
+                    minHeight: MD_LIVE_INVITE_PILL_HEIGHT_PX + MD_LIVE_INVITE_BOTTOM_PX,
+                  }}
+                >
                   <motion.button
                     type="button"
-                    layout
                     layoutId={MD_LIVE_INVITE_LAYOUT_ID}
                     data-md-live-invite-hit=""
                     data-md-live-invite-hairline={barSurface === "hidden" ? "" : undefined}
                     data-md-live-message-agent={showInvite ? "" : undefined}
                     aria-label={t("messageAgent")}
                     className={cn(
-                      "pointer-events-auto relative max-w-[calc(100%-1.5rem)] overflow-hidden rounded-full",
+                      "pointer-events-auto relative box-border inline-flex min-h-0 max-w-[calc(100%-1.5rem)] appearance-none items-center justify-center overflow-hidden rounded-full border-0 p-0 leading-none",
                       showInvite &&
-                        "inline-flex items-center border border-border/70 text-sm text-muted-foreground shadow-sm hover:text-foreground",
+                        "border border-border/70 text-sm text-muted-foreground shadow-sm hover:text-foreground",
                     )}
                     style={{ originX: 0.5, originY: 1 }}
                     initial={false}
-                    animate={
-                      barSurface === "hidden"
-                        ? {
-                            width: MD_LIVE_INVITE_HAIRLINE_WIDTH_PX,
-                            height: MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX,
-                            y: MD_LIVE_INVITE_HAIRLINE_Y_PX,
-                            paddingLeft: 0,
-                            paddingRight: 0,
-                          }
-                        : {
-                            width: "auto",
-                            height: MD_LIVE_INVITE_PILL_HEIGHT_PX,
-                            y: 0,
-                            paddingLeft: 16,
-                            paddingRight: 16,
-                          }
-                    }
+                    animate={inviteShellAnimate}
                     transition={barMorphMotion}
-                    onPointerEnter={() => setHover(true)}
-                    onPointerLeave={() => setHover(false)}
+                    onPointerEnter={() => setInviteHover(true)}
+                    onPointerLeave={() => setInviteHover(false)}
                     onClick={expandThread}
                   >
                     <span
+                      ref={inviteLabelRef}
                       className={cn(
                         "whitespace-nowrap",
                         barSurface === "hidden" && "text-transparent",
@@ -637,9 +671,9 @@ export function MdLiveAgentChat({
                 </div>
               ) : morphEntry && showComposer ? (
                 <motion.div
-                  layout
                   layoutId={MD_LIVE_INVITE_LAYOUT_ID}
-                  className="pointer-events-auto mx-auto mb-3 w-[min(100%-1.5rem,42rem)] overflow-hidden rounded-2xl"
+                  className="pointer-events-auto mx-auto w-[min(100%-1.5rem,42rem)] overflow-hidden rounded-2xl"
+                  style={{ marginBottom: MD_LIVE_INVITE_BOTTOM_PX }}
                   transition={barMorphMotion}
                 >
                   {composer}

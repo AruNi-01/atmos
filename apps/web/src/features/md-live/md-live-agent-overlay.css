@@ -34,9 +34,7 @@
 }
 
 [data-md-live-invite-hairline] {
-  width: 104px;
   max-width: calc(100% - 1.5rem);
-  height: 4px;
   /* Surface glass, not a text-colored stroke — readable on white glyphs and dark canvas. */
   background-color: color-mix(in oklch, var(--popover) 78%, var(--background) 22%);
   backdrop-filter: blur(12px);
@@ -48,7 +46,9 @@
 [data-md-live-invite-hairline]::after {
   content: "";
   position: absolute;
-  inset-block: -8px;
+  /* Above-only slop: the expanded pill covers this. Below would sit outside the pill and loop hover. */
+  inset-block-start: -8px;
+  inset-block-end: 0;
   inset-inline: 0;
 }
 
