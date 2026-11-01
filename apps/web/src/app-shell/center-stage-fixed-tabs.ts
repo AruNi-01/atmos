@@ -23,3 +23,42 @@ export function shouldSkipLastTabRestoreForUrlTab(tabFromUrl: string | null | un
   if (FIXED_TABS.has(tabFromUrl)) return true;
   return tabFromUrl.startsWith("agent-chat:");
 }
+
+/**
+ * Last-tab ids that are editor documents (pinned or italic preview).
+ * Prefix checks stay local so restore policy does not import the tab-bar graph.
+ */
+export function isEditorDocumentLastTab(tab: string | null | undefined): boolean {
+  if (!tab) return false;
+  if (FIXED_TABS.has(tab)) return false;
+  if (tab === "terminal" || tab.startsWith("terminal-tab:")) return false;
+  if (
+    tab.startsWith("github-") ||
+    tab.startsWith("git-commit:") ||
+    tab.startsWith("browser:") ||
+    tab.startsWith("agent-chat:")
+  ) {
+    return false;
+  }
+  return true;
+}
+
+export type CenterLastTabRestoreAction = "activate" | "wait" | "fallback";
+
+/**
+ * Unpinned preview tabs live in the editor store. Restoring last-tab before
+ * that store hydrates — or before connection bootstrap picks the instance —
+ * treats the path as missing and writes Chat over it.
+ */
+export function resolveCenterLastTabRestore(input: {
+  last: string;
+  editorHydrated: boolean;
+  openFilePaths: readonly string[];
+  connectionReady?: boolean;
+}): CenterLastTabRestoreAction {
+  if (!isEditorDocumentLastTab(input.last)) return "activate";
+  if (input.connectionReady === false) return "wait";
+  if (!input.editorHydrated) return "wait";
+  if (!input.openFilePaths.includes(input.last)) return "fallback";
+  return "activate";
+}

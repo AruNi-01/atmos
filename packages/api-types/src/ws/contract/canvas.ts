@@ -35,4 +35,16 @@ export type CanvasContract = {
     input: CanvasAgentDispatchResultRequest;
     output: CanvasAgentDispatchResultResponse;
   };
+  md_live_bridge_register: {
+    input: CanvasBridgeRegisterRequest;
+    output: CanvasBridgeRegisterResponse;
+  };
+  md_live_bridge_unregister: {
+    input: CanvasBridgeUnregisterRequest;
+    output: CanvasBridgeUnregisterResponse;
+  };
+  md_live_agent_dispatch_result: {
+    input: CanvasAgentDispatchResultRequest;
+    output: CanvasAgentDispatchResultResponse;
+  };
 };

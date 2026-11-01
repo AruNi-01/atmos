@@ -41,13 +41,24 @@ export type MdLiveSlashPick =
 
 export type MdLiveFocusCaret = "start" | "end" | "preserve";
 
+export type MdLiveViewportRect = {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+  width: number;
+  height: number;
+};
+
 export type MdLiveEditorHandle = {
   getMarkdown: () => string;
   getSelectionMarkdown: () => string;
+  getSelectionViewportRect: () => MdLiveViewportRect | null;
   focus: (options?: { caret?: MdLiveFocusCaret }) => void;
   insertMarkdown: (markdown: string, options?: { replaceSlash?: boolean }) => void;
   insertText: (text: string, options?: { replaceSlash?: boolean }) => void;
   runBlockAction: (action: MdLiveBlockAction) => void;
+  selectAll: () => void;
   startStream: (insertAt: "cursor" | "selection") => boolean;
   pushChunk: (token: string) => void;
   endStream: (diffReview?: boolean) => void;

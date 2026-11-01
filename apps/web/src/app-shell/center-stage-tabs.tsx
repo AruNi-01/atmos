@@ -48,7 +48,12 @@ import { cn } from "@/shared/lib/utils";
 /** Cap each group column so long labels truncate instead of stretching the popover. */
 const TAB_GROUP_COLUMN_MAX_WIDTH_CLASS = "max-w-[240px]";
 
-export { FIXED_TABS, shouldSkipLastTabRestoreForUrlTab } from "@/app-shell/center-stage-fixed-tabs";
+export {
+  FIXED_TABS,
+  isEditorDocumentLastTab,
+  resolveCenterLastTabRestore,
+  shouldSkipLastTabRestoreForUrlTab,
+} from "@/app-shell/center-stage-fixed-tabs";
 export {
   CENTER_STRIP_POSITION_HOTKEYS,
   CENTER_STRIP_SHORTCUT_LIMIT,

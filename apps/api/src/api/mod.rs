@@ -5,6 +5,7 @@ pub mod cli;
 pub mod desktop_use;
 pub mod dto;
 pub mod hooks;
+pub mod md_live_agent;
 pub mod project;
 pub mod pt_design;
 pub mod pt_design_agent;
@@ -30,6 +31,7 @@ pub fn routes() -> Router<AppState> {
         .nest("/api/agent", agent::routes())
         .nest("/api/cli", cli::routes())
         .nest("/api/pt-design", pt_design::routes())
+        .nest("/api/md-live", md_live_agent::routes())
         .nest("/agent-status", agent_status::routes())
         .nest("/hooks", hooks::routes())
         .nest("/ws", ws::routes())

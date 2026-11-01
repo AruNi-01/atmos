@@ -617,6 +617,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // uplink) and the HTTP invoke handler (CLI ingress).
     let canvas_agent_relay = Arc::new(CanvasAgentRelay::new());
     let pt_design_agent_relay = Arc::new(CanvasAgentRelay::new());
+    let md_live_agent_relay = Arc::new(CanvasAgentRelay::new());
 
     // WsMessageService handles all WebSocket-based operations
     let ws_message_service = Arc::new(WsMessageService::new(
@@ -630,6 +631,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::clone(&quota_usage_service),
         Arc::clone(&canvas_agent_relay),
         Arc::clone(&pt_design_agent_relay),
+        Arc::clone(&md_live_agent_relay),
         Arc::clone(&notification_service),
         Arc::clone(&token_usage_service),
         Arc::clone(&agent_status_service),
@@ -676,6 +678,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             notification_service: Arc::clone(&notification_service),
             canvas_agent_relay: Arc::clone(&canvas_agent_relay),
             pt_design_agent_relay: Arc::clone(&pt_design_agent_relay),
+            md_live_agent_relay: Arc::clone(&md_live_agent_relay),
             review_service: Arc::clone(&review_service),
         },
         server_config.port,

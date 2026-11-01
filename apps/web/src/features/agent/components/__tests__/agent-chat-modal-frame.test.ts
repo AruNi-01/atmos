@@ -141,6 +141,10 @@ describe("agent chat modal frame", () => {
     expect(session).toContain("shouldRetainExistingOptions");
     expect(session).toContain("applyLiveOptionsSnapshot");
     expect(session).toContain("toastCatalogSnapshot");
+    expect(session).toContain("pendingAuthPromptAgentIdRef");
+    expect(session).toContain("armCatalogAuthPrompt");
+    expect(session).toContain("authRequiredAgentIds");
+    expect(session).not.toContain('children: tChatPanel("catalogError.auth")');
     expect(session).toContain("refreshSelectedAgentAfterAuth");
     expect(session).toContain("catalogAuthMethodKind");
     expect(session).toContain('{ status: "authenticated", refresh: passMethodId }');
@@ -166,7 +170,7 @@ describe("agent chat modal frame", () => {
     expect(panel).toContain("onLoadModels={reloadEmptyCatalog}");
     expect(panel).toContain("catalogModelsReloading={catalogModelsReloading}");
     expect(panel).toContain("refreshSelectedAgentAfterAuth={refreshSelectedAgentAfterAuth}");
-    expect(session).toContain("setDescriptor(null);\n    setSupportsSteer(false);");
+    expect(session).toContain("setDescriptor(null);\n      setSupportsSteer(false);");
     expect(session).toContain('payload.type === "rewind_view_updated"');
     expect(session).toContain('payload.type === "session_forked"');
     expect(session).toContain("setActiveChatId(childId)");

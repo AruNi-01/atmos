@@ -60,6 +60,7 @@ export type WsEventContract = {
   local_model_state_changed: { payload: LocalModelStateNotification };
   canvas_agent_dispatch: { payload: RefreshNotification };
   pt_design_agent_dispatch: { payload: RefreshNotification };
+  md_live_agent_dispatch: { payload: RefreshNotification };
   automation_definition_updated: { payload: AutomationDefinitionUpdatedEvent };
   automation_run_updated: { payload: AutomationRunUpdatedEvent };
   automation_run_output: { payload: AutomationRunOutputEvent };

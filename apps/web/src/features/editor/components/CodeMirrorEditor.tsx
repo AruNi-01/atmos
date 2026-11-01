@@ -63,6 +63,10 @@ import { FileTree } from "@/features/files/components/FileTree";
 import { tryRelativePathUnderRoot } from "@/shared/lib/path-under-root";
 import { CenterExplorerToggle } from "@/app-shell/CenterExplorerToggle";
 import { CENTER_EXPLORER_BODY_INSET_CLASS } from "@/app-shell/center-explorer-layout";
+import {
+  editorPreviewRootDomId,
+  markdownTocShouldMountForFile,
+} from "@/features/editor/lib/editor-preview-root";
 
 /** Strip trailing slashes only — keep a leading `/` for absolute paths. */
 function stripTrailingSlashes(path: string): string {
@@ -78,8 +82,8 @@ const MarkdownLiveEditor = dynamic(
     ),
   { ssr: false },
 );
-const MdLiveAgentDock = dynamic(
-  () => import("@/features/md-live/components/MdLiveAgentDock").then((mod) => mod.MdLiveAgentDock),
+const MdLiveAgentChat = dynamic(
+  () => import("@/features/md-live/components/MdLiveAgentChat").then((mod) => mod.MdLiveAgentChat),
   { ssr: false },
 );
 const MdLiveSaveAsDialog = dynamic(
@@ -436,6 +440,8 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
 
   const isMarkdown =
     file.language === "markdown" || file.name.endsWith(".md") || file.name.endsWith(".mdx");
+  const previewRootId = editorPreviewRootDomId(file.path);
+  const tocForActiveFile = markdownTocShouldMountForFile(workspaceActivePath, file.path);
   const isLiveEligible = isLiveEligibleMarkdownPath(file.path, {
     fileName: file.name,
     language: file.language,
@@ -973,6 +979,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
 
       <div
         ref={liveChromeRef}
+        data-md-live-editor-chrome=""
         className="relative flex min-h-0 w-full flex-1 flex-col overflow-hidden"
       >
         <div
@@ -1095,7 +1102,8 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
               <FindHighlightProvider>
                 {isLive && surfaceActive ? (
                   <div
-                    id="editor-preview-root"
+                    id={previewRootId}
+                    data-editor-preview-root=""
                     ref={setPreviewRoot}
                     className="absolute inset-0 overflow-y-auto overscroll-contain scroll-smooth bg-background"
                   >
@@ -1155,7 +1163,8 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
 
                 {isPreview && isMarkdown && (
                   <div
-                    id="editor-preview-root"
+                    id={previewRootId}
+                    data-editor-preview-root=""
                     ref={setPreviewRoot}
                     className="absolute inset-0 overflow-y-auto overscroll-contain scroll-smooth bg-background px-8 py-12"
                   >
@@ -1174,20 +1183,22 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
                   </div>
                 )}
 
-                {isPreview && isMarkdown && (
+                {isPreview && isMarkdown && tocForActiveFile ? (
                   <MarkdownToc
                     markdown={previewBody}
-                    scrollContainerId="editor-preview-root"
+                    scrollContainerId={previewRootId}
+                    scrollRoot={previewRoot}
                     side="left"
                   />
-                )}
-                {isLive && (
+                ) : null}
+                {isLive && tocForActiveFile ? (
                   <MarkdownToc
                     markdown={file.content}
-                    scrollContainerId="editor-preview-root"
+                    scrollContainerId={previewRootId}
+                    scrollRoot={previewRoot}
                     side="left"
                   />
-                )}
+                ) : null}
                 {markdownFindEnabled ? (
                   <MarkdownFindPanel
                     open={markdownFindOpen}
@@ -1197,12 +1208,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
                   />
                 ) : null}
                 {isLive && surfaceActive ? (
-                  <MdLiveAgentDock
-                    filePath={file.path}
-                    markdown={file.content}
-                    ensureLive={() => setMarkdownView("live")}
-                    scopeRef={liveChromeRef}
-                  />
+                  <MdLiveAgentChat filePath={file.path} scopeRef={liveChromeRef} />
                 ) : null}
               </FindHighlightProvider>
             </div>

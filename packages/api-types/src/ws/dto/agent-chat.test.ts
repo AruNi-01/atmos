@@ -6,13 +6,22 @@ import { WS_ACTIONS } from "../actions";
 import { WS_EVENTS } from "../events";
 import type {
   AgentCapabilities,
+  AgentChatConfigureRequest,
   AgentChatEvent,
+  AgentChatIndexEntry,
+  AgentChatListRequest,
   AgentChatMeta,
   AgentChatPayload,
   AgentChatSendRequest,
   AgentDescriptor,
   AgentOptionSupport,
   AgentTool,
+} from "./agent-chat";
+import {
+  AGENT_CHAT_SOURCE_MD_LIVE,
+  agentChatListHidesMdLive,
+  filterDefaultHiddenAgentChatItems,
+  isAgentChatSourceMdLive,
 } from "./agent-chat";
 
 type AssertNever<T extends never> = T;
@@ -69,6 +78,14 @@ type UnexpectedSend = Exclude<
 type _SendClosed = AssertNever<UnexpectedSend>;
 type MissingSendMessageId = Exclude<"message_id", keyof AgentChatSendRequest>;
 type _HasSendMessageId = AssertNever<MissingSendMessageId>;
+type MissingIndexSource = Exclude<"source", keyof AgentChatIndexEntry>;
+type _IndexHasSource = AssertNever<MissingIndexSource>;
+type MissingListExclude = Exclude<"exclude_sources", keyof AgentChatListRequest>;
+type _ListHasExcludeSources = AssertNever<MissingListExclude>;
+type MissingConfigureSource = Exclude<"source", keyof AgentChatConfigureRequest>;
+type _ConfigureHasSource = AssertNever<MissingConfigureSource>;
+type MissingMetaSource = Exclude<"source", keyof AgentChatMeta>;
+type _MetaHasSource = AssertNever<MissingMetaSource>;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const dtoSource = readFileSync(join(__dirname, "./agent-chat.ts"), "utf8");
@@ -142,6 +159,33 @@ describe("APP-069 S18 Agent Chat stays on main /ws", () => {
     expect(match![0]).not.toContain("sequence: number");
     expect(match![0]).toContain("turn_id?: string | null");
     expect(match![0]).toContain("payload: AgentEvent");
+  });
+
+  test("md-live reuses AgentChatMeta.source rather than a new origin", () => {
+    expect(AGENT_CHAT_SOURCE_MD_LIVE).toBe("md-live");
+    expect(dtoSource).toContain('export const AGENT_CHAT_SOURCE_MD_LIVE = "md-live"');
+    expect(dtoSource).toContain("exclude_sources?: string[] | null");
+    expect(dtoSource).toMatch(
+      /export type AgentChatIndexEntry = \{[\s\S]*?source\?: string \| null/,
+    );
+    expect(dtoSource).not.toContain('origin: "md-live"');
+    expect(isAgentChatSourceMdLive("md-live")).toBe(true);
+    expect(isAgentChatSourceMdLive("  md-live  ")).toBe(true);
+    expect(isAgentChatSourceMdLive(null)).toBe(false);
+    expect(agentChatListHidesMdLive(undefined)).toBe(true);
+    expect(agentChatListHidesMdLive(null)).toBe(true);
+    expect(agentChatListHidesMdLive([])).toBe(false);
+    expect(agentChatListHidesMdLive(["automation"])).toBe(false);
+    expect(agentChatListHidesMdLive(["md-live"])).toBe(true);
+    const items = [
+      { id: "normal", source: null },
+      { id: "live", source: "md-live" },
+    ];
+    expect(filterDefaultHiddenAgentChatItems(items).map((item) => item.id)).toEqual(["normal"]);
+    expect(filterDefaultHiddenAgentChatItems(items, []).map((item) => item.id)).toEqual([
+      "normal",
+      "live",
+    ]);
   });
 
   test("AgentChatPayload is text_chunk plus part_closed, not deltas", () => {

@@ -28,6 +28,7 @@ export const WS_EVENTS = [
   "local_model_state_changed",
   "canvas_agent_dispatch",
   "pt_design_agent_dispatch",
+  "md_live_agent_dispatch",
   "automation_definition_updated",
   "automation_run_updated",
   "automation_run_output",

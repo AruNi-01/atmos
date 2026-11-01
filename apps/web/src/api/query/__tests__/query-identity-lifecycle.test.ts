@@ -15,6 +15,7 @@ import {
 } from "@/features/connection/lib/query-identity-lifecycle";
 import {
   __resetAtmosWebQueryClientForTests,
+  cancelAndRemoveQueries,
   createAtmosWebQueryClient,
   getAtmosWebQueryClient,
 } from "@/providers/app/query-client";
@@ -162,6 +163,19 @@ describe("query-identity-lifecycle scope bumps", () => {
       expect(client.getQueryCache().findAll({ queryKey: ["atmos", "computer"] })).toHaveLength(0);
     } finally {
       process.off("unhandledRejection", onLeak);
+    }
+  });
+
+  test("cancelAndRemoveQueries swallows CancelledError from cancelQueries", async () => {
+    const client = getAtmosWebQueryClient();
+    const original = client.cancelQueries.bind(client);
+    client.cancelQueries = (async () => {
+      throw new CancelledError();
+    }) as typeof client.cancelQueries;
+    try {
+      await expect(cancelAndRemoveQueries(["atmos", "computer"])).resolves.toBeUndefined();
+    } finally {
+      client.cancelQueries = original;
     }
   });
 

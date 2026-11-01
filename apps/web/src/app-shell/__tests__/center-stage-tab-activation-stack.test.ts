@@ -191,5 +191,7 @@ describe("close returns to the tab that opened the closed tab", () => {
     expect(activate).toContain("createIfMissing");
     expect(activate).toContain("if (!activation.existing && !createIfMissing) return");
     expect(activate).toContain("if (!createIfMissing && !ownedByLayout)");
+    expect(activate).toContain("recordLastTab");
+    expect(activate).toContain("opts?.recordLastTab !== false");
   });
 });

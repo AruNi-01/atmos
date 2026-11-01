@@ -271,6 +271,12 @@ pub enum WsAction {
     PtDesignBridgeUnregister,
     /// Browser uplink for a previously dispatched PT Design agent tool
     PtDesignAgentDispatchResult,
+    /// Register this browser tab as a Live markdown agent-bridge target
+    MdLiveBridgeRegister,
+    /// Unregister this browser tab from the Live markdown agent bridge
+    MdLiveBridgeUnregister,
+    /// Browser uplink for a previously dispatched Live markdown agent tool
+    MdLiveAgentDispatchResult,
 
     // ===== Git 操作 =====
     /// 获取 Git 状态（未提交/未推送的更改）
@@ -1021,6 +1027,8 @@ pub enum WsEvent {
     CanvasAgentDispatch,
     /// Server → browser: PT Design agent tool dispatch
     PtDesignAgentDispatch,
+    /// Server → browser: Live markdown agent tool dispatch
+    MdLiveAgentDispatch,
     /// Automation definition changed
     AutomationDefinitionUpdated,
     /// Automation run changed

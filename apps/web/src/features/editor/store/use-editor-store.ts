@@ -2,11 +2,15 @@
 
 import { create } from "zustand";
 import { useEffect } from "react";
-import { getActiveInstanceId } from "@/features/connection/store/connection-store";
+import {
+  getActiveInstanceId,
+  useConnectionStore,
+} from "@/features/connection/store/connection-store";
 import { restoreEditorFromInstancePrefs } from "@/features/editor/lib/restore-editor-from-prefs";
 import {
   partializeEditorState,
   scheduleEditorUiSave,
+  shouldPersistEditorUi,
 } from "@/features/editor/lib/editor-ui-persistence";
 import { fsApi } from "@/api/ws-api";
 import { nextUntitledMarkdownName } from "@atmos/md-live";
@@ -832,19 +836,26 @@ useEditorStore.subscribe((state, prev) => {
   ) {
     return;
   }
+  if (!shouldPersistEditorUi(state)) return;
   const instanceId = getActiveInstanceId();
   scheduleEditorUiSave(instanceId, partializeEditorState(state));
 });
 
 /**
- * Hook to wait for store hydration before rendering persisted data
+ * Hook to wait for store hydration before rendering persisted data.
+ * Connection bootstrap is the source of truth — restoring before the active
+ * instance is synced can mark empty prefs as ready and last-tab falls back
+ * to Chat over the unpinned preview.
  */
 export function useEditorStoreHydration() {
   const isReady = useEditorStore((state) => state._hasHydrated);
+  const connectionEpoch = useConnectionStore((state) => state.connectionEpoch);
 
   useEffect(() => {
+    if (useEditorStore.getState()._hasHydrated) return;
+    if (connectionEpoch === 0) return;
     restoreEditorFromInstancePrefs();
-  }, []);
+  }, [connectionEpoch]);
 
   return isReady;
 }

@@ -12,7 +12,7 @@ function notify(): void {
 
 export function lockMdLiveStream(path: string, snapshot?: string): void {
   locked.add(path);
-  if (snapshot != null) snapshots.set(path, snapshot);
+  if (snapshot != null && !snapshots.has(path)) snapshots.set(path, snapshot);
   notify();
 }
 

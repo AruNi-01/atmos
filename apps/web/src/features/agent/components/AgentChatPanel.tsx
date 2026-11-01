@@ -533,6 +533,7 @@ export function AgentChatPanel({
     capabilities,
     catalogModelsLoading,
     catalogModelsReloading,
+    authRequiredAgentIds,
     refreshEmptyCatalog,
     reloadEmptyCatalog,
     configOptions,
@@ -1114,6 +1115,7 @@ export function AgentChatPanel({
                 handleSelectHistorySession={handleSelectHistorySession}
                 handleCreateNewSession={handleCreateNewSession}
                 onPreferredRegistryChange={persistPreferredRegistry}
+                authRequiredAgentIds={authRequiredAgentIds}
                 installedAgents={installedAgents}
                 defaultRegistryId={defaultRegistryId}
                 activeRegistryId={registryId}
@@ -1354,6 +1356,7 @@ export function AgentChatPanel({
                         onSubmit={handleSubmit}
                         agentLocked={agentLocked}
                         onProviderChange={setProviderId}
+                        authRequiredAgentIds={authRequiredAgentIds}
                         canUseCurrentMode={canUseCurrentMode}
                         isConnected={isConnected}
                         chatMode={chatMode}

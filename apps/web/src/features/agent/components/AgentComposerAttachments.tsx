@@ -16,7 +16,13 @@ import {
   type ComposerAttachmentFile,
 } from "@/features/agent/lib/agent-composer-attachment";
 
-export function AgentComposerAttachments() {
+export function AgentComposerAttachments({
+  className,
+  density = "composer",
+}: {
+  className?: string;
+  density?: "composer" | "compact";
+}) {
   const attachments = usePromptInputAttachments();
   return (
     <AgentComposerAttachmentList
@@ -26,6 +32,8 @@ export function AgentComposerAttachments() {
         attachments.add([file]);
         attachments.remove(id);
       }}
+      density={density}
+      className={className}
     />
   );
 }

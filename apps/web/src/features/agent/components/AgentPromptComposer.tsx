@@ -147,6 +147,7 @@ function ComposerPromptInput({
   catalogModelsReloading,
   onEmptyModelsOpen,
   onLoadModels,
+  authRequiredAgentIds,
   installedAgents,
   modeOption,
   permissionOption,
@@ -176,6 +177,8 @@ function ComposerPromptInput({
   sessionUsage,
   contextUsageOpen,
   onContextUsageOpenChange,
+  promptClassName,
+  onDraftChange,
 }: {
   composerRef: React.RefObject<ComposerHandle | null>;
   onAtTrigger: (
@@ -206,6 +209,7 @@ function ComposerPromptInput({
   catalogModelsReloading?: boolean;
   onEmptyModelsOpen?: () => void;
   onLoadModels?: () => void;
+  authRequiredAgentIds?: readonly string[];
   installedAgents: RegistryAgent[];
   modeOption: AgentConfigOption | null;
   permissionOption: AgentConfigOption | null;
@@ -247,6 +251,8 @@ function ComposerPromptInput({
   sessionUsage: AgentSessionUsage | null;
   contextUsageOpen: boolean;
   onContextUsageOpenChange: (open: boolean) => void;
+  promptClassName?: string;
+  onDraftChange?: (hasDraft: boolean) => void;
 }) {
   const t = useTranslations("Agent.components");
   const attachments = usePromptInputAttachments();
@@ -260,6 +266,12 @@ function ComposerPromptInput({
     Boolean(expandAgentComposerText(localDraft) || attachments.files.length) &&
     !composerLocked &&
     !showStop;
+
+  useEffect(() => {
+    onDraftChange?.(
+      Boolean(stripSkillDisableSession(localDraft).trim() || attachments.files.length),
+    );
+  }, [attachments.files.length, localDraft, onDraftChange]);
 
   useEffect(() => {
     if (hydratedRef.current) return;
@@ -334,6 +346,7 @@ function ComposerPromptInput({
         modelsReloading={catalogModelsReloading}
         onEmptyModelsOpen={onEmptyModelsOpen}
         onLoadModels={onLoadModels}
+        authRequiredAgentIds={authRequiredAgentIds}
         modeOption={modeOption}
         modesLocked={modesLocked}
         permissionOption={permissionOption}
@@ -382,7 +395,7 @@ function ComposerPromptInput({
           />
         }
         leadingAction={
-          <div className="flex min-w-0 items-center gap-1">
+          <div className="flex shrink-0 items-center gap-1">
             <PromptInputAddAttachmentsButton className="rounded-2xl bg-transparent shadow-none hover:bg-muted/60 data-pressed:bg-muted/60 dark:bg-transparent dark:hover:bg-muted/60" />
             {workingDirectoryPicker ? (
               <AgentChatWorkingDirectoryPicker
@@ -450,7 +463,11 @@ function ComposerPromptInput({
             onOpenChange={onContextUsageOpenChange}
           />
         }
-        className={cn("w-full shadow-none", editingItem && "border-dashed border-info")}
+        className={cn(
+          "w-full shadow-none",
+          promptClassName,
+          editingItem && "border-dashed border-info",
+        )}
       />
     </>
   );
@@ -483,6 +500,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   catalogModelsReloading = false,
   onEmptyModelsOpen,
   onLoadModels,
+  authRequiredAgentIds,
   chatId = null,
   runtimeStatus = null,
   hasPersistenceHandle = false,
@@ -507,6 +525,10 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   subagentOverlay = null,
   aboveInputOverlay = null,
   onAboveComposerOverlaysNodeChange,
+  placeholderOverride = null,
+  leadingChrome = null,
+  promptClassName,
+  onDraftChange,
 }: {
   currentPlan: AgentPlan | null;
   isResumedSession: boolean;
@@ -537,6 +559,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   catalogModelsReloading?: boolean;
   onEmptyModelsOpen?: () => void;
   onLoadModels?: () => void;
+  authRequiredAgentIds?: readonly string[];
   chatId?: string | null;
   runtimeStatus?: string | null;
   hasPersistenceHandle?: boolean;
@@ -566,6 +589,10 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   /** Approve / session-op cards — floated in the same lane as context usage. */
   aboveInputOverlay?: React.ReactNode;
   onAboveComposerOverlaysNodeChange?: (node: HTMLDivElement | null) => void;
+  placeholderOverride?: string | null;
+  leadingChrome?: React.ReactNode;
+  promptClassName?: string;
+  onDraftChange?: (hasDraft: boolean) => void;
 }) {
   const t = useTranslations("Agent.components");
   const setAgentChatDraft = useDialogStore((s) => s.setAgentChatDraft);
@@ -632,9 +659,11 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
     runtimeStatus,
     hasPersistenceHandle,
   });
-  const placeholder = t(`composer.placeholder.${placeholderKind}`, {
-    agent: activeAgent?.name ?? "",
-  });
+  const placeholder =
+    placeholderOverride?.trim() ||
+    t(`composer.placeholder.${placeholderKind}`, {
+      agent: activeAgent?.name ?? "",
+    });
   const {
     popovers,
     closePopovers,
@@ -670,6 +699,10 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
         insertAiContext: (kind, promptText) => {
           composerRef.current?.focus();
           composerRef.current?.insertAiContext(kind, promptText);
+        },
+        insertFileMention: (relativePath) => {
+          composerRef.current?.focus();
+          composerRef.current?.insertFileMention(relativePath);
         },
         focus: () => composerRef.current?.focus(),
       },
@@ -750,6 +783,14 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
         setEditingQueueId(null);
       }}
     >
+      {leadingChrome ? (
+        <div
+          data-agent-chat-leading-chrome=""
+          className="mb-1.5 flex min-h-6 min-w-0 flex-wrap items-center gap-1.5 px-1"
+        >
+          {leadingChrome}
+        </div>
+      ) : null}
       <div ref={composerSurfaceRef} className="relative">
         <AgentChatAboveComposerOverlays
           composerSurfaceRef={composerSurfaceRef}
@@ -834,6 +875,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
             catalogModelsReloading={catalogModelsReloading}
             onEmptyModelsOpen={onEmptyModelsOpen}
             onLoadModels={onLoadModels}
+            authRequiredAgentIds={authRequiredAgentIds}
             installedAgents={installedAgents}
             modeOption={modeOption}
             permissionOption={permissionOption}
@@ -863,6 +905,8 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
             sessionUsage={sessionUsage}
             contextUsageOpen={contextUsageOpen}
             onContextUsageOpenChange={setContextUsageOpen}
+            promptClassName={promptClassName}
+            onDraftChange={onDraftChange}
           />
         </PromptInputProvider>
       </div>

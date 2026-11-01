@@ -40,9 +40,12 @@ pub use transcript_view::{
     AGENT_CHAT_MESSAGE_PAGE_DEFAULT, AGENT_CHAT_MESSAGE_PAGE_MAX, AGENT_CHAT_TOOL_GET_MAX,
 };
 pub use types::{
-    AgentChatEvent, AgentChatIndexEntry, AgentChatMeta, AgentChatOrigin, AgentChatPayload,
+    agent_chat_source_is_excluded, agent_chat_text_looks_like_md_live, AgentChatEvent,
+    AgentChatIndexEntry, AgentChatListFilter, AgentChatMeta, AgentChatOrigin, AgentChatPayload,
     AgentChatSnapshot, CreateAgentChatRequest, MessagePart, QueueItem, QueueItemStatus,
-    RuntimeStatus, SessionUsage, TurnStatus, TurnUsage,
+    RuntimeStatus, SessionUsage, TurnStatus, TurnUsage, AGENT_CHAT_SOURCE_MD_LIVE,
+    DEFAULT_EXCLUDED_AGENT_CHAT_SOURCES, MD_LIVE_TRANSCRIPT_EDIT_PREFIX,
+    MD_LIVE_TRANSCRIPT_INVOKE_MARK, MD_LIVE_TRANSCRIPT_SKILL_MARK,
 };
 
 pub fn default_agent_data_dir() -> std::path::PathBuf {

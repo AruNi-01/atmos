@@ -339,7 +339,7 @@ function createPlaceholderLayer(view: MdLiveEditorView, getCopy: () => MdLiveCop
 
   const onScroll = () => schedule(false);
   const onFocusChange = () => schedule(false);
-  const scroller = view.dom.closest("#editor-preview-root") ?? host;
+  const scroller = view.dom.closest("[data-editor-preview-root]") ?? host;
   view.dom.addEventListener("scroll", onScroll, true);
   view.dom.addEventListener("focusin", onFocusChange);
   view.dom.addEventListener("focusout", onFocusChange);

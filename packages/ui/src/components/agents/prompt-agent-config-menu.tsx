@@ -503,7 +503,9 @@ export function PromptAgentConfigMenu({
         <button
           type="button"
           disabled={disabled}
+          data-prompt-model=""
           title={triggerText}
+          aria-label={triggerText}
           className={cn(
             "inline-flex h-8 max-w-[22rem] items-center gap-1.5 border-0 bg-transparent px-2 py-0 text-xs text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2",
             open && "bg-muted text-foreground",
@@ -515,7 +517,9 @@ export function PromptAgentConfigMenu({
               {currentAgent?.icon ?? currentModel?.icon}
             </span>
           ) : null}
-          <span className="min-w-0 truncate">{triggerText}</span>
+          <span data-prompt-model-label="" className="min-w-0 truncate">
+            {triggerText}
+          </span>
         </button>
       </MorphPopoverTrigger>
       <MorphPopoverContent

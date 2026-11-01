@@ -39,6 +39,7 @@ describe("agent chat standalone history sidebar", () => {
 
   it("reuses ChatAgentPicker for the new-session agent popover", () => {
     expect(sidebar).toContain("ChatAgentPicker");
+    expect(sidebar).toContain("authRequiredAgentIds={authRequiredAgentIds}");
     expect(sidebar).not.toContain("DropdownMenuItem");
   });
 

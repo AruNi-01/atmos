@@ -23,6 +23,7 @@ import {
   MessageSquare,
   NotebookPen,
   PencilSparkles,
+  Lock,
   Shield,
   ShieldAlert,
   Star,
@@ -118,6 +119,7 @@ export type ChatAgentConfigInputProps = {
   modelsReloading?: boolean;
   onEmptyModelsOpen?: () => void;
   onLoadModels?: () => void;
+  authRequiredAgentIds?: readonly string[];
   configOnly?: boolean;
   menuSide?: "top" | "bottom";
   menuInline?: boolean;
@@ -243,6 +245,7 @@ export function ChatAgentConfigInput({
   modelsReloading = false,
   onEmptyModelsOpen,
   onLoadModels,
+  authRequiredAgentIds = [],
   configOnly = false,
   menuSide = "top",
   menuInline = false,
@@ -258,30 +261,52 @@ export function ChatAgentConfigInput({
     const family = chatAgentFamily(agent.id);
     const kind = chatAgentKind(agent);
     const showKindChip = Boolean(family && kind && contestedFamilies.has(family));
+    const needsAuth = authRequiredAgentIds.includes(agent.id);
     return {
       value: agent.id,
       label: agent.name,
       icon: (
-        <AgentIcon
-          registryId={agent.id}
-          name={agent.name}
-          size={20}
-          isCustom={agent.install_method === "custom"}
-          registryIcon={agent.icon}
-        />
-      ),
-      trailing: showKindChip ? (
-        <span
-          className={cn(
-            "rounded-full border px-1.5 py-0.5 text-[10px] leading-none font-medium",
-            kind === "native"
-              ? "border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-400"
-              : "border-border/70 bg-muted/60 text-muted-foreground",
-          )}
-        >
-          {kind === "native" ? t("agentKind.native") : t("agentKind.acp")}
+        <span className="relative inline-flex">
+          <AgentIcon
+            registryId={agent.id}
+            name={agent.name}
+            size={20}
+            isCustom={agent.install_method === "custom"}
+            registryIcon={agent.icon}
+          />
+          {needsAuth ? (
+            <Lock
+              className="absolute -right-0.5 -bottom-0.5 size-2.5 text-muted-foreground"
+              data-agent-auth-required=""
+              aria-hidden
+            />
+          ) : null}
         </span>
-      ) : undefined,
+      ),
+      trailing:
+        showKindChip || needsAuth ? (
+          <>
+            {showKindChip ? (
+              <span
+                className={cn(
+                  "rounded-full border px-1.5 py-0.5 text-[10px] leading-none font-medium",
+                  kind === "native"
+                    ? "border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-400"
+                    : "border-border/70 bg-muted/60 text-muted-foreground",
+                )}
+              >
+                {kind === "native" ? t("agentKind.native") : t("agentKind.acp")}
+              </span>
+            ) : null}
+            {needsAuth ? (
+              <Lock
+                className="size-3 text-muted-foreground"
+                data-agent-auth-required=""
+                aria-label={t("composer.authRequired")}
+              />
+            ) : null}
+          </>
+        ) : undefined,
     };
   });
   const currentAgentId = registryId || agentOptions[0]?.value || "";

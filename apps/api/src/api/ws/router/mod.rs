@@ -80,6 +80,7 @@ pub struct WsMessageService {
     quota_usage_service: Arc<QuotaUsageService>,
     canvas_agent_relay: Arc<CanvasAgentRelay>,
     pt_design_agent_relay: Arc<CanvasAgentRelay>,
+    md_live_agent_relay: Arc<CanvasAgentRelay>,
     local_services_service: Arc<LocalServicesService>,
     disk_analyzer_service: Arc<DiskAnalyzerService>,
     resource_monitor_service: Arc<ResourceMonitorService>,
@@ -125,6 +126,7 @@ impl WsMessageService {
         quota_usage_service: Arc<QuotaUsageService>,
         canvas_agent_relay: Arc<CanvasAgentRelay>,
         pt_design_agent_relay: Arc<CanvasAgentRelay>,
+        md_live_agent_relay: Arc<CanvasAgentRelay>,
         notification_service: Arc<NotificationService>,
         token_usage_service: Arc<token_usage::TokenUsageService>,
         agent_status_service: Arc<AgentStatusService>,
@@ -141,6 +143,7 @@ impl WsMessageService {
             quota_usage_service,
             canvas_agent_relay,
             pt_design_agent_relay,
+            md_live_agent_relay,
             notification_service,
             token_usage_service,
             agent_status_service,
@@ -165,6 +168,7 @@ impl WsMessageService {
         quota_usage_service: Arc<QuotaUsageService>,
         canvas_agent_relay: Arc<CanvasAgentRelay>,
         pt_design_agent_relay: Arc<CanvasAgentRelay>,
+        md_live_agent_relay: Arc<CanvasAgentRelay>,
         notification_service: Arc<NotificationService>,
         token_usage_service: Arc<token_usage::TokenUsageService>,
         agent_status_service: Arc<AgentStatusService>,
@@ -182,6 +186,7 @@ impl WsMessageService {
             quota_usage_service,
             canvas_agent_relay,
             pt_design_agent_relay,
+            md_live_agent_relay,
             notification_service,
             token_usage_service,
             agent_status_service,
@@ -204,6 +209,7 @@ impl WsMessageService {
         quota_usage_service: Arc<QuotaUsageService>,
         canvas_agent_relay: Arc<CanvasAgentRelay>,
         pt_design_agent_relay: Arc<CanvasAgentRelay>,
+        md_live_agent_relay: Arc<CanvasAgentRelay>,
         notification_service: Arc<NotificationService>,
         token_usage_service: Arc<token_usage::TokenUsageService>,
         agent_status_service: Arc<AgentStatusService>,
@@ -286,6 +292,7 @@ impl WsMessageService {
             quota_usage_service,
             canvas_agent_relay,
             pt_design_agent_relay,
+            md_live_agent_relay,
             local_services_service,
             disk_analyzer_service,
             resource_monitor_service,
@@ -521,6 +528,15 @@ impl WsMessageService {
             }
             WsAction::PtDesignAgentDispatchResult => {
                 self.handle_pt_design_agent_dispatch_result(conn_id, parse_request(request.data)?)
+            }
+            WsAction::MdLiveBridgeRegister => {
+                self.handle_md_live_bridge_register(conn_id, parse_request(request.data)?)
+            }
+            WsAction::MdLiveBridgeUnregister => {
+                self.handle_md_live_bridge_unregister(conn_id, parse_request(request.data)?)
+            }
+            WsAction::MdLiveAgentDispatchResult => {
+                self.handle_md_live_agent_dispatch_result(conn_id, parse_request(request.data)?)
             }
 
             // Git
@@ -1822,6 +1838,75 @@ impl WsMessageService {
         }
     }
 
+    fn handle_md_live_bridge_register(
+        &self,
+        conn_id: &str,
+        req: CanvasBridgeRegisterRequest,
+    ) -> Result<Value> {
+        self.md_live_agent_relay.register(
+            conn_id,
+            req.client_id.clone(),
+            req.label,
+            req.accepts_commands,
+            req.capabilities,
+            req.active_document_file_name,
+        );
+        Ok(json!({
+            "ok": true,
+            "client_id": req.client_id,
+            "conn_id": conn_id,
+        }))
+    }
+
+    fn handle_md_live_bridge_unregister(
+        &self,
+        conn_id: &str,
+        req: CanvasBridgeUnregisterRequest,
+    ) -> Result<Value> {
+        self.md_live_agent_relay.unregister(conn_id, &req.client_id);
+        Ok(json!({ "ok": true, "client_id": req.client_id }))
+    }
+
+    fn handle_md_live_agent_dispatch_result(
+        &self,
+        conn_id: &str,
+        req: CanvasAgentDispatchResultRequest,
+    ) -> Result<Value> {
+        let outcome = CanvasAgentDispatchOutcome {
+            success: req.success,
+            error_code: req.error_code,
+            error_message: req.error_message,
+            recoverable: req.recoverable,
+            data: req.data,
+        };
+        let result = self
+            .md_live_agent_relay
+            .complete_dispatch(&req.request_id, conn_id, outcome);
+        match result {
+            CompleteDispatchResult::Completed => Ok(json!({
+                "ok": true,
+                "completed": true,
+                "request_id": req.request_id,
+            })),
+            CompleteDispatchResult::Unknown => Ok(json!({
+                "ok": true,
+                "completed": false,
+                "request_id": req.request_id,
+            })),
+            CompleteDispatchResult::ConnMismatch => {
+                tracing::warn!(
+                    "md_live_agent: rejected dispatch_result for {} from foreign conn {}",
+                    req.request_id,
+                    conn_id
+                );
+                Err(ServiceError::Validation(format!(
+                    "md_live_agent: request_id {} is owned by another connection",
+                    req.request_id
+                )))
+            }
+        }
+    }
+
     fn handle_app_open(&self, req: AppOpenRequest) -> Result<Value> {
         let path = self.fs_engine.expand_path(&req.path)?;
         self.app_engine
@@ -1898,6 +1983,7 @@ impl WsMessageHandler for WsMessageService {
         // APP-015: drop any canvas-bridge registrations associated with this conn
         self.canvas_agent_relay.unregister_conn(conn_id);
         self.pt_design_agent_relay.unregister_conn(conn_id);
+        self.md_live_agent_relay.unregister_conn(conn_id);
         self.disk_analyzer_service
             .remove_connection_sessions(conn_id);
         self.abort_resource_monitor_subscription(conn_id);

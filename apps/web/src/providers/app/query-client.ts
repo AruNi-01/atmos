@@ -54,7 +54,11 @@ function silenceInFlightQueryCancellations(client: QueryClient, queryKey: QueryK
 export async function cancelAndRemoveQueries(queryKey: QueryKey): Promise<void> {
   const client = getAtmosWebQueryClient();
   silenceInFlightQueryCancellations(client, queryKey);
-  await client.cancelQueries({ queryKey });
+  try {
+    await client.cancelQueries({ queryKey });
+  } catch (error) {
+    if (!isCancelledError(error)) throw error;
+  }
   client.removeQueries({ queryKey });
 }
 

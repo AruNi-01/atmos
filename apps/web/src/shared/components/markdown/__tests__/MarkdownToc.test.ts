@@ -2,7 +2,12 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Window } from "happy-dom";
-import { extractTocHeadings, findTocHeadingElement } from "../MarkdownToc";
+import {
+  extractTocHeadings,
+  findTocHeadingElement,
+  isMarkdownTocScrollRootLive,
+  resolveMarkdownTocScrollRoot,
+} from "../MarkdownToc";
 
 describe("MarkdownToc heading lookup", () => {
   test("finds headings by github-slugger id and by text fallback", () => {
@@ -32,5 +37,26 @@ describe("MarkdownToc layout", () => {
     expect(source).toContain('isLeft ? "left-2" : "right-2"');
     expect(source).toContain('isLeft ? "-translate-x-2" : "translate-x-2"');
     expect(source).toContain('side = "right"');
+    expect(source).toContain("scrollRoot");
+    expect(source).toContain("isMarkdownTocScrollRootLive");
+  });
+
+  test("prefers the owning scroller and ignores inert keep-alive roots", () => {
+    const win = new Window({ url: "https://app.atmos.local/" });
+    const live = win.document.createElement("div");
+    live.id = "editor-preview-root-live";
+    const hidden = win.document.createElement("div");
+    hidden.id = "editor-preview-root-hidden";
+    hidden.setAttribute("inert", "");
+    win.document.body.append(hidden, live);
+
+    expect(resolveMarkdownTocScrollRoot(live, "editor-preview-root-hidden")).toBe(live);
+    expect(isMarkdownTocScrollRootLive(live)).toBe(true);
+    expect(isMarkdownTocScrollRootLive(hidden)).toBe(false);
+    const wrap = win.document.createElement("div");
+    wrap.setAttribute("aria-hidden", "true");
+    const inner = win.document.createElement("div");
+    wrap.append(inner);
+    expect(isMarkdownTocScrollRootLive(inner)).toBe(false);
   });
 });

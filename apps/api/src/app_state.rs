@@ -27,6 +27,7 @@ pub struct AppServices {
     pub notification_service: Arc<NotificationService>,
     pub canvas_agent_relay: Arc<CanvasAgentRelay>,
     pub pt_design_agent_relay: Arc<CanvasAgentRelay>,
+    pub md_live_agent_relay: Arc<CanvasAgentRelay>,
     pub review_service: Arc<ReviewService>,
 }
 
@@ -45,6 +46,7 @@ pub struct AppState {
     pub notification_service: Arc<NotificationService>,
     pub canvas_agent_relay: Arc<CanvasAgentRelay>,
     pub pt_design_agent_relay: Arc<CanvasAgentRelay>,
+    pub md_live_agent_relay: Arc<CanvasAgentRelay>,
     pub review_service: Arc<ReviewService>,
     /// Shared with `/ws` — product action dispatch for CLI server_invoke (APP-063).
     pub ws_message_service: Arc<WsMessageService>,
@@ -74,6 +76,7 @@ impl Clone for AppState {
             notification_service: Arc::clone(&self.notification_service),
             canvas_agent_relay: Arc::clone(&self.canvas_agent_relay),
             pt_design_agent_relay: Arc::clone(&self.pt_design_agent_relay),
+            md_live_agent_relay: Arc::clone(&self.md_live_agent_relay),
             review_service: Arc::clone(&self.review_service),
             ws_message_service: Arc::clone(&self.ws_message_service),
             ws_service: Arc::clone(&self.ws_service),
@@ -110,6 +113,7 @@ impl AppState {
             notification_service: services.notification_service,
             canvas_agent_relay: services.canvas_agent_relay,
             pt_design_agent_relay: services.pt_design_agent_relay,
+            md_live_agent_relay: services.md_live_agent_relay,
             review_service: services.review_service,
             ws_message_service,
             ws_service: Arc::new(ws_service),

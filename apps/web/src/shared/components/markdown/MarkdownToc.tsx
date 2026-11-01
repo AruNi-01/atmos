@@ -96,9 +96,26 @@ function buildTocTree(headings: TocHeading[]): TocNode[] {
 
 export type MarkdownTocSide = "left" | "right";
 
+export function resolveMarkdownTocScrollRoot(
+  scrollRoot: HTMLElement | null | undefined,
+  scrollContainerId: string | undefined,
+): HTMLElement | null {
+  if (scrollRoot) return scrollRoot;
+  if (!scrollContainerId || typeof document === "undefined") return null;
+  return document.getElementById(scrollContainerId);
+}
+
+/** Keep-alive editors stay mounted with inert/aria-hidden; do not observe them. */
+export function isMarkdownTocScrollRootLive(root: HTMLElement | null | undefined): boolean {
+  if (!root) return false;
+  return !root.closest("[inert], [aria-hidden='true']");
+}
+
 interface MarkdownTocProps {
   markdown: string;
-  scrollContainerId: string;
+  scrollContainerId?: string;
+  /** Prefer the owning editor node so duplicate ids cannot bind another tab. */
+  scrollRoot?: HTMLElement | null;
   /** Editor markdown preview uses `left` so it does not sit on the files sidecar. */
   side?: MarkdownTocSide;
 }
@@ -106,6 +123,7 @@ interface MarkdownTocProps {
 export const MarkdownToc: React.FC<MarkdownTocProps> = ({
   markdown,
   scrollContainerId,
+  scrollRoot = null,
   side = "right",
 }) => {
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -122,8 +140,8 @@ export const MarkdownToc: React.FC<MarkdownTocProps> = ({
       return;
     }
 
-    const root = document.getElementById(scrollContainerId);
-    if (!root) return;
+    const root = resolveMarkdownTocScrollRoot(scrollRoot, scrollContainerId);
+    if (!root || !isMarkdownTocScrollRootLive(root)) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -143,7 +161,7 @@ export const MarkdownToc: React.FC<MarkdownTocProps> = ({
     });
 
     return () => observer.disconnect();
-  }, [headings, scrollContainerId]);
+  }, [headings, scrollContainerId, scrollRoot]);
 
   const handleMouseEnter = () => {
     if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
@@ -209,6 +227,7 @@ export const MarkdownToc: React.FC<MarkdownTocProps> = ({
             nodes={tree}
             activeId={activeId}
             scrollContainerId={scrollContainerId}
+            scrollRoot={scrollRoot}
             depth={0}
           />
         </div>
@@ -220,9 +239,10 @@ export const MarkdownToc: React.FC<MarkdownTocProps> = ({
 const TocNodeList: React.FC<{
   nodes: TocNode[];
   activeId: string | null;
-  scrollContainerId: string;
+  scrollContainerId?: string;
+  scrollRoot?: HTMLElement | null;
   depth: number;
-}> = ({ nodes, activeId, scrollContainerId, depth }) => {
+}> = ({ nodes, activeId, scrollContainerId, scrollRoot, depth }) => {
   if (nodes.length === 0) return null;
 
   const content = nodes.map((node) => (
@@ -231,6 +251,7 @@ const TocNodeList: React.FC<{
         heading={node.heading}
         isActive={activeId === node.heading.id}
         scrollContainerId={scrollContainerId}
+        scrollRoot={scrollRoot}
         depth={depth}
       />
       {node.children.length > 0 && (
@@ -240,6 +261,7 @@ const TocNodeList: React.FC<{
             nodes={node.children}
             activeId={activeId}
             scrollContainerId={scrollContainerId}
+            scrollRoot={scrollRoot}
             depth={depth + 1}
           />
         </div>
@@ -253,9 +275,10 @@ const TocNodeList: React.FC<{
 const TocLink: React.FC<{
   heading: TocHeading;
   isActive: boolean;
-  scrollContainerId: string;
+  scrollContainerId?: string;
+  scrollRoot?: HTMLElement | null;
   depth: number;
-}> = ({ heading, isActive, scrollContainerId, depth }) => {
+}> = ({ heading, isActive, scrollContainerId, scrollRoot, depth }) => {
   const textRef = useRef<HTMLSpanElement>(null);
   const animRef = useRef<number | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -305,8 +328,8 @@ const TocLink: React.FC<{
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    const root = document.getElementById(scrollContainerId);
-    if (!root) return;
+    const root = resolveMarkdownTocScrollRoot(scrollRoot, scrollContainerId);
+    if (!root || !isMarkdownTocScrollRootLive(root)) return;
     const el = findTocHeadingElement(root, heading);
     if (!el) return;
     scrollTocHeadingIntoView(root, el);

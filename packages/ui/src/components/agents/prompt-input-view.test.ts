@@ -367,7 +367,7 @@ describe("PromptAgentConfigMenu", () => {
     expect(promptMenu).toContain("fastLabel: labels.fastChip");
     expect(promptMenu).toContain("function ThinkingSliderPanel");
     expect(promptMenu).toContain("aria-label={labels.fastMode}");
-    expect(promptMenu).toContain("onModelChange(option.value, option)");
+    expect(promptMenu).toContain("selectPromptModel(option.value, option, onModelChange)");
     expect(promptMenu).toContain("function ModelFavoriteMark");
     expect(promptMenu).toContain("group/model");
     expect(promptMenu).toContain("option.favorited");
@@ -379,7 +379,7 @@ describe("PromptAgentConfigMenu", () => {
     expect(promptMenu).toContain("onContextChange?.(level.value)");
     expect(promptMenu).toContain('side="right"');
     expect(promptMenu).toContain(
-      "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm outline-none",
+      "flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm outline-none",
     );
     expect(promptMenu).toContain('className="flex w-full"');
     expect(promptMenu).toContain(
@@ -422,14 +422,13 @@ describe("PromptAgentConfigMenu", () => {
     expect(promptMenu).toContain("groupedPromptModelRows");
     expect(promptMenu).toContain('row.type === "header"');
     expect(promptMenu).toContain("key={`group:${index}:${row.label}`}");
-    expect(promptMenu).toContain('(option.group ?? "").trim() ? "pl-4 pr-2.5" : "px-2.5"');
+    expect(promptMenu).toContain('(option.group ?? "").trim() ? "pr-2.5 pl-4" : "px-2.5"');
     expect(promptMenu).toContain("text-sm text-muted-foreground");
     expect(promptMenu).not.toContain("` / ${provider}`");
-    expect(promptMenu).toContain(
-      'const fullLabel = modelLabelWithContext(optionName(option), isSelected ? contextSuffix : "")',
-    );
+    expect(promptMenu).toContain("const fullLabel = modelLabelWithContext(");
+    expect(promptMenu).toContain('isSelected ? contextSuffix : ""');
     expect(promptMenu).toContain("label: modelLabelWithContext(optionName(option), contextSuffix)");
-    expect(promptMenu).toContain("modelsLocked\n                    ? labels.modelLocked");
+    expect(promptMenu).toContain("? labels.modelLocked");
     expect(promptMenu).toContain("min-w-0 truncate text-sm");
   });
 });
@@ -448,5 +447,27 @@ describe("footerTrailing slot", () => {
   it("keeps a footer slot before submit for host controls such as context usage", () => {
     expect(promptInput).toContain("footerTrailing?: ReactNode");
     expect(promptInput).toContain("{footerTrailing}");
+  });
+});
+
+describe("mode and permission labels", () => {
+  it("keeps readable Agent Chat labels instead of icon-only letters", () => {
+    expect(promptInput).not.toContain("compact?: boolean");
+    expect(promptInput).not.toContain("data-prompt-compact");
+    expect(promptInput).not.toContain("compact && current?.icon");
+    expect(promptInput).toContain('data-prompt-input=""');
+    expect(promptInput).toContain('slot: "mode" | "permission"');
+    expect(promptInput).toContain('data-prompt-mode={slot === "mode" ? "" : undefined}');
+    expect(promptInput).toContain(
+      'data-prompt-permission={slot === "permission" ? "" : undefined}',
+    );
+    expect(promptInput).toContain('data-prompt-option-label=""');
+    expect(promptInput).toContain("{current?.label ?? placeholder}");
+    expect(promptInput).toContain("h-8 max-w-44 items-center gap-1.5");
+    expect(promptMenu).toContain('data-prompt-model=""');
+    expect(promptMenu).toContain('data-prompt-model-label=""');
+    expect(promptMenu).toContain("{triggerText}");
+    expect(promptMenu).toContain("max-w-[22rem]");
+    expect(promptMenu).not.toContain("max-w-[9rem]");
   });
 });

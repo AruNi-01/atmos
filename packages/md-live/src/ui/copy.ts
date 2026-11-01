@@ -51,7 +51,7 @@ export const MD_LIVE_COPY_EN: Record<string, string> = {
   toolbarStrikethrough: "Strikethrough",
   toolbarCopy: "Copy",
   toolbarCopyPrompt: "Copy prompt",
-  toolbarAsk: "Ask",
+  toolbarAsk: "Chat",
   toolbarRewrite: "Rewrite",
   toolbarSummarize: "Summarize",
   tableRowMenu: "Row actions",

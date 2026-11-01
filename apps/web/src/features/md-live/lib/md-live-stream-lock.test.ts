@@ -32,6 +32,14 @@ describe("md-live stream lock", () => {
     expect(getMdLiveStreamSnapshot(path)).toBeNull();
   });
 
+  test("keeps the first snapshot when lock is called again", () => {
+    const path = `/repo/keep-${Date.now()}.md`;
+    lockMdLiveStream(path, "# before\n");
+    lockMdLiveStream(path, "# after\n");
+    expect(getMdLiveStreamSnapshot(path)).toBe("# before\n");
+    unlockMdLiveStream(path);
+  });
+
   test("restoreAndUnlock is a no-op when the path is not locked", () => {
     const path = `/repo/idle-${Date.now()}.md`;
     let writes = 0;

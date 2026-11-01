@@ -28,12 +28,12 @@ use super::queue::maybe_dispatch_queue;
 use super::store::AgentChatStore;
 use super::transcript_view::page_messages;
 use super::types::{
-    apply_rewind_view, resolve_session_config_select, text_suffix_from, AgentChatEvent,
-    AgentChatMeta, AgentChatPayload, AgentChatSessionOpOutcome, AgentChatSnapshot,
-    CreateAgentChatRequest, FoldedTurn, MaterializedTextPart, MessagePart, PartBody,
-    PendingPermission, PendingSessionOp, QueueItem, QueueItemStatus, ResolvedSessionConfig,
-    RewindView, RuntimeStatus, SessionLifecycleAction, SessionLifecycleStatus, TranscriptEnvelope,
-    TranscriptEvent, TurnStatus,
+    agent_chat_source_is_excluded, apply_rewind_view, resolve_session_config_select,
+    text_suffix_from, AgentChatEvent, AgentChatListFilter, AgentChatMeta, AgentChatPayload,
+    AgentChatSessionOpOutcome, AgentChatSnapshot, CreateAgentChatRequest, FoldedTurn,
+    MaterializedTextPart, MessagePart, PartBody, PendingPermission, PendingSessionOp, QueueItem,
+    QueueItemStatus, ResolvedSessionConfig, RewindView, RuntimeStatus, SessionLifecycleAction,
+    SessionLifecycleStatus, TranscriptEnvelope, TranscriptEvent, TurnStatus,
 };
 use crate::service::agent_status::{self, AgentStatusService};
 
@@ -274,6 +274,9 @@ impl AgentChatService {
     }
 
     fn publish_opened_chat(&self, meta: &AgentChatMeta) {
+        if agent_chat_source_is_excluded(meta.source.as_deref(), None) {
+            return;
+        }
         let Some(status) = self.status.get() else {
             return;
         };
@@ -292,7 +295,7 @@ impl AgentChatService {
     pub fn live_session_chats(
         &self,
     ) -> Result<Vec<crate::service::agent_status::AgentSessionChatRef>> {
-        let entries = self.list(None, None, None, true, None)?;
+        let entries = self.list(None, None, None, true, None, None)?;
         Ok(entries
             .into_iter()
             .filter_map(|entry| {
@@ -348,9 +351,21 @@ impl AgentChatService {
         project_id: Option<&str>,
         all: bool,
         origin: Option<super::types::AgentChatOrigin>,
+        exclude_sources: Option<&[String]>,
     ) -> Result<Vec<super::types::AgentChatIndexEntry>> {
-        self.store
-            .list(cwd, workspace_id, project_id, false, all, origin)
+        self.store.list(AgentChatListFilter {
+            cwd,
+            workspace_id,
+            project_id,
+            include_deleted: false,
+            all,
+            origin,
+            exclude_sources,
+        })
+    }
+
+    pub fn set_source_if_empty(&self, id: &str, source: &str) -> Result<AgentChatMeta> {
+        self.store.set_source_if_empty(id, source)
     }
 
     pub async fn get(&self, id: &str) -> Result<AgentChatSnapshot> {
@@ -1735,7 +1750,12 @@ impl AgentChatService {
     pub async fn close_workspace(&self, workspace_id: &str) -> usize {
         let ids = self
             .store
-            .list(None, Some(workspace_id), None, true, false, None)
+            .list(AgentChatListFilter {
+                workspace_id: Some(workspace_id),
+                include_deleted: true,
+                exclude_sources: Some(&[]),
+                ..Default::default()
+            })
             .unwrap_or_default()
             .into_iter()
             .map(|entry| entry.id)
