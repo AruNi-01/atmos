@@ -29,6 +29,7 @@ import {
   MD_LIVE_INVITE_LABEL_COLLAPSE_SCALE,
   MD_LIVE_INVITE_LAYOUT_ID,
   MD_LIVE_INVITE_PILL_HEIGHT_PX,
+  MD_LIVE_INVITE_COMPOSER_RADIUS_PX,
   MD_LIVE_INVITE_SHELL_RADIUS_PX,
   MD_LIVE_POPOVER_WIDTH,
   mdLiveBarMorphTransition,
@@ -40,13 +41,17 @@ import {
   mdLiveInviteFrameIsEmptyCapsule,
   mdLiveInviteHairlineGapFromBottomPx,
   mdLiveInviteHairlineHitBox,
+  mdLiveInviteComposerRadiusMatchesAgentChat,
+  mdLiveInviteHairlinePillNearSquare,
   mdLiveInviteHoverContainsHairline,
   mdLiveInviteMorphIsMonotonicShrink,
   mdLiveInviteMorphKeyframes,
+  mdLiveInviteMorphRadiusPx,
   mdLiveInviteMorphs,
   mdLiveInvitePaintComposer,
   mdLiveInviteShellBox,
   mdLiveInviteShellRadiusIsCapsule,
+  mdLiveInviteShellRadiusPx,
   mdLiveInviteShowsMessageAgentLabel,
   nextMdLiveBarMode,
   transformMdLivePrompt,
@@ -241,6 +246,8 @@ describe("md-live agent chat helpers", () => {
     expect(collapse.scale.duration).toBe(collapse.height.duration);
     expect(collapse.opacity.ease).toEqual(collapse.width.ease);
     expect(collapse.scale.ease).toEqual(collapse.height.ease);
+    expect(collapse.borderRadius.duration).toBe(0);
+    expect(expand.borderRadius.duration).toBe(0);
     expect(collapse.ease[1]).toBeGreaterThanOrEqual(0);
     expect(collapse.ease[1]).toBeLessThanOrEqual(1);
     expect(collapse.ease[3]).toBeGreaterThanOrEqual(0);
@@ -277,11 +284,20 @@ describe("md-live agent chat helpers", () => {
       expect(mdLiveInviteFrameIsEmptyCapsule(frame, pill)).toBe(false);
       expect(frame.borderRadius).toBe(MD_LIVE_INVITE_SHELL_RADIUS_PX);
       expect(mdLiveInviteShellRadiusIsCapsule(frame.borderRadius, frame.height)).toBe(true);
+      expect(mdLiveInviteHairlinePillNearSquare(frame.borderRadius, frame.height)).toBe(false);
     }
   });
 
   test("pill morph keeps a capsule corner radius at every height", () => {
     expect(MD_LIVE_INVITE_SHELL_RADIUS_PX).toBe(9999);
+    expect(MD_LIVE_INVITE_COMPOSER_RADIUS_PX).toBe(22);
+    expect(mdLiveInviteShellRadiusPx("hidden")).toBe(MD_LIVE_INVITE_SHELL_RADIUS_PX);
+    expect(mdLiveInviteShellRadiusPx("invite")).toBe(MD_LIVE_INVITE_SHELL_RADIUS_PX);
+    expect(mdLiveInviteShellRadiusPx("composer")).toBe(MD_LIVE_INVITE_COMPOSER_RADIUS_PX);
+    expect(mdLiveInviteComposerRadiusMatchesAgentChat(MD_LIVE_INVITE_COMPOSER_RADIUS_PX)).toBe(
+      true,
+    );
+    expect(mdLiveInviteComposerRadiusMatchesAgentChat(MD_LIVE_INVITE_SHELL_RADIUS_PX)).toBe(false);
     for (const height of [
       MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX,
       12,
@@ -290,9 +306,40 @@ describe("md-live agent chat helpers", () => {
       120,
     ]) {
       expect(mdLiveInviteShellRadiusIsCapsule(MD_LIVE_INVITE_SHELL_RADIUS_PX, height)).toBe(true);
+      expect(mdLiveInviteHairlinePillNearSquare(MD_LIVE_INVITE_SHELL_RADIUS_PX, height)).toBe(
+        false,
+      );
     }
     expect(mdLiveInviteShellRadiusIsCapsule(16, 36)).toBe(false);
     expect(mdLiveInviteShellRadiusIsCapsule(8, 20)).toBe(false);
+    expect(mdLiveInviteHairlinePillNearSquare(16, 36)).toBe(true);
+    expect(mdLiveInviteHairlinePillNearSquare(8, 20)).toBe(true);
+    expect(mdLiveInviteHairlinePillNearSquare(MD_LIVE_INVITE_COMPOSER_RADIUS_PX, 120)).toBe(false);
+    expect(mdLiveInviteShellRadiusIsCapsule(MD_LIVE_INVITE_COMPOSER_RADIUS_PX, 120)).toBe(false);
+  });
+
+  test("settled composer uses Agent Chat 3xl and pill morph never interpolates it", () => {
+    expect(mdLiveInviteMorphRadiusPx("hidden", "invite")).toBe(MD_LIVE_INVITE_SHELL_RADIUS_PX);
+    expect(mdLiveInviteMorphRadiusPx("invite", "hidden")).toBe(MD_LIVE_INVITE_SHELL_RADIUS_PX);
+    expect(mdLiveInviteMorphRadiusPx("invite", "composer")).toBe(MD_LIVE_INVITE_COMPOSER_RADIUS_PX);
+    expect(mdLiveInviteMorphRadiusPx("composer", "hidden")).toBe(MD_LIVE_INVITE_COMPOSER_RADIUS_PX);
+    expect(mdLiveInviteMorphRadiusPx("hidden", "composer")).toBe(MD_LIVE_INVITE_COMPOSER_RADIUS_PX);
+    const pillWidth = 148;
+    for (const progress of [0, 0.25, 0.5, 0.75, 1]) {
+      const pillFrame = mdLiveInviteCollapseFrame(progress, pillWidth);
+      expect(mdLiveInviteMorphRadiusPx("invite", "hidden")).toBe(pillFrame.borderRadius);
+      expect(mdLiveInviteHairlinePillNearSquare(pillFrame.borderRadius, pillFrame.height)).toBe(
+        false,
+      );
+    }
+    const composerOpen = mdLiveInviteComposerCollapseFrame(0, 672, 120);
+    expect(mdLiveInviteComposerRadiusMatchesAgentChat(composerOpen.borderRadius)).toBe(true);
+    expect(mdLiveInviteShellRadiusIsCapsule(composerOpen.borderRadius, composerOpen.height)).toBe(
+      false,
+    );
+    expect(mdLiveInviteHairlinePillNearSquare(composerOpen.borderRadius, composerOpen.height)).toBe(
+      false,
+    );
   });
 
   test("click-outside from composer skips the Message Agent invite", () => {
@@ -325,10 +372,14 @@ describe("md-live agent chat helpers", () => {
     );
     for (const frame of composerFrames) {
       expect(frame.messageAgentLabel).toBe(false);
-      expect(frame.borderRadius).toBe(MD_LIVE_INVITE_SHELL_RADIUS_PX);
-      expect(mdLiveInviteShellRadiusIsCapsule(frame.borderRadius, frame.height)).toBe(true);
+      expect(frame.borderRadius).toBe(MD_LIVE_INVITE_COMPOSER_RADIUS_PX);
+      expect(mdLiveInviteComposerRadiusMatchesAgentChat(frame.borderRadius)).toBe(true);
+      expect(mdLiveInviteHairlinePillNearSquare(frame.borderRadius, frame.height)).toBe(false);
       expect(Math.abs(frame.width - 148) < 8 && Math.abs(frame.height - 36) < 4).toBe(false);
     }
+    expect(
+      mdLiveInviteShellRadiusIsCapsule(composerFrames[0]!.borderRadius, composerFrames[0]!.height),
+    ).toBe(false);
   });
 
   test("invite hover only matches the hairline or capsule, not the dock", () => {

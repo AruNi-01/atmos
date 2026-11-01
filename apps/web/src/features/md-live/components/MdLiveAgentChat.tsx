@@ -64,6 +64,7 @@ import {
   MD_LIVE_INVITE_LABEL_COLLAPSE_SCALE,
   MD_LIVE_INVITE_LAYOUT_ID,
   MD_LIVE_INVITE_PILL_HEIGHT_PX,
+  MD_LIVE_INVITE_COMPOSER_RADIUS_PX,
   MD_LIVE_INVITE_SHELL_RADIUS_PX,
   MD_LIVE_POPOVER_WIDTH,
   isMdLiveAgentOverlayDismissTarget,
@@ -715,6 +716,7 @@ export function MdLiveAgentChat({
               {morphEntry && paintComposer ? (
                 <motion.div
                   layoutId={MD_LIVE_INVITE_LAYOUT_ID}
+                  data-md-live-invite-composer=""
                   className={cn(
                     "mx-auto overflow-hidden",
                     showComposer
@@ -725,7 +727,7 @@ export function MdLiveAgentChat({
                     marginBottom: MD_LIVE_INVITE_BOTTOM_PX,
                     originX: 0.5,
                     originY: 1,
-                    borderRadius: MD_LIVE_INVITE_SHELL_RADIUS_PX,
+                    borderRadius: MD_LIVE_INVITE_COMPOSER_RADIUS_PX,
                   }}
                   initial={false}
                   animate={
@@ -733,9 +735,9 @@ export function MdLiveAgentChat({
                       ? {
                           width: MD_LIVE_INVITE_HAIRLINE_WIDTH_PX,
                           height: MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX,
-                          borderRadius: MD_LIVE_INVITE_SHELL_RADIUS_PX,
+                          borderRadius: MD_LIVE_INVITE_COMPOSER_RADIUS_PX,
                         }
-                      : { borderRadius: MD_LIVE_INVITE_SHELL_RADIUS_PX }
+                      : { borderRadius: MD_LIVE_INVITE_COMPOSER_RADIUS_PX }
                   }
                   transition={barMorphMotion}
                   onAnimationComplete={finishInviteCollapse}

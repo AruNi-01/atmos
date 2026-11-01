@@ -14,10 +14,17 @@ export const MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX = 4;
 /** Capsule height (`h-9`) the dash expands into. */
 export const MD_LIVE_INVITE_PILL_HEIGHT_PX = 36;
 /**
- * Shared layoutId shell stays a capsule for every morph frame. Interpolating
- * `rounded-2xl` (16) ↔ `rounded-full` (9999) passes through a near-square.
+ * Hairline / Message Agent pill stay a capsule on every morph frame.
+ * Interpolating `rounded-2xl` (16) ↔ `rounded-full` (9999) passes through a near-square.
  */
 export const MD_LIVE_INVITE_SHELL_RADIUS_PX = 9999;
+/**
+ * Settled composer clip matches Agent Chat `PromptInput radius="3xl"`:
+ * `rounded-3xl` → `--radius-3xl` = `calc(var(--radius) + 12px)` = 22px at
+ * default `--radius: 0.625rem`. Do not lock this shell to the pill capsule.
+ */
+export const MD_LIVE_INVITE_COMPOSER_RADIUS_PX = 22;
+export type MdLiveInviteRadiusSurface = "hidden" | "invite" | "composer";
 /**
  * Shared bottom inset for hairline and pill (viewport/editor bottom → control bottom).
  * Both states use the same edge so the pill contains the dash; height grows upward.
@@ -305,10 +312,16 @@ export function mdLiveBarMorphTransition(kind: MdLiveInviteMorphKind): {
   y: { type: "tween"; duration: number; ease: readonly [number, number, number, number] };
   opacity: { type: "tween"; duration: number; ease: readonly [number, number, number, number] };
   scale: { type: "tween"; duration: number; ease: readonly [number, number, number, number] };
+  borderRadius: {
+    type: "tween";
+    duration: number;
+    ease: readonly [number, number, number, number];
+  };
 } {
   const duration = kind === "collapse" ? MD_LIVE_BAR_COLLAPSE_MORPH_S : MD_LIVE_BAR_MORPH_S;
   const ease = kind === "collapse" ? MD_LIVE_BAR_COLLAPSE_EASE : MD_LIVE_BAR_EXPAND_EASE;
   const axis = { type: "tween" as const, duration, ease };
+  const snapRadius = { type: "tween" as const, duration: 0, ease };
   return {
     type: "tween",
     duration,
@@ -319,6 +332,7 @@ export function mdLiveBarMorphTransition(kind: MdLiveInviteMorphKind): {
     y: axis,
     opacity: axis,
     scale: axis,
+    borderRadius: snapRadius,
   };
 }
 
@@ -395,8 +409,34 @@ export function mdLiveInviteComposerCollapseFrame(
     height: composerHeightPx + (MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX - composerHeightPx) * p,
     contentOpacity: 1 - p,
     messageAgentLabel: false,
-    borderRadius: MD_LIVE_INVITE_SHELL_RADIUS_PX,
+    borderRadius: MD_LIVE_INVITE_COMPOSER_RADIUS_PX,
   };
+}
+
+export function mdLiveInviteShellRadiusPx(surface: MdLiveInviteRadiusSurface): number {
+  return surface === "composer"
+    ? MD_LIVE_INVITE_COMPOSER_RADIUS_PX
+    : MD_LIVE_INVITE_SHELL_RADIUS_PX;
+}
+
+/** Radius does not interpolate 9999 ↔ 3xl. Composer stays the card radius for the whole node lifetime. */
+export function mdLiveInviteMorphRadiusPx(
+  from: MdLiveInviteRadiusSurface,
+  to: MdLiveInviteRadiusSurface,
+): number {
+  if (from === "composer" || to === "composer") return MD_LIVE_INVITE_COMPOSER_RADIUS_PX;
+  return MD_LIVE_INVITE_SHELL_RADIUS_PX;
+}
+
+export function mdLiveInviteComposerRadiusMatchesAgentChat(radiusPx: number): boolean {
+  return Math.abs(radiusPx - MD_LIVE_INVITE_COMPOSER_RADIUS_PX) <= 1;
+}
+
+/** Squashed non-capsule while height is still in the hairline ↔ pill band. */
+export function mdLiveInviteHairlinePillNearSquare(radiusPx: number, heightPx: number): boolean {
+  if (heightPx < MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX - 0.5) return false;
+  if (heightPx > MD_LIVE_INVITE_PILL_HEIGHT_PX + 0.5) return false;
+  return !mdLiveInviteShellRadiusIsCapsule(radiusPx, heightPx);
 }
 
 /** Click-outside / blur from chat: drop hover so we never land on invite. */

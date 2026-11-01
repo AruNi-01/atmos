@@ -203,6 +203,9 @@ describe("md-live structural gates", () => {
     expect(source).not.toContain('className="h-0.5 w-full rounded-full"');
     expect(source).toContain("originY: 1");
     expect(source).toContain("MD_LIVE_INVITE_SHELL_RADIUS_PX");
+    expect(source).toContain("MD_LIVE_INVITE_COMPOSER_RADIUS_PX");
+    expect(source).toContain("data-md-live-invite-composer");
+    expect(source).toContain("borderRadius: MD_LIVE_INVITE_COMPOSER_RADIUS_PX");
     expect(source).not.toContain("borderRadius: 16");
     expect(source).toContain("morphEntry && paintComposer");
     expect(source).not.toContain("morphEntry && !showComposer");
@@ -283,7 +286,11 @@ describe("md-live structural gates", () => {
     expect(helpers).toContain("MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX = 4");
     expect(helpers).toContain("MD_LIVE_INVITE_PILL_HEIGHT_PX = 36");
     expect(helpers).toContain("MD_LIVE_INVITE_SHELL_RADIUS_PX = 9999");
+    expect(helpers).toContain("MD_LIVE_INVITE_COMPOSER_RADIUS_PX = 22");
     expect(helpers).toContain("mdLiveInviteShellRadiusIsCapsule");
+    expect(helpers).toContain("mdLiveInviteMorphRadiusPx");
+    expect(helpers).toContain("mdLiveInviteHairlinePillNearSquare");
+    expect(helpers).toContain("borderRadius: snapRadius");
     expect(helpers).toContain("MD_LIVE_INVITE_HAIRLINE_Y_PX = 0");
     expect(helpers).toContain("MD_LIVE_INVITE_BOTTOM_PX = 16");
     expect(helpers).toContain("mdLiveBarMorphTransition");
