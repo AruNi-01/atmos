@@ -404,13 +404,59 @@ export function mdLiveInviteComposerCollapseFrame(
   borderRadius: number;
 } {
   const p = Math.min(1, Math.max(0, progress));
+  const height = composerHeightPx + (MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX - composerHeightPx) * p;
   return {
     width: composerWidthPx + (MD_LIVE_INVITE_HAIRLINE_WIDTH_PX - composerWidthPx) * p,
-    height: composerHeightPx + (MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX - composerHeightPx) * p,
+    height,
     contentOpacity: 1 - p,
     messageAgentLabel: false,
-    borderRadius: MD_LIVE_INVITE_COMPOSER_RADIUS_PX,
+    borderRadius: mdLiveInviteExpandRadiusPx(height),
   };
+}
+
+/**
+ * Visual radius for pill → composer (and the reverse shrink). Capsule while
+ * `height/2 <= 3xl`, then holds 22px so the card opens as the box grows.
+ * Linear 9999 → 22 stays a capsule until t≈1 and then jumps.
+ */
+export function mdLiveInviteExpandRadiusPx(heightPx: number): number {
+  if (heightPx <= 0) return 0;
+  return Math.min(heightPx / 2, MD_LIVE_INVITE_COMPOSER_RADIUS_PX);
+}
+
+export function mdLiveInviteComposerExpandFrame(
+  progress: number,
+  sizes: { pillWidthPx: number; composerWidthPx: number; composerHeightPx: number },
+): { width: number; height: number; borderRadius: number } {
+  const p = Math.min(1, Math.max(0, progress));
+  const width = sizes.pillWidthPx + (sizes.composerWidthPx - sizes.pillWidthPx) * p;
+  const height =
+    MD_LIVE_INVITE_PILL_HEIGHT_PX + (sizes.composerHeightPx - MD_LIVE_INVITE_PILL_HEIGHT_PX) * p;
+  return { width, height, borderRadius: mdLiveInviteExpandRadiusPx(height) };
+}
+
+export function mdLiveInviteNaiveCapsuleToCardRadiusPx(progress: number): number {
+  const p = Math.min(1, Math.max(0, progress));
+  return (
+    MD_LIVE_INVITE_SHELL_RADIUS_PX +
+    (MD_LIVE_INVITE_COMPOSER_RADIUS_PX - MD_LIVE_INVITE_SHELL_RADIUS_PX) * p
+  );
+}
+
+export function mdLiveInviteRadiusLastStepPx(radii: number[]): number {
+  if (radii.length < 2) return 0;
+  return Math.abs(radii[radii.length - 1]! - radii[radii.length - 2]!);
+}
+
+export function mdLiveInviteCapsuleUntilProgress(
+  frames: Array<{ progress: number; height: number; borderRadius: number }>,
+): number {
+  let until = 0;
+  for (const frame of frames) {
+    if (!mdLiveInviteShellRadiusIsCapsule(frame.borderRadius, frame.height)) break;
+    until = frame.progress;
+  }
+  return until;
 }
 
 export function mdLiveInviteShellRadiusPx(surface: MdLiveInviteRadiusSurface): number {
@@ -419,13 +465,16 @@ export function mdLiveInviteShellRadiusPx(surface: MdLiveInviteRadiusSurface): n
     : MD_LIVE_INVITE_SHELL_RADIUS_PX;
 }
 
-/** Radius does not interpolate 9999 ↔ 3xl. Composer stays the card radius for the whole node lifetime. */
+/** Hairline/pill stay 9999. Composer morphs use height-clamped 3xl (defaults: pill start / tall settle). */
 export function mdLiveInviteMorphRadiusPx(
   from: MdLiveInviteRadiusSurface,
   to: MdLiveInviteRadiusSurface,
+  heightPx?: number,
 ): number {
-  if (from === "composer" || to === "composer") return MD_LIVE_INVITE_COMPOSER_RADIUS_PX;
-  return MD_LIVE_INVITE_SHELL_RADIUS_PX;
+  if (from !== "composer" && to !== "composer") return MD_LIVE_INVITE_SHELL_RADIUS_PX;
+  const height =
+    heightPx ?? (from === "composer" && to !== "composer" ? 120 : MD_LIVE_INVITE_PILL_HEIGHT_PX);
+  return mdLiveInviteExpandRadiusPx(height);
 }
 
 export function mdLiveInviteComposerRadiusMatchesAgentChat(radiusPx: number): boolean {

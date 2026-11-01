@@ -9,7 +9,7 @@ import {
   useState,
   type RefObject,
 } from "react";
-import { LayoutGroup, motion, useReducedMotion } from "motion/react";
+import { LayoutGroup, motion, useMotionValue, useReducedMotion } from "motion/react";
 import { useTranslations } from "next-intl";
 import {
   ActivityIndicator,
@@ -56,6 +56,7 @@ import {
   MD_LIVE_AGENT_STACK_CLASS,
   MD_LIVE_AGENT_THREAD_MAX_CLASS,
   MD_LIVE_BAR_COLLAPSE_MORPH_S,
+  MD_LIVE_BAR_MORPH_S,
   MD_LIVE_INVITE_BOTTOM_PX,
   MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX,
   MD_LIVE_INVITE_HAIRLINE_WIDTH_PX,
@@ -64,7 +65,6 @@ import {
   MD_LIVE_INVITE_LABEL_COLLAPSE_SCALE,
   MD_LIVE_INVITE_LAYOUT_ID,
   MD_LIVE_INVITE_PILL_HEIGHT_PX,
-  MD_LIVE_INVITE_COMPOSER_RADIUS_PX,
   MD_LIVE_INVITE_SHELL_RADIUS_PX,
   MD_LIVE_POPOVER_WIDTH,
   isMdLiveAgentOverlayDismissTarget,
@@ -76,6 +76,7 @@ import {
   mdLiveSelectionPopoverStyle,
   mdLiveBarSurface,
   mdLiveIdleWorkedMs,
+  mdLiveInviteExpandRadiusPx,
   mdLiveInviteMorphs,
   mdLiveInvitePaintComposer,
   mdLiveInviteShowsMessageAgentLabel,
@@ -119,6 +120,10 @@ export function MdLiveAgentChat({
   );
   const selectionRef = useRef("");
   const hostRef = useRef<HTMLDivElement | null>(null);
+  const composerShellRef = useRef<HTMLDivElement | null>(null);
+  const composerClipRadius = useMotionValue(
+    mdLiveInviteExpandRadiusPx(MD_LIVE_INVITE_PILL_HEIGHT_PX),
+  );
   const inviteLabelRef = useRef<HTMLSpanElement | null>(null);
   const inviteHoverLeaveRef = useRef<number>(0);
   const [pillWidthPx, setPillWidthPx] = useState(148);
@@ -268,6 +273,33 @@ export function MdLiveAgentChat({
     const next = Math.ceil(node.scrollWidth) + 34;
     if (next >= MD_LIVE_INVITE_HAIRLINE_WIDTH_PX) setPillWidthPx(next);
   }, [t, barSurface]);
+
+  useLayoutEffect(() => {
+    if (!paintComposer) return;
+    const el = composerShellRef.current;
+    const apply = () => {
+      if (!el) return;
+      composerClipRadius.set(mdLiveInviteExpandRadiusPx(el.getBoundingClientRect().height));
+    };
+    apply();
+    let raf = 0;
+    const started = performance.now();
+    const durationMs =
+      (reduceMotion ? 0 : collapsingInvite ? MD_LIVE_BAR_COLLAPSE_MORPH_S : MD_LIVE_BAR_MORPH_S) *
+        1000 +
+      80;
+    const tick = () => {
+      apply();
+      if (performance.now() - started < durationMs) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(apply);
+    if (el && ro) ro.observe(el);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro?.disconnect();
+    };
+  }, [paintComposer, showComposer, collapsingInvite, barSurface, reduceMotion, composerClipRadius]);
 
   const openPopover = useCallback(
     (selection: string) => {
@@ -715,10 +747,11 @@ export function MdLiveAgentChat({
             >
               {morphEntry && paintComposer ? (
                 <motion.div
+                  ref={composerShellRef}
                   layoutId={MD_LIVE_INVITE_LAYOUT_ID}
                   data-md-live-invite-composer=""
                   className={cn(
-                    "mx-auto overflow-hidden",
+                    "mx-auto overflow-visible",
                     showComposer
                       ? "pointer-events-auto w-[min(100%-1.5rem,42rem)]"
                       : "pointer-events-none",
@@ -727,7 +760,7 @@ export function MdLiveAgentChat({
                     marginBottom: MD_LIVE_INVITE_BOTTOM_PX,
                     originX: 0.5,
                     originY: 1,
-                    borderRadius: MD_LIVE_INVITE_COMPOSER_RADIUS_PX,
+                    borderRadius: MD_LIVE_INVITE_SHELL_RADIUS_PX,
                   }}
                   initial={false}
                   animate={
@@ -735,23 +768,29 @@ export function MdLiveAgentChat({
                       ? {
                           width: MD_LIVE_INVITE_HAIRLINE_WIDTH_PX,
                           height: MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX,
-                          borderRadius: MD_LIVE_INVITE_COMPOSER_RADIUS_PX,
+                          borderRadius: MD_LIVE_INVITE_SHELL_RADIUS_PX,
                         }
-                      : { borderRadius: MD_LIVE_INVITE_COMPOSER_RADIUS_PX }
+                      : { borderRadius: MD_LIVE_INVITE_SHELL_RADIUS_PX }
                   }
                   transition={barMorphMotion}
                   onAnimationComplete={finishInviteCollapse}
                 >
                   <motion.div
-                    initial={false}
-                    animate={{
-                      opacity: showComposer ? 1 : 0,
-                      scale: showComposer ? 1 : MD_LIVE_INVITE_LABEL_COLLAPSE_SCALE,
-                    }}
-                    transition={barMorphMotion}
-                    style={{ originX: 0.5, originY: 1 }}
+                    data-md-live-invite-composer-clip=""
+                    className="h-full w-full overflow-hidden"
+                    style={{ borderRadius: composerClipRadius }}
                   >
-                    {composer}
+                    <motion.div
+                      initial={false}
+                      animate={{
+                        opacity: showComposer ? 1 : 0,
+                        scale: showComposer ? 1 : MD_LIVE_INVITE_LABEL_COLLAPSE_SCALE,
+                      }}
+                      transition={barMorphMotion}
+                      style={{ originX: 0.5, originY: 1 }}
+                    >
+                      {composer}
+                    </motion.div>
                   </motion.div>
                 </motion.div>
               ) : morphEntry ? (

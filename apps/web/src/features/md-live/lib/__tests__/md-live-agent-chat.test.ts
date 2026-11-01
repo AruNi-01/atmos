@@ -41,12 +41,17 @@ import {
   mdLiveInviteFrameIsEmptyCapsule,
   mdLiveInviteHairlineGapFromBottomPx,
   mdLiveInviteHairlineHitBox,
+  mdLiveInviteCapsuleUntilProgress,
+  mdLiveInviteComposerExpandFrame,
   mdLiveInviteComposerRadiusMatchesAgentChat,
+  mdLiveInviteExpandRadiusPx,
   mdLiveInviteHairlinePillNearSquare,
   mdLiveInviteHoverContainsHairline,
   mdLiveInviteMorphIsMonotonicShrink,
   mdLiveInviteMorphKeyframes,
   mdLiveInviteMorphRadiusPx,
+  mdLiveInviteNaiveCapsuleToCardRadiusPx,
+  mdLiveInviteRadiusLastStepPx,
   mdLiveInviteMorphs,
   mdLiveInvitePaintComposer,
   mdLiveInviteShellBox,
@@ -321,9 +326,16 @@ describe("md-live agent chat helpers", () => {
   test("settled composer uses Agent Chat 3xl and pill morph never interpolates it", () => {
     expect(mdLiveInviteMorphRadiusPx("hidden", "invite")).toBe(MD_LIVE_INVITE_SHELL_RADIUS_PX);
     expect(mdLiveInviteMorphRadiusPx("invite", "hidden")).toBe(MD_LIVE_INVITE_SHELL_RADIUS_PX);
-    expect(mdLiveInviteMorphRadiusPx("invite", "composer")).toBe(MD_LIVE_INVITE_COMPOSER_RADIUS_PX);
+    expect(mdLiveInviteMorphRadiusPx("invite", "composer")).toBe(
+      mdLiveInviteExpandRadiusPx(MD_LIVE_INVITE_PILL_HEIGHT_PX),
+    );
+    expect(mdLiveInviteMorphRadiusPx("invite", "composer", 120)).toBe(
+      MD_LIVE_INVITE_COMPOSER_RADIUS_PX,
+    );
     expect(mdLiveInviteMorphRadiusPx("composer", "hidden")).toBe(MD_LIVE_INVITE_COMPOSER_RADIUS_PX);
-    expect(mdLiveInviteMorphRadiusPx("hidden", "composer")).toBe(MD_LIVE_INVITE_COMPOSER_RADIUS_PX);
+    expect(mdLiveInviteMorphRadiusPx("hidden", "composer")).toBe(
+      mdLiveInviteExpandRadiusPx(MD_LIVE_INVITE_PILL_HEIGHT_PX),
+    );
     const pillWidth = 148;
     for (const progress of [0, 0.25, 0.5, 0.75, 1]) {
       const pillFrame = mdLiveInviteCollapseFrame(progress, pillWidth);
@@ -340,6 +352,50 @@ describe("md-live agent chat helpers", () => {
     expect(mdLiveInviteHairlinePillNearSquare(composerOpen.borderRadius, composerOpen.height)).toBe(
       false,
     );
+  });
+
+  test("pill to composer radius tracks height instead of settling then jumping", () => {
+    const sizes = { pillWidthPx: 148, composerWidthPx: 672, composerHeightPx: 120 };
+    const steps = 40;
+    const expandFrames = Array.from({ length: steps + 1 }, (_, i) => {
+      const progress = i / steps;
+      return { progress, ...mdLiveInviteComposerExpandFrame(progress, sizes) };
+    });
+    const naive = Array.from({ length: steps + 1 }, (_, i) =>
+      mdLiveInviteNaiveCapsuleToCardRadiusPx(i / steps),
+    );
+    expect(mdLiveInviteRadiusLastStepPx(naive)).toBeGreaterThan(200);
+    expect(
+      mdLiveInviteRadiusLastStepPx(expandFrames.map((frame) => frame.borderRadius)),
+    ).toBeLessThan(5);
+    expect(mdLiveInviteCapsuleUntilProgress(expandFrames)).toBeLessThan(0.4);
+    const naiveCapsuleUntil = mdLiveInviteCapsuleUntilProgress(
+      expandFrames.map((frame, i) => ({
+        progress: frame.progress,
+        height: frame.height,
+        borderRadius: naive[i]!,
+      })),
+    );
+    expect(naiveCapsuleUntil).toBeGreaterThan(0.9);
+    expect(expandFrames[0]!.borderRadius).toBe(
+      mdLiveInviteExpandRadiusPx(MD_LIVE_INVITE_PILL_HEIGHT_PX),
+    );
+    expect(
+      mdLiveInviteShellRadiusIsCapsule(expandFrames[0]!.borderRadius, expandFrames[0]!.height),
+    ).toBe(true);
+    const settled = expandFrames[expandFrames.length - 1]!;
+    expect(mdLiveInviteComposerRadiusMatchesAgentChat(settled.borderRadius)).toBe(true);
+    expect(mdLiveInviteShellRadiusIsCapsule(settled.borderRadius, settled.height)).toBe(false);
+    for (let i = 1; i < expandFrames.length; i += 1) {
+      const prev = expandFrames[i - 1]!;
+      const next = expandFrames[i]!;
+      expect(next.borderRadius).toBe(mdLiveInviteExpandRadiusPx(next.height));
+      expect(next.borderRadius - prev.borderRadius).toBeGreaterThanOrEqual(-0.01);
+      expect(next.borderRadius - prev.borderRadius).toBeLessThanOrEqual(
+        (next.height - prev.height) / 2 + 0.01,
+      );
+      expect(mdLiveInviteHairlinePillNearSquare(next.borderRadius, next.height)).toBe(false);
+    }
   });
 
   test("click-outside from composer skips the Message Agent invite", () => {
@@ -372,11 +428,11 @@ describe("md-live agent chat helpers", () => {
     );
     for (const frame of composerFrames) {
       expect(frame.messageAgentLabel).toBe(false);
-      expect(frame.borderRadius).toBe(MD_LIVE_INVITE_COMPOSER_RADIUS_PX);
-      expect(mdLiveInviteComposerRadiusMatchesAgentChat(frame.borderRadius)).toBe(true);
+      expect(frame.borderRadius).toBe(mdLiveInviteExpandRadiusPx(frame.height));
       expect(mdLiveInviteHairlinePillNearSquare(frame.borderRadius, frame.height)).toBe(false);
       expect(Math.abs(frame.width - 148) < 8 && Math.abs(frame.height - 36) < 4).toBe(false);
     }
+    expect(mdLiveInviteComposerRadiusMatchesAgentChat(composerFrames[0]!.borderRadius)).toBe(true);
     expect(
       mdLiveInviteShellRadiusIsCapsule(composerFrames[0]!.borderRadius, composerFrames[0]!.height),
     ).toBe(false);
