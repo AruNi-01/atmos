@@ -514,7 +514,7 @@ dependencies = [
 
 [[package]]
 name = "atmos"
-version = "2026.8.23"
+version = "2026.11.1"
 dependencies = [
  "base64 0.22.1",
  "browser-use",
