@@ -1,6 +1,7 @@
 name: CI - Packages
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
@@ -27,6 +28,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          filter: blob:none
       - uses: ./.github/actions/setup-bun
       - name: Lint packages
         run: bunx oxlint packages
@@ -36,6 +39,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          filter: blob:none
       - uses: ./.github/actions/setup-bun
       # config 包无需 typecheck（纯 JSON 配置），其余三个包均有 typecheck 脚本
       - name: Typecheck packages

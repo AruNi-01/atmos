@@ -5,11 +5,35 @@ runs:
   using: composite
   steps:
     - name: Setup Bun
+      id: setup-bun
       uses: oven-sh/setup-bun@v2
       with:
         # Stable release that supports this repo's lockfileVersion 1.
         # (Bun 1.4.x is canary-only as of 2026-07; lockfileVersion 2 requires canary.)
         bun-version: 1.3.14
+
+    # Dependency cache for `bun install` (registry tarballs).
+    # Path: ~/.bun/install/cache — not node_modules (Bun: linking from this cache
+    # is faster and avoids stale node_modules). oven-sh/setup-bun still only
+    # caches the Bun binary (no-cache: false by default).
+    #
+    # Primary key inputs:
+    # - runner.os / runner.arch
+    # - installed Bun version (steps.setup-bun.outputs.bun-version)
+    # - github.head_ref || github.ref_name (PR head branch, else push/dispatch ref)
+    # - hashFiles('bun.lock') — root lockfile used by frozen-lockfile install
+    #
+    # Restore-keys: same branch (older lockfile), then main (seed PRs from the
+    # default branch), then any cache for this OS/arch/Bun.
+    - name: Restore bun install cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.bun/install/cache
+        key: bun-install-${{ runner.os }}-${{ runner.arch }}-bun${{ steps.setup-bun.outputs.bun-version }}-${{ github.head_ref || github.ref_name }}-${{ hashFiles('bun.lock') }}
+        restore-keys: |
+          bun-install-${{ runner.os }}-${{ runner.arch }}-bun${{ steps.setup-bun.outputs.bun-version }}-${{ github.head_ref || github.ref_name }}-
+          bun-install-${{ runner.os }}-${{ runner.arch }}-bun${{ steps.setup-bun.outputs.bun-version }}-main-
+          bun-install-${{ runner.os }}-${{ runner.arch }}-bun${{ steps.setup-bun.outputs.bun-version }}-
 
     - name: Install dependencies
       shell: bash
