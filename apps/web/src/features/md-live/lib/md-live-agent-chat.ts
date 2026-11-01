@@ -298,11 +298,110 @@ export function mdLiveBarMorphTransition(kind: MdLiveInviteMorphKind): {
   width: { type: "tween"; duration: number; ease: readonly [number, number, number, number] };
   height: { type: "tween"; duration: number; ease: readonly [number, number, number, number] };
   y: { type: "tween"; duration: number; ease: readonly [number, number, number, number] };
+  opacity: { type: "tween"; duration: number; ease: readonly [number, number, number, number] };
+  scale: { type: "tween"; duration: number; ease: readonly [number, number, number, number] };
 } {
   const duration = kind === "collapse" ? MD_LIVE_BAR_COLLAPSE_MORPH_S : MD_LIVE_BAR_MORPH_S;
   const ease = kind === "collapse" ? MD_LIVE_BAR_COLLAPSE_EASE : MD_LIVE_BAR_EXPAND_EASE;
   const axis = { type: "tween" as const, duration, ease };
-  return { type: "tween", duration, ease, layout: axis, width: axis, height: axis, y: axis };
+  return {
+    type: "tween",
+    duration,
+    ease,
+    layout: axis,
+    width: axis,
+    height: axis,
+    y: axis,
+    opacity: axis,
+    scale: axis,
+  };
+}
+
+/** Label shrinks with the 36→4 shell so it never vanishes on a still-pill box. */
+export const MD_LIVE_INVITE_LABEL_COLLAPSE_SCALE =
+  MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX / MD_LIVE_INVITE_PILL_HEIGHT_PX;
+
+export function mdLiveInviteCollapseFrame(
+  progress: number,
+  pillWidthPx: number,
+): {
+  width: number;
+  height: number;
+  labelOpacity: number;
+  labelScale: number;
+} {
+  const p = Math.min(1, Math.max(0, progress));
+  return {
+    width: pillWidthPx + (MD_LIVE_INVITE_HAIRLINE_WIDTH_PX - pillWidthPx) * p,
+    height:
+      MD_LIVE_INVITE_PILL_HEIGHT_PX +
+      (MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX - MD_LIVE_INVITE_PILL_HEIGHT_PX) * p,
+    labelOpacity: 1 - p,
+    labelScale: 1 + (MD_LIVE_INVITE_LABEL_COLLAPSE_SCALE - 1) * p,
+  };
+}
+
+/** Empty-capsule flash: label already gone while the shell is still ~pill sized. */
+export function mdLiveInviteFrameIsEmptyCapsule(
+  frame: { width: number; height: number; labelOpacity: number },
+  pillWidthPx: number,
+): boolean {
+  return frame.labelOpacity < 0.12 && frame.width > pillWidthPx * 0.82 && frame.height > 28;
+}
+
+/** Message Agent copy only on the invite pill (and while that pill is collapsing). */
+export function mdLiveInviteShowsMessageAgentLabel(
+  surface: MdLiveBarSurface,
+  collapseFrom: MdLiveBarSurface | null,
+): boolean {
+  if (surface === "invite") return true;
+  return surface === "hidden" && collapseFrom === "invite";
+}
+
+/** Keep the composer node mounted so dismiss never remounts the Message Agent pill. */
+export function mdLiveInvitePaintComposer(
+  surface: MdLiveBarSurface,
+  collapseFrom: MdLiveBarSurface | null,
+): boolean {
+  return surface === "composer" || (surface === "hidden" && collapseFrom === "composer");
+}
+
+export function mdLiveInviteComposerCollapseFrame(
+  progress: number,
+  composerWidthPx: number,
+  composerHeightPx: number,
+): {
+  width: number;
+  height: number;
+  contentOpacity: number;
+  messageAgentLabel: boolean;
+} {
+  const p = Math.min(1, Math.max(0, progress));
+  return {
+    width: composerWidthPx + (MD_LIVE_INVITE_HAIRLINE_WIDTH_PX - composerWidthPx) * p,
+    height: composerHeightPx + (MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX - composerHeightPx) * p,
+    contentOpacity: 1 - p,
+    messageAgentLabel: false,
+  };
+}
+
+/** Click-outside / blur from chat: drop hover so we never land on invite. */
+export function mdLiveInviteAfterClickOutside(input: {
+  hasDraft: boolean;
+  working: boolean;
+  hasThread?: boolean;
+  reviewPending?: boolean;
+}): MdLiveBarMode {
+  return nextMdLiveBarMode({
+    popover: false,
+    hover: false,
+    focused: false,
+    hasDraft: input.hasDraft,
+    expanded: false,
+    working: input.working,
+    hasThread: input.hasThread,
+    reviewPending: input.reviewPending,
+  });
 }
 
 /** Direct keyframes — composer/pill → hairline must not pass through a larger box. */

@@ -26,19 +26,26 @@ import {
   MD_LIVE_INVITE_HAIRLINE_Y_PX,
   MD_LIVE_INVITE_HOVER_LEAVE_MS,
   MD_LIVE_INVITE_HOVER_SELECTOR,
+  MD_LIVE_INVITE_LABEL_COLLAPSE_SCALE,
   MD_LIVE_INVITE_LAYOUT_ID,
   MD_LIVE_INVITE_PILL_HEIGHT_PX,
   MD_LIVE_POPOVER_WIDTH,
   mdLiveBarMorphTransition,
   mdLiveBarSurface,
+  mdLiveInviteAfterClickOutside,
   mdLiveInviteBoxContains,
+  mdLiveInviteCollapseFrame,
+  mdLiveInviteComposerCollapseFrame,
+  mdLiveInviteFrameIsEmptyCapsule,
   mdLiveInviteHairlineGapFromBottomPx,
   mdLiveInviteHairlineHitBox,
   mdLiveInviteHoverContainsHairline,
   mdLiveInviteMorphIsMonotonicShrink,
   mdLiveInviteMorphKeyframes,
   mdLiveInviteMorphs,
+  mdLiveInvitePaintComposer,
   mdLiveInviteShellBox,
+  mdLiveInviteShowsMessageAgentLabel,
   nextMdLiveBarMode,
   transformMdLivePrompt,
 } from "../md-live-agent-chat";
@@ -228,10 +235,79 @@ describe("md-live agent chat helpers", () => {
     expect(expand.ease).toEqual(MD_LIVE_BAR_EXPAND_EASE);
     expect(collapse.duration).toBe(MD_LIVE_BAR_COLLAPSE_MORPH_S);
     expect(collapse.height.duration).toBe(collapse.width.duration);
+    expect(collapse.opacity.duration).toBe(collapse.width.duration);
+    expect(collapse.scale.duration).toBe(collapse.height.duration);
+    expect(collapse.opacity.ease).toEqual(collapse.width.ease);
+    expect(collapse.scale.ease).toEqual(collapse.height.ease);
     expect(collapse.ease[1]).toBeGreaterThanOrEqual(0);
     expect(collapse.ease[1]).toBeLessThanOrEqual(1);
     expect(collapse.ease[3]).toBeGreaterThanOrEqual(0);
     expect(collapse.ease[3]).toBeLessThanOrEqual(1);
+  });
+
+  test("pill collapse decays label and shell on the same clock", () => {
+    const pill = 148;
+    expect(
+      mdLiveInviteFrameIsEmptyCapsule(
+        { width: pill, height: MD_LIVE_INVITE_PILL_HEIGHT_PX, labelOpacity: 0 },
+        pill,
+      ),
+    ).toBe(true);
+    expect(MD_LIVE_INVITE_LABEL_COLLAPSE_SCALE).toBe(
+      MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX / MD_LIVE_INVITE_PILL_HEIGHT_PX,
+    );
+    for (const progress of [0, 0.1, 0.25, 0.4, 0.5, 0.6, 0.75, 0.88, 0.9, 1]) {
+      const frame = mdLiveInviteCollapseFrame(progress, pill);
+      expect(frame.labelOpacity).toBeCloseTo(1 - progress, 8);
+      expect(frame.labelScale).toBeCloseTo(
+        1 + (MD_LIVE_INVITE_LABEL_COLLAPSE_SCALE - 1) * progress,
+        8,
+      );
+      expect(frame.width).toBeCloseTo(
+        pill + (MD_LIVE_INVITE_HAIRLINE_WIDTH_PX - pill) * progress,
+        8,
+      );
+      expect(frame.height).toBeCloseTo(
+        MD_LIVE_INVITE_PILL_HEIGHT_PX +
+          (MD_LIVE_INVITE_HAIRLINE_HEIGHT_PX - MD_LIVE_INVITE_PILL_HEIGHT_PX) * progress,
+        8,
+      );
+      expect(mdLiveInviteFrameIsEmptyCapsule(frame, pill)).toBe(false);
+    }
+  });
+
+  test("click-outside from composer skips the Message Agent invite", () => {
+    const empty = { hasDraft: false, working: false };
+    expect(mdLiveInviteAfterClickOutside(empty)).toBe("hidden");
+    expect(mdLiveBarSurface(mdLiveInviteAfterClickOutside(empty), false)).toBe("hidden");
+    expect(mdLiveInviteAfterClickOutside(empty)).not.toBe("invite");
+    expect(mdLiveInviteShowsMessageAgentLabel("hidden", "composer")).toBe(false);
+    expect(mdLiveInviteShowsMessageAgentLabel("hidden", "invite")).toBe(true);
+    expect(mdLiveInviteShowsMessageAgentLabel("invite", null)).toBe(true);
+    expect(mdLiveInviteShowsMessageAgentLabel("composer", null)).toBe(false);
+    expect(mdLiveInvitePaintComposer("composer", null)).toBe(true);
+    expect(mdLiveInvitePaintComposer("hidden", "composer")).toBe(true);
+    expect(mdLiveInvitePaintComposer("hidden", "invite")).toBe(false);
+    expect(mdLiveInvitePaintComposer("hidden", null)).toBe(false);
+    expect(
+      nextMdLiveBarMode({
+        popover: false,
+        hover: true,
+        focused: false,
+        hasDraft: false,
+        expanded: false,
+        working: false,
+      }),
+    ).toBe("invite");
+    expect(mdLiveInviteAfterClickOutside({ hasDraft: true, working: false })).toBe("focused");
+    expect(mdLiveInviteAfterClickOutside({ hasDraft: false, working: true })).toBe("collapsed");
+    const composerFrames = [0, 0.35, 0.72, 1].map((progress) =>
+      mdLiveInviteComposerCollapseFrame(progress, 672, 120),
+    );
+    for (const frame of composerFrames) {
+      expect(frame.messageAgentLabel).toBe(false);
+      expect(Math.abs(frame.width - 148) < 8 && Math.abs(frame.height - 36) < 4).toBe(false);
+    }
   });
 
   test("invite hover only matches the hairline or capsule, not the dock", () => {
