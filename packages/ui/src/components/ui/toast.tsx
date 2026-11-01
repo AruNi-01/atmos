@@ -184,7 +184,7 @@ function Toasts({ position = "bottom-right" }: { position: ToastPosition }) {
                     />
                   </div>
                 </div>
-                {Icon || toast.actionProps ? (
+                {Icon || (toast.actionProps && !customActions) ? (
                   <div className="flex shrink-0 items-center gap-1.5" data-slot="toast-auth-row">
                     {Icon ? (
                       <div

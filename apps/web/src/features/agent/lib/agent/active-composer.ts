@@ -68,8 +68,9 @@ export function writeToActiveAgentComposer(
 function handleForInstanceKey(instanceKey: string): ActiveComposerHandle | undefined {
   const needle = instanceKey.trim();
   if (!needle) return undefined;
+  const suffix = `:instance:${needle}`;
   for (const [key, handle] of activeComposers) {
-    if (key.includes(needle)) return handle;
+    if (key === needle || key.endsWith(suffix)) return handle;
   }
   return undefined;
 }
@@ -107,8 +108,11 @@ export function prependMdLiveComposerContext(
   const fileToken = `@file:${filePath}`;
   const ctxToken = registerAiContextPrompt("doc-selection", selection);
   handle.setDraft((previous) => {
-    if (previous.includes(fileToken) && previous.includes("[#ctx:")) return previous;
-    const rest = previous.replace(/^\u00A0+/, "").trimStart();
+    const rest = previous
+      .replace(/^\u00A0+/, "")
+      .replace(/^@file:\S+[\s\u00A0]*/, "")
+      .replace(/^\[#ctx:doc-selection:[^\]]+\][\s\u00A0]*/, "")
+      .trimStart();
     const prefix = `${fileToken}\u00A0${ctxToken}\u00A0`;
     return rest ? `${prefix}${rest}` : prefix;
   });

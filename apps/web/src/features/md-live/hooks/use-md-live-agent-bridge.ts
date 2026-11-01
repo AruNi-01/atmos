@@ -8,6 +8,22 @@ import { MD_LIVE_AGENT_CAPABILITY, mdLiveAgentClientId } from "../lib/md-live-ag
 
 const DISPATCH_EVENT = "md_live_agent_dispatch";
 
+function ignoreBridgeError(): void {}
+
+function reportDispatchFailure(requestId: string, error: unknown): void {
+  const message = error instanceof Error ? error.message : String(error);
+  void mdLiveAgentBridgeWsApi
+    .postResult({
+      request_id: requestId,
+      success: false,
+      error_code: "MD_LIVE_BRIDGE_OFFLINE",
+      error_message: message,
+      recoverable: true,
+      data: null,
+    })
+    .catch(ignoreBridgeError);
+}
+
 export function useMdLiveAgentBridge(filePath: string): { clientId: string } {
   const clientId = useMemo(() => mdLiveAgentClientId(filePath), [filePath]);
   const isConnected = useWebSocketStore((s) => s.connectionState === "connected");
@@ -15,15 +31,17 @@ export function useMdLiveAgentBridge(filePath: string): { clientId: string } {
 
   useEffect(() => {
     if (!isConnected) return;
-    void mdLiveAgentBridgeWsApi.register({
-      client_id: clientId,
-      label: filePath,
-      accepts_commands: true,
-      capabilities: [MD_LIVE_AGENT_CAPABILITY],
-      active_document_file_name: filePath,
-    });
+    void mdLiveAgentBridgeWsApi
+      .register({
+        client_id: clientId,
+        label: filePath,
+        accepts_commands: true,
+        capabilities: [MD_LIVE_AGENT_CAPABILITY],
+        active_document_file_name: filePath,
+      })
+      .catch(ignoreBridgeError);
     return () => {
-      void mdLiveAgentBridgeWsApi.unregister(clientId);
+      void mdLiveAgentBridgeWsApi.unregister(clientId).catch(ignoreBridgeError);
     };
   }, [clientId, filePath, isConnected]);
 
@@ -50,16 +68,19 @@ export function useMdLiveAgentBridge(filePath: string): { clientId: string } {
         payload.args && typeof payload.args === "object" && !Array.isArray(payload.args)
           ? (payload.args as Record<string, unknown>)
           : {};
-      void applyMdLiveAgentToolToOpenDoc({ tool, args, filePath, clientId }).then((result) =>
-        mdLiveAgentBridgeWsApi.postResult({
-          request_id: payload.request_id as string,
-          success: result.success,
-          error_code: result.error_code,
-          error_message: result.error_message,
-          recoverable: result.recoverable,
-          data: result.data ?? null,
-        }),
-      );
+      const requestId = payload.request_id;
+      void applyMdLiveAgentToolToOpenDoc({ tool, args, filePath, clientId })
+        .then((result) =>
+          mdLiveAgentBridgeWsApi.postResult({
+            request_id: requestId,
+            success: result.success,
+            error_code: result.error_code,
+            error_message: result.error_message,
+            recoverable: result.recoverable,
+            data: result.data ?? null,
+          }),
+        )
+        .catch((error) => reportDispatchFailure(requestId, error));
     });
   }, [clientId, filePath, isConnected, onEvent]);
 

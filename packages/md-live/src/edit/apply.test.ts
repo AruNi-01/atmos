@@ -39,6 +39,8 @@ describe("md-live edit ops", () => {
   test("stream chunks keep the full payload", () => {
     expect(splitMarkdownStreamChunks("abcdefgh", 3)).toEqual(["abc", "def", "gh"]);
     expect(splitMarkdownStreamChunks("")).toEqual([]);
+    expect(splitMarkdownStreamChunks("abcdefgh", 0)).toEqual(["abcdefgh"]);
+    expect(splitMarkdownStreamChunks("abcdefgh", -4)).toEqual(["abcdefgh"]);
   });
 });
 

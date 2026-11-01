@@ -74,6 +74,8 @@ describe("agent prompt composer", () => {
     expect(composer).toContain("authRequiredAgentIds");
     expect(composer).toContain("data-agent-auth-required");
     expect(composer).toContain('t("composer.authRequired")');
+    expect(composerFile).toContain("attachments.files.length");
+    expect(composerFile).toContain("onDraftChange?.(");
     expect(composer).toContain("agentTablist=");
     expect(composer).toContain('orientation="vertical"');
     expect(composer).toContain("CenterStageTabList");

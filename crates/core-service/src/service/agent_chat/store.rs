@@ -361,7 +361,7 @@ impl AgentChatStore {
         if source.is_empty() {
             return self.get_meta(id);
         }
-        self.update_meta(id, |meta| {
+        self.update_meta_inner(id, false, |meta| {
             if meta
                 .source
                 .as_deref()
@@ -433,12 +433,26 @@ impl AgentChatStore {
     where
         F: FnOnce(&mut AgentChatMeta),
     {
+        self.update_meta_inner(id, true, mutate)
+    }
+
+    fn update_meta_inner<F>(
+        &self,
+        id: &str,
+        touch_updated_at: bool,
+        mutate: F,
+    ) -> Result<AgentChatMeta>
+    where
+        F: FnOnce(&mut AgentChatMeta),
+    {
         let lock = self.lock_arc(id);
         let _guard = lock.lock().expect("agent chat lock");
         let mut meta = self.get_meta_unlocked(id)?;
         self.apply_live_seq(&mut meta);
         mutate(&mut meta);
-        meta.updated_at = Utc::now();
+        if touch_updated_at {
+            meta.updated_at = Utc::now();
+        }
         self.apply_live_seq(&mut meta);
         self.write_meta(&meta)?;
         self.upsert_index(&meta)?;
@@ -4379,10 +4393,12 @@ mod tests {
     fn set_source_if_empty_backfills_without_overwriting() {
         let (_dir, store) = store();
         let unsourced = create(&store, "/tmp/old-live");
+        let before = unsourced.updated_at;
         let filled = store
             .set_source_if_empty(&unsourced.id, AGENT_CHAT_SOURCE_MD_LIVE)
             .unwrap();
         assert_eq!(filled.source.as_deref(), Some(AGENT_CHAT_SOURCE_MD_LIVE));
+        assert_eq!(filled.updated_at, before);
         let listed = store.list(AgentChatListFilter::default()).unwrap();
         assert!(listed.is_empty());
         let kept = store

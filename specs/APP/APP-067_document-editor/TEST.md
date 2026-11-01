@@ -32,6 +32,7 @@
 | M15 adapters                  | S20, S21, S22, S34      |
 | M16 streaming + Accept/Reject | S24, S27, S28, S29, S34 |
 | Bottom bar / Working          | S35, S36                |
+| M11 source / overlay UX       | S37                     |
 | M17 local FS                  | S5, S7                  |
 | M18 i18n                      | S25                     |
 | M19 Wiki unchanged            | S26                     |
@@ -74,8 +75,9 @@
 | S32      | Bun                    | helpers             | `md-live-agent-chat.ts`                   | src                 | popover bottom-right; same `instanceKey` for both placements                                   | planned |
 | S33      | Bun                    | structural          | `MdLiveAgentChat.tsx`                     | src                 | one session; popover + bar mutually exclusive; Working expand/minimize                         | planned |
 | S34      | Bun                    | edit host           | `md-live-edit-host.ts`                    | fake API            | only mutating `md_live_*` change the buffer; `fs_write` denied                                 | planned |
-| S35      | Bun                    | bar mode            | `nextMdLiveBarMode`                       | helpers             | hover → collapsed; focus/draft → focused; Working without hover stays visible; expand          | planned |
+| S35      | Bun                    | bar mode            | `nextMdLiveBarMode`                       | helpers             | hover → invite; focus/draft → focused; Working without hover stays visible; expand             | planned |
 | S36      | Bun                    | Working             | `MdLiveAgentChat.tsx`                     | src                 | Working pill `setExpanded(true)`; minimize `setExpanded(false)`                                | planned |
+| S37      | Bun                    | source + overlay    | list filter + `MdLiveAgentChat.tsx`       | src                 | `source: md-live` default-excluded; empty overlay composer-only; no Live source badge          | planned |
 | S24      | Bun + agent-browser    | Rewrite markdown    | fenced mock                               | paragraph           | stream + Accept/Reject                                                                         | planned |
 | S27      | Bun                    | text hint + Esc     | extractor + streaming                     | mock                | `outputHint: text`; Esc restores                                                               | planned |
 | S28      | Bun                    | diff + embeds       | customBlockTypes                          | card fixture        | Accept keeps `::md-live`; `mdLiveEmbedBlock` in customBlockTypes                               | planned |
@@ -244,7 +246,7 @@ Wiki setup / viewer / generate / source-toggle as today.
 
 ### S35 — One-line bar expands
 
-`nextMdLiveBarMode`: hidden by default; hover or working → `collapsed`; focus or draft → `focused`; `expanded` when the Working pill was clicked. Typing / focus with content uses the focused/expanded height.
+`nextMdLiveBarMode`: hidden by default; hover → `invite` (Message Agent capsule); working → `collapsed` status chrome; focus or draft → `focused`; `expanded` when the Working pill was clicked. Typing / focus with content uses the focused/expanded height.
 
 ### S36 — Working expand / minimize
 
@@ -252,7 +254,7 @@ Working pill (`data-md-live-working-pill`) calls `setExpanded(true)`. Minimize c
 
 ### S37 — `source: md-live` + overlay UX
 
-Create persists `source: "md-live"` on index and `AgentChatMetaWire`. `agent_chat_list` / store `list` default-exclude that source (`exclude_sources: []` includes). Empty overlay is composer-only; with content, Minimize + Pin (top-left), `+` (top-right), and a Live source badge. Unpinned click-outside docks to the bottom bar.
+Create persists `source: "md-live"` on index and `AgentChatMetaWire`. `agent_chat_list` / store `list` default-exclude that source (`exclude_sources: []` includes). Empty overlay is composer-only; with content, Minimize + Pin (top-left) and `+` (top-right). No Live source badge. Unpinned click-outside docks to the bottom bar.
 
 ## Exploratory agent-browser checks
 

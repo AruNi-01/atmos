@@ -979,6 +979,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
 
       <div
         ref={liveChromeRef}
+        data-md-live-editor-chrome=""
         className="relative flex min-h-0 w-full flex-1 flex-col overflow-hidden"
       >
         <div

@@ -55,6 +55,7 @@ describe("md-live ui chrome", () => {
     expect(editor).toContain("agentChatOpen");
     expect(editor).toContain("MD_LIVE_HIDE_SELECTION_TOOLBAR_EVENT");
     expect(editor).toContain("isMdLiveAgentPopoverOpen");
+    expect(editor).toContain('closest("[data-md-live-editor-chrome]")');
     expect(editor).toContain("mdLiveSelectionBlockKindId");
     expect(editor).toContain("mdLiveVisibleConvertIds");
     expect(editor).toContain("activeBlockId");

@@ -177,9 +177,9 @@ async function persistRequestedChatSource(
   if (!requested) return null;
   try {
     const updated = await agentChatApi.configure(chatId, { source: requested });
-    return updated.source?.trim() || requested;
+    return updated.source?.trim() || null;
   } catch {
-    return requested;
+    return null;
   }
 }
 
@@ -707,16 +707,7 @@ export function useAgentChatSession({
       if (snapshotEpoch !== snapshotEpochRef.current) return;
       if (hydrateEpoch != null && hydrateEpoch !== hydrateEpochRef.current) return;
       const meta = snapshot.meta;
-      let source = meta.source?.trim() || "";
-      if (requestedSource && !source) {
-        try {
-          const updated = await agentChatApi.configure(id, { source: requestedSource });
-          source = updated.source?.trim() || requestedSource;
-        } catch {
-          source = requestedSource;
-        }
-      }
-      setPersistedSource(source || requestedSource);
+      setPersistedSource(await persistRequestedChatSource(id, meta.source, requestedSource));
       setTitle(meta.title?.trim() || null);
       const loadedMessages = withStableAgentMessageIds(
         (snapshot.messages ?? []).map((message) => ({
@@ -1693,9 +1684,7 @@ export function useAgentChatSession({
         const id = meta.id;
         activeIdRef.current = id;
         setActiveChatId(id);
-        setPersistedSource(
-          (await persistRequestedChatSource(id, meta.source, requestedSource)) || requestedSource,
-        );
+        setPersistedSource(await persistRequestedChatSource(id, meta.source, requestedSource));
         applyDescriptor(meta.descriptor, { keepComposerChrome: true });
         setProviderIdState(meta.provider_id || registry);
         const nextTitle = meta.title?.trim() || input?.title?.trim() || null;
@@ -1786,8 +1775,7 @@ export function useAgentChatSession({
           applyDescriptor(meta.descriptor);
           setProviderIdState(meta.provider_id || registry);
           setPersistedSource(
-            (await persistRequestedChatSource(meta.id, meta.source, requestedSource)) ||
-              requestedSource,
+            await persistRequestedChatSource(meta.id, meta.source, requestedSource),
           );
           id = meta.id;
           pendingSendRef.current = { text, attachmentPaths: item.attachmentPaths ?? [] };

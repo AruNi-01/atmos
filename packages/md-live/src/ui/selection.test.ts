@@ -47,6 +47,7 @@ describe("isMdLiveAgentPopoverOpen", () => {
     };
     expect(isMdLiveAgentPopoverOpen(root)).toBe(true);
     expect(isMdLiveAgentPopoverOpen({ querySelector: () => null })).toBe(false);
+    expect(isMdLiveAgentPopoverOpen(null)).toBe(false);
   });
 });
 

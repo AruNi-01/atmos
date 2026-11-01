@@ -105,6 +105,67 @@ describe("instance-key composer inserts", () => {
       true,
     );
     expect(draft.match(/@file:\/tmp\/note\.md/g)?.length).toBe(1);
+    expect(draft.match(/\[#ctx:doc-selection:/g)?.length).toBe(1);
+    unregister();
+  });
+
+  it("routes to the exact instance suffix instead of a prefix collision", () => {
+    const mentions: string[] = [];
+    const backup = registerActiveAgentComposer(
+      "ws-1",
+      "p-1",
+      "default",
+      {
+        setDraft: () => undefined,
+        insertFileMention: (path) => {
+          mentions.push(`backup:${path}`);
+        },
+      },
+      "md-live:/tmp/note.md.backup",
+    );
+    const target = registerActiveAgentComposer(
+      "ws-1",
+      "p-1",
+      "default",
+      {
+        setDraft: () => undefined,
+        insertFileMention: (path) => {
+          mentions.push(`target:${path}`);
+        },
+      },
+      "md-live:/tmp/note.md",
+    );
+
+    expect(insertFileMentionForInstanceKey("md-live:/tmp/note.md", "/tmp/note.md")).toBe(true);
+    expect(mentions).toEqual(["target:/tmp/note.md"]);
+    backup();
+    target();
+  });
+
+  it("replaces a previous doc-selection chip instead of keeping the stale range", () => {
+    let draft = "";
+    const unregister = registerActiveAgentComposer(
+      "ws-1",
+      "p-1",
+      "default",
+      {
+        setDraft: (updater) => {
+          draft = typeof updater === "function" ? updater(draft) : updater;
+        },
+      },
+      "md-live:/tmp/note.md",
+    );
+
+    expect(prependMdLiveComposerContext("md-live:/tmp/note.md", "/tmp/note.md", "hello")).toBe(
+      true,
+    );
+    const first = draft;
+    expect(prependMdLiveComposerContext("md-live:/tmp/note.md", "/tmp/note.md", "world")).toBe(
+      true,
+    );
+    expect(draft.match(/@file:\/tmp\/note\.md/g)?.length).toBe(1);
+    expect(draft.match(/\[#ctx:doc-selection:/g)?.length).toBe(1);
+    expect(draft).not.toBe(first);
     unregister();
   });
 });

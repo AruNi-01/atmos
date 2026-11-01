@@ -34,6 +34,7 @@
 }
 
 [data-md-live-invite-hairline] {
+  overflow: visible;
   max-width: calc(100% - 1.5rem);
   /* Surface glass, not a text-colored stroke — readable on white glyphs and dark canvas. */
   background-color: color-mix(in oklch, var(--popover) 78%, var(--background) 22%);

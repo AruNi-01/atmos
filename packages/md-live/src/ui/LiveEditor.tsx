@@ -292,7 +292,7 @@ export function MdLiveEditor({
           editable: view.editable,
           editorFocused: view.hasFocus(),
           tooltipFocused: tooltipHost.contains(document.activeElement),
-          agentChatOpen: isMdLiveAgentPopoverOpen(),
+          agentChatOpen: isMdLiveAgentPopoverOpen(el.closest("[data-md-live-editor-chrome]")),
         });
         if (show) {
           renderToolbar(

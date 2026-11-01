@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 
@@ -169,7 +169,9 @@ describe("md-live structural gates", () => {
     );
     expect(session).toContain("persistRequestedChatSource");
     expect(session).toContain("chatSource: requestedSource");
-    expect(session).toContain("configure(id, { source: requestedSource })");
+    expect(session).toContain("configure(chatId, { source: requested })");
+    expect(session).toContain("return updated.source?.trim() || null");
+    expect(session).toContain("} catch {\n    return null;\n  }");
     const api = readFileSync(join(import.meta.dir, "../../../../api/ws/agent-chat-api.ts"), "utf8");
     expect(api).toContain("filterDefaultHiddenAgentChatItems");
     expect(api).toContain("input.exclude_sources");
@@ -242,6 +244,10 @@ describe("md-live structural gates", () => {
     expect(source).toContain("data-md-live-pin");
     expect(source).toContain("data-md-live-new-session");
     expect(source).toContain("minimizeToBar");
+    expect(source).toContain("overflow-visible");
+    expect(source).toContain("window.clearTimeout(timer)");
+    expect(source).toContain('selectionRef.current = ""');
+    expect(source).toContain("setFocused(false)");
     expect(source).toContain("isMdLiveAgentOverlayDismissTarget");
     expect(source).toContain("if (pinned) return");
     expect(source).toContain("prependMdLiveComposerContext");
@@ -366,9 +372,13 @@ describe("md-live structural gates", () => {
     );
     expect(bridge).toContain("applyMdLiveAgentToolToOpenDoc");
     expect(bridge).toContain("md_live_agent_dispatch");
+    expect(bridge).toContain(".catch(ignoreBridgeError)");
+    expect(bridge).toContain("reportDispatchFailure");
     const host = readFileSync(join(import.meta.dir, "../md-live-edit-host.ts"), "utf8");
     expect(host).toContain("isMdLiveMutatingTool");
     expect(host).not.toContain("fs_write");
+    expect(host).toContain("STREAM_BUSY");
+    expect(host).toContain("if (!alreadyLocked) unlockMdLiveStream(filePath)");
   });
 
   test("headless dock is unmounted as the primary Live Agent path", () => {
@@ -382,6 +392,25 @@ describe("md-live structural gates", () => {
     );
     expect(chat).not.toContain("MdLiveAgentDock");
     expect(dock).toContain("MD_LIVE_HEADLESS_PTY");
+    const srcRoot = join(import.meta.dir, "../../../../");
+    const offenders: string[] = [];
+    const stack = [srcRoot];
+    while (stack.length > 0) {
+      const dir = stack.pop()!;
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const next = join(dir, entry.name);
+        if (entry.isDirectory()) {
+          if (entry.name === "node_modules" || entry.name === "__tests__") continue;
+          stack.push(next);
+          continue;
+        }
+        if (!entry.name.endsWith(".ts") && !entry.name.endsWith(".tsx")) continue;
+        if (entry.name.endsWith(".test.ts") || entry.name.endsWith(".test.tsx")) continue;
+        if (entry.name === "MdLiveAgentDock.tsx") continue;
+        if (readFileSync(next, "utf8").includes("MdLiveAgentDock")) offenders.push(next);
+      }
+    }
+    expect(offenders).toEqual([]);
   });
 
   test("terminal grid handle is published from the frame callback ref", () => {

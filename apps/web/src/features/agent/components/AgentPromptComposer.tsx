@@ -178,6 +178,7 @@ function ComposerPromptInput({
   contextUsageOpen,
   onContextUsageOpenChange,
   promptClassName,
+  onDraftChange,
 }: {
   composerRef: React.RefObject<ComposerHandle | null>;
   onAtTrigger: (
@@ -251,6 +252,7 @@ function ComposerPromptInput({
   contextUsageOpen: boolean;
   onContextUsageOpenChange: (open: boolean) => void;
   promptClassName?: string;
+  onDraftChange?: (hasDraft: boolean) => void;
 }) {
   const t = useTranslations("Agent.components");
   const attachments = usePromptInputAttachments();
@@ -264,6 +266,12 @@ function ComposerPromptInput({
     Boolean(expandAgentComposerText(localDraft) || attachments.files.length) &&
     !composerLocked &&
     !showStop;
+
+  useEffect(() => {
+    onDraftChange?.(
+      Boolean(stripSkillDisableSession(localDraft).trim() || attachments.files.length),
+    );
+  }, [attachments.files.length, localDraft, onDraftChange]);
 
   useEffect(() => {
     if (hydratedRef.current) return;
@@ -727,10 +735,6 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
     setAgentChatDraft,
   ]);
 
-  useEffect(() => {
-    onDraftChange?.(Boolean(stripSkillDisableSession(localDraft).trim()));
-  }, [localDraft, onDraftChange]);
-
   return (
     <div
       className="shrink-0 px-3 pt-px pb-3 select-none"
@@ -902,6 +906,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
             contextUsageOpen={contextUsageOpen}
             onContextUsageOpenChange={setContextUsageOpen}
             promptClassName={promptClassName}
+            onDraftChange={onDraftChange}
           />
         </PromptInputProvider>
       </div>

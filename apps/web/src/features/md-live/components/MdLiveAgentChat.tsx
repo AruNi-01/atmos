@@ -278,12 +278,15 @@ export function MdLiveAgentChat({
   );
 
   const minimizeToBar = useCallback(() => {
+    setInviteHover(false, true);
+    setFocused(false);
     setPlacement("bottom");
     setExpanded(false);
-  }, []);
+  }, [setInviteHover]);
 
   useEffect(() => {
-    return subscribeMdLiveEditorEvents(filePath, (event) => {
+    let timer = 0;
+    const unsubscribe = subscribeMdLiveEditorEvents(filePath, (event) => {
       if (event.type === "stream-aborted") {
         restoreAndUnlockMdLiveStream(filePath, (content) => {
           useEditorStore.getState().updateFileContent(filePath, content);
@@ -292,13 +295,18 @@ export function MdLiveAgentChat({
       }
       if (event.type !== "ai-action") return;
       openPopover(event.selection);
-      window.setTimeout(() => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
         prependMdLiveComposerContext(instanceKey, filePath, event.selection);
         if (event.kind === "ask") return;
         const prompt = event.kind === "rewrite" ? mdLiveRewritePrompt() : mdLiveSummarizePrompt();
         void handleSubmitRef.current({ text: prompt });
       }, 40);
     });
+    return () => {
+      window.clearTimeout(timer);
+      unsubscribe();
+    };
   }, [filePath, instanceKey, openPopover]);
 
   useEffect(() => {
@@ -469,7 +477,14 @@ export function MdLiveAgentChat({
           data-md-live-minimize=""
           className={chromeButtonClass}
           aria-label={t("minimize")}
-          onClick={popover ? minimizeToBar : () => setExpanded(false)}
+          onClick={
+            popover
+              ? minimizeToBar
+              : () => {
+                  setFocused(false);
+                  setExpanded(false);
+                }
+          }
         >
           <Minimize2 className="size-3.5" />
         </button>
@@ -496,7 +511,10 @@ export function MdLiveAgentChat({
         data-md-live-new-session=""
         className={chromeButtonClass}
         aria-label={t("newChat")}
-        onClick={() => void session.handleCreateNewSession()}
+        onClick={() => {
+          selectionRef.current = "";
+          void session.handleCreateNewSession();
+        }}
       >
         <Plus className="size-3.5" />
       </button>
@@ -744,9 +762,10 @@ export function MdLiveAgentChat({
                     data-md-live-message-agent={paintInviteChrome ? "" : undefined}
                     aria-label={t("messageAgent")}
                     className={cn(
-                      "pointer-events-auto relative box-border inline-flex min-h-0 max-w-[calc(100%-1.5rem)] appearance-none items-center justify-center overflow-hidden rounded-full border-0 p-0 leading-none",
-                      paintInviteChrome &&
-                        "border border-border/70 text-sm text-muted-foreground shadow-sm hover:text-foreground",
+                      "pointer-events-auto relative box-border inline-flex min-h-0 max-w-[calc(100%-1.5rem)] appearance-none items-center justify-center rounded-full border-0 p-0 leading-none",
+                      paintInviteChrome
+                        ? "overflow-hidden border border-border/70 text-sm text-muted-foreground shadow-sm hover:text-foreground"
+                        : "overflow-visible",
                     )}
                     style={{ originX: 0.5, originY: 1 }}
                     initial={false}

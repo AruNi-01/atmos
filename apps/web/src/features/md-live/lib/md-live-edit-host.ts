@@ -8,6 +8,7 @@ import {
 import type { MdLiveEditorApi } from "./md-live-editor-registry";
 import { getMdLiveEditor } from "./md-live-editor-registry";
 import {
+  isMdLiveStreamLocked,
   lockMdLiveStream,
   restoreAndUnlockMdLiveStream,
   unlockMdLiveStream,
@@ -110,12 +111,14 @@ export async function applyMdLiveAgentTool(options: {
       recoverable: false,
     };
   }
+  const alreadyLocked = isMdLiveStreamLocked(filePath);
   lockMdLiveStream(filePath, api.getMarkdown());
   try {
     if (tool === "md_live_replace_document") api.selectAll();
     const insertAt = tool === "md_live_insert" ? "cursor" : "selection";
     const started = await streamMarkdownIntoLive(api, markdown, insertAt);
     if (!started) {
+      if (!alreadyLocked) unlockMdLiveStream(filePath);
       return {
         success: false,
         error_code: "STREAM_BUSY",

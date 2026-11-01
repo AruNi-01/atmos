@@ -72,7 +72,7 @@ describe("md-live chats stay off mobile lists", () => {
     const here = import.meta.dir;
     const list = readFileSync(join(here, "use-agent-chat-list.ts"), "utf8");
     const inbox = readFileSync(join(here, "../sessions/use-session-inbox.ts"), "utf8");
-    expect(list).toContain("filterDefaultHiddenAgentChatItems");
+    expect(list).toContain("filterDefaultHiddenAgentChatItems(");
     expect(inbox).toContain("filterDefaultHiddenAgentChatItems");
     expect(inbox).toContain("for (const item of filterDefaultHiddenAgentChatItems(batch))");
   });

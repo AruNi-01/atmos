@@ -207,6 +207,31 @@ describe("md-live edit host", () => {
     expect(busy.error_code).toBe("STREAM_BUSY");
     expect(api.aborted).toBe(0);
     expect(api.buffer).toBe("hello");
+    expect(isMdLiveStreamLocked(path)).toBe(false);
+    unlockMdLiveStream(path);
+  });
+
+  test("STREAM_BUSY keeps an existing review lock", async () => {
+    const path = `/tmp/busy-locked-${Date.now()}.md`;
+    const api = fakeApi("hello");
+    await applyMdLiveAgentTool({
+      api,
+      tool: "md_live_replace_selection",
+      args: { markdown: "there" },
+      filePath: path,
+      clientId: "c",
+    });
+    expect(isMdLiveStreamLocked(path)).toBe(true);
+    expect(api.startStream("selection")).toBe(true);
+    const busy = await applyMdLiveAgentTool({
+      api,
+      tool: "md_live_replace_selection",
+      args: { markdown: "nope" },
+      filePath: path,
+      clientId: "c",
+    });
+    expect(busy.error_code).toBe("STREAM_BUSY");
+    expect(isMdLiveStreamLocked(path)).toBe(true);
     unlockMdLiveStream(path);
   });
 });

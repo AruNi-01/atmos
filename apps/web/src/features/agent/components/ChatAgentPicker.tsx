@@ -107,7 +107,10 @@ export function ChatAgentPicker({
                 </span>
                 <span className="min-w-0 flex-1 truncate">{agent.name}</span>
                 {needsAuth ? (
-                  <Lock className="size-3 shrink-0 text-muted-foreground" aria-hidden />
+                  <Lock
+                    className="size-3 shrink-0 text-muted-foreground"
+                    aria-label={t("composer.authRequired")}
+                  />
                 ) : null}
                 {isSelected ? <Check className="size-3.5 shrink-0 text-primary" /> : null}
               </DropdownMenuItem>

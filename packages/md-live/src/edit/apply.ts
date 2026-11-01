@@ -36,9 +36,10 @@ export function applyMdLiveEditOp(ctx: MdLiveEditContext, op: MdLiveEditOp): str
 
 export function splitMarkdownStreamChunks(markdown: string, size = 48): string[] {
   if (markdown.length === 0) return [];
+  const chunkSize = Number.isInteger(size) && size > 0 ? size : 48;
   const chunks: string[] = [];
-  for (let i = 0; i < markdown.length; i += size) {
-    chunks.push(markdown.slice(i, i + size));
+  for (let i = 0; i < markdown.length; i += chunkSize) {
+    chunks.push(markdown.slice(i, i + chunkSize));
   }
   return chunks;
 }
