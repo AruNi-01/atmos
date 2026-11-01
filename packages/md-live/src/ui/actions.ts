@@ -2,7 +2,7 @@ import type { Ctx } from "@milkdown/kit/ctx";
 import { commandsCtx, editorViewCtx, parserCtx, serializerCtx } from "@milkdown/kit/core";
 import type { Node } from "@milkdown/kit/prose/model";
 import { Slice } from "@milkdown/kit/prose/model";
-import { TextSelection } from "@milkdown/kit/prose/state";
+import { AllSelection, TextSelection } from "@milkdown/kit/prose/state";
 import {
   insertHrCommand,
   toggleEmphasisCommand,
@@ -77,9 +77,7 @@ export function getSelectionViewportRect(ctx: Ctx): MdLiveViewportRect | null {
 
 export function selectAll(ctx: Ctx): void {
   const view = ctx.get(editorViewCtx);
-  const { doc } = view.state;
-  const next = TextSelection.create(doc, 0, doc.content.size);
-  view.dispatch(view.state.tr.setSelection(next));
+  view.dispatch(view.state.tr.setSelection(new AllSelection(view.state.doc)));
 }
 
 export function deleteSlashQuery(ctx: Ctx): void {

@@ -10,11 +10,15 @@ function fakeApi(initial = "hello world"): MdLiveStreamApi & {
   buffer: string;
   streamed: string;
   accepted: boolean;
+  aborted: number;
+  insertAt: "cursor" | "selection" | null;
 } {
   let buffer = initial;
   let streamed = "";
   let active = false;
   let accepted = false;
+  let aborted = 0;
+  let insertAt: "cursor" | "selection" | null = null;
   return {
     get buffer() {
       return buffer;
@@ -25,12 +29,19 @@ function fakeApi(initial = "hello world"): MdLiveStreamApi & {
     get accepted() {
       return accepted;
     },
+    get aborted() {
+      return aborted;
+    },
+    get insertAt() {
+      return insertAt;
+    },
     getMarkdown: () => buffer,
     getSelectionMarkdown: () => (buffer.includes("world") ? "world" : ""),
     selectAll: () => undefined,
-    startStream: () => {
+    startStream: (next) => {
       if (active) return false;
       active = true;
+      insertAt = next;
       streamed = "";
       return true;
     },
@@ -42,6 +53,7 @@ function fakeApi(initial = "hello world"): MdLiveStreamApi & {
       active = false;
     },
     abortStream: () => {
+      aborted += 1;
       active = false;
       streamed = "";
     },
@@ -98,6 +110,7 @@ describe("md-live edit host", () => {
       clientId: "c",
     });
     expect(inserted.success).toBe(true);
+    expect(api.insertAt).toBe("cursor");
     expect(api.buffer).toBe(" beta");
 
     const replaced = await applyMdLiveAgentTool({
@@ -146,6 +159,54 @@ describe("md-live edit host", () => {
     });
     expect(restored).toBe("hello world");
     expect(isMdLiveStreamLocked(path)).toBe(false);
+    unlockMdLiveStream(path);
+  });
+
+  test("keeps the first rollback snapshot across later mutating tools", async () => {
+    const path = `/tmp/snap-${Date.now()}.md`;
+    const api = fakeApi("original");
+    await applyMdLiveAgentTool({
+      api,
+      tool: "md_live_replace_document",
+      args: { markdown: "first" },
+      filePath: path,
+      clientId: "c",
+    });
+    await applyMdLiveAgentTool({
+      api,
+      tool: "md_live_replace_document",
+      args: { markdown: "second" },
+      filePath: path,
+      clientId: "c",
+    });
+    let restored: string | null = null;
+    finishMdLiveEditReview({
+      filePath: path,
+      accept: false,
+      api,
+      write: (content) => {
+        restored = content;
+      },
+    });
+    expect(restored).toBe("original");
+    unlockMdLiveStream(path);
+  });
+
+  test("does not abort an active stream when startStream is busy", async () => {
+    const path = `/tmp/busy-${Date.now()}.md`;
+    const api = fakeApi("hello");
+    api.startStream("selection");
+    const busy = await applyMdLiveAgentTool({
+      api,
+      tool: "md_live_replace_selection",
+      args: { markdown: "nope" },
+      filePath: path,
+      clientId: "c",
+    });
+    expect(busy.success).toBe(false);
+    expect(busy.error_code).toBe("STREAM_BUSY");
+    expect(api.aborted).toBe(0);
+    expect(api.buffer).toBe("hello");
     unlockMdLiveStream(path);
   });
 });

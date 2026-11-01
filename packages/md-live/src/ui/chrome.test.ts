@@ -132,6 +132,8 @@ describe("md-live ui chrome", () => {
     expect(types).toContain("focus: (options?: { caret?: MdLiveFocusCaret }) => void");
     expect(types).toContain("getSelectionViewportRect");
     expect(types).toContain("selectAll");
+    expect(actions).toContain("AllSelection");
+    expect(actions).not.toContain("TextSelection.create(doc, 0, doc.content.size)");
     expect(MD_LIVE_COPY_EN.toolbarAsk).toBe("Chat");
     const selection = readFileSync(join(here, "selection.ts"), "utf8");
     expect(selection).toContain("[data-md-live-agent-chat]");

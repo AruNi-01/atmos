@@ -53,10 +53,7 @@ export async function streamMarkdownIntoLive(
   markdown: string,
   insertAt: "cursor" | "selection",
 ): Promise<boolean> {
-  if (!api.startStream(insertAt)) {
-    api.abortStream(false);
-    if (!api.startStream(insertAt)) return false;
-  }
+  if (!api.startStream(insertAt)) return false;
   for (const chunk of splitMarkdownStreamChunks(markdown)) {
     api.pushChunk(chunk);
     await new Promise<void>((resolve) => {
@@ -119,7 +116,6 @@ export async function applyMdLiveAgentTool(options: {
     const insertAt = tool === "md_live_insert" ? "cursor" : "selection";
     const started = await streamMarkdownIntoLive(api, markdown, insertAt);
     if (!started) {
-      unlockMdLiveStream(filePath);
       return {
         success: false,
         error_code: "STREAM_BUSY",

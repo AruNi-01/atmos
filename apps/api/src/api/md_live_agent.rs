@@ -5,7 +5,7 @@
 //! Live markdown tab over `/ws` and waits for the result. Same category
 //! as `/api/canvas/agent/invoke` and `/api/pt-design/agent/invoke`.
 
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use axum::{
     extract::State,
@@ -181,6 +181,8 @@ pub async fn invoke(
     };
 
     let timeout = core_service::CanvasAgentRelay::clamp_timeout(timeout_ms);
+    let deadline = Instant::now() + timeout;
+    let remaining = || deadline.saturating_duration_since(Instant::now());
     let rx = match relay.begin_pending(&request_id, &conn_id) {
         Ok(rx) => rx,
         Err(_) => {
@@ -206,25 +208,43 @@ pub async fn invoke(
 
     let manager = state.ws_service.manager();
     let message = WsMessage::notification(WsEvent::MdLiveAgentDispatch, dispatch_payload);
-    if let Err(err) = manager.send_to(&conn_id, &message).await {
-        relay.cancel_pending(&request_id);
-        tracing::warn!(
-            "md_live_agent: failed to deliver dispatch to conn {}: {}",
-            conn_id,
-            err
-        );
-        return error_resp(
-            &request_id,
-            StatusCode::SERVICE_UNAVAILABLE,
-            MdLiveAgentInvokeError::new(
-                "MD_LIVE_BRIDGE_OFFLINE",
-                "Live markdown tab disconnected before the tool could be delivered.",
-                true,
-            ),
-        );
+    match tokio::time::timeout(remaining(), manager.send_to(&conn_id, &message)).await {
+        Ok(Ok(())) => {}
+        Ok(Err(err)) => {
+            relay.cancel_pending(&request_id);
+            tracing::warn!(
+                "md_live_agent: failed to deliver dispatch to conn {}: {}",
+                conn_id,
+                err
+            );
+            return error_resp(
+                &request_id,
+                StatusCode::SERVICE_UNAVAILABLE,
+                MdLiveAgentInvokeError::new(
+                    "MD_LIVE_BRIDGE_OFFLINE",
+                    "Live markdown tab disconnected before the tool could be delivered.",
+                    true,
+                ),
+            );
+        }
+        Err(_) => {
+            relay.cancel_pending(&request_id);
+            return error_resp(
+                &request_id,
+                StatusCode::GATEWAY_TIMEOUT,
+                MdLiveAgentInvokeError::new(
+                    "RELAY_TIMEOUT",
+                    format!(
+                        "Live markdown tab did not accept dispatch within {:?}",
+                        Duration::from_millis(timeout.as_millis() as u64)
+                    ),
+                    true,
+                ),
+            );
+        }
     }
 
-    match tokio::time::timeout(timeout, rx).await {
+    match tokio::time::timeout(remaining(), rx).await {
         Ok(Ok(outcome)) => {
             if outcome.success {
                 (
