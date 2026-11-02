@@ -73,7 +73,7 @@ export async function applyIdentityBearingComputerSettings(patch: IdentityPatch)
  */
 export async function applyRelaySessionTransport(session: RelaySessionTransport): Promise<void> {
   const store = useAtmosComputerStore.getState();
-  const nextE2ee = session.relayE2ee === undefined ? store.relayE2ee : session.relayE2ee;
+  const nextE2ee = session.relayE2ee ?? null;
   const changed =
     store.relayWebSocketUrl !== session.relayWebSocketUrl ||
     store.relayGatewayHttpBase !== session.relayGatewayHttpBase ||

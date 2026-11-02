@@ -1,5 +1,6 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, test } from "bun:test";
+import { encodeB64Url, generateX25519KeyPair, RELAY_E2EE_ALG } from "@atmos/relay-client";
 import { TerminalWsClient, type TerminalWsState } from "./terminal-ws-client";
 
 type TimerCall = {
@@ -165,5 +166,36 @@ describe("TerminalWsClient", () => {
     ).toThrow("Terminal WebSocket is not connected");
     expect(FakeTerminalWebSocket.instances[0]!.sent).toEqual([]);
     expect(timers).toHaveLength(1);
+  });
+
+  test("seals terminal frames when hop E2EE is offered", () => {
+    FakeTerminalWebSocket.instances = [];
+    const pk = encodeB64Url(generateX25519KeyPair().publicKey);
+    const client = new TerminalWsClient("wss://relay.example/ws/terminal", {
+      WebSocketCtor: FakeTerminalWebSocket,
+      clearTimeout: () => {},
+      e2ee: { enabled: true, alg: RELAY_E2EE_ALG, static_pk: pk },
+      reconnect: false,
+      setTimeout: (callback, delayMs) => {
+        void callback;
+        void delayMs;
+        return 0 as unknown as ReturnType<typeof setTimeout>;
+      },
+    });
+
+    client.connect();
+    const raw = FakeTerminalWebSocket.instances[0]!;
+    expect(raw.url).toContain("e2ee=1");
+    expect(raw.url).toContain("e2ee_alg=x25519-chacha20poly1305");
+    expect(raw.url).toContain("eph_pk=");
+    raw.open();
+    client.send({
+      type: "terminal_input",
+      session_id: "session",
+      data: "hello-plain",
+    });
+    expect(raw.sent).toHaveLength(1);
+    expect(raw.sent[0]).not.toContain("hello-plain");
+    client.close();
   });
 });

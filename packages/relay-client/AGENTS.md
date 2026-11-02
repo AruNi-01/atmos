@@ -56,7 +56,7 @@ createClientSession → gateway_url + client_token
 
 `apps/web/src/api/relay.ts` owns gateway `/api/system/*` helpers. Keep them out of `@atmos/relay-client`.
 
-`createClientSession` may include `e2ee: { enabled, alg, static_pk }` (Computer static X25519 public key). Wrap gateway `fetch` with `createGatewayFetch({ staticPk })` so HTTP bodies are sealed **before** they reach Relay. Encrypt only when that offer is present. Routing stays plaintext; only chunk `body` is AEAD. The static secret never belongs in this package or a public frontend build. QR/link pubkey is not implemented here.
+`createClientSession` may include `e2ee: { enabled, alg, static_pk }` (Computer static X25519 public key). Wrap gateway `fetch` with `createGatewayFetch({ staticPk })` and Relay app/terminal sockets with `attachRelayFrameE2ee` so bodies are sealed **before** they reach Relay. Encrypt only when that offer is present. Routing stays plaintext. The static secret never belongs in this package or a public frontend build. Trust is Hub-mediated TOFU, not an independent pin.
 
 ## Adding a Relay control-plane route (same PR as `packages/relay`)
 

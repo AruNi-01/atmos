@@ -1,7 +1,12 @@
 "use client";
 
+import type { WebSocketLike } from "@atmos/api-client/platform";
 import { createWsSession, type WsSession } from "@atmos/api-client/ws";
-import { isPlausibleDeviceCredential } from "@atmos/relay-client";
+import {
+  attachRelayFrameE2ee,
+  isPlausibleDeviceCredential,
+  type RelayE2eeOffer,
+} from "@atmos/relay-client";
 import type { TokenUsageOverviewResponse } from "@/api/ws/token-usage-api";
 import { getWebRelayClient } from "@/features/connection/lib/create-web-relay-client";
 import { workbenchRelayClientKind } from "@/features/connection/lib/workbench-relay-client-kind";
@@ -16,8 +21,11 @@ export type RemoteTokenUsageSession = Pick<
 >;
 
 export type FetchRemoteTokenUsageDeps = {
-  createClientSession: (serverId: string) => Promise<{ ws_url: string }>;
-  openSession: (wsUrl: string) => RemoteTokenUsageSession;
+  createClientSession: (serverId: string) => Promise<{
+    ws_url: string;
+    e2ee?: RelayE2eeOffer;
+  }>;
+  openSession: (wsUrl: string, e2ee?: RelayE2eeOffer) => RemoteTokenUsageSession;
 };
 
 export async function fetchRemoteTokenUsageOverview(
@@ -30,7 +38,7 @@ export async function fetchRemoteTokenUsageOverview(
   }
 
   const sessionInfo = await deps.createClientSession(trimmed);
-  const session = deps.openSession(sessionInfo.ws_url);
+  const session = deps.openSession(sessionInfo.ws_url, sessionInfo.e2ee);
   try {
     await session.waitUntilConnected(REMOTE_TOKEN_USAGE_CONNECT_WAIT_MS);
     return await session.request(
@@ -51,17 +59,25 @@ export async function fetchRemoteTokenUsageOverview(
   }
 }
 
-function browserWsPlatform() {
+function browserWsPlatform(e2ee?: RelayE2eeOffer) {
   return {
     createWebSocket: (url: string) =>
-      new WebSocket(url) as unknown as import("@atmos/api-client/platform").WebSocketLike,
+      attachRelayFrameE2ee(
+        (next) => new WebSocket(next) as unknown as WebSocketLike,
+        url,
+        e2ee,
+        "app",
+      ),
   };
 }
 
-export function openRemoteTokenUsageSession(wsUrl: string): RemoteTokenUsageSession {
+export function openRemoteTokenUsageSession(
+  wsUrl: string,
+  e2ee?: RelayE2eeOffer,
+): RemoteTokenUsageSession {
   return createWsSession({
     url: wsUrl,
-    platform: browserWsPlatform(),
+    platform: browserWsPlatform(e2ee),
     reconnect: { enabled: false, maxAttempts: 0, exhausted: { type: "stop" } },
     requestTimeoutMs: REMOTE_TOKEN_USAGE_REQUEST_TIMEOUT_MS,
     connectWaitMs: REMOTE_TOKEN_USAGE_CONNECT_WAIT_MS,
@@ -84,7 +100,7 @@ export async function fetchRemoteTokenUsageOverviewFromRelay(
       })
         .withDeviceCredential(credential)
         .createClientSession(id, { clientKind: workbenchRelayClientKind() });
-      return { ws_url: session.ws_url };
+      return { ws_url: session.ws_url, e2ee: session.e2ee };
     },
     openSession: openRemoteTokenUsageSession,
   });

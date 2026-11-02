@@ -35,8 +35,9 @@ export type ClientSessionResponse = {
   /** Present from current Relay; derived from `ws_url` when older deployments omit it. */
   terminal_ws_url: string;
   /**
-   * Computer static X25519 public key when both ends support HTTP E2EE.
-   * Omitted on older Relays and Computers that have not advertised (plaintext hop).
+   * Computer static X25519 public key when both ends support hop E2EE
+   * (HTTP chunks + app/terminal frames). Omitted on older Relays and
+   * Computers that have not advertised (plaintext hop). Hub-mediated TOFU.
    */
   e2ee?: RelayE2eeOffer;
 };

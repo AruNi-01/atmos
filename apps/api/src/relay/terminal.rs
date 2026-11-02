@@ -13,6 +13,7 @@ use tokio_tungstenite::tungstenite::Message;
 use tracing::{debug, error, warn};
 
 use crate::app_state::AppState;
+use crate::relay::frame_e2ee::{self, FrameE2eeSessions};
 
 pub type TerminalRelaySessions = RwLock<HashMap<String, RelayTerminalSession>>;
 
@@ -80,6 +81,7 @@ pub async fn handle_terminal_frame(
     sid: &str,
     body: &str,
     relay_out: &mpsc::UnboundedSender<Message>,
+    frame_e2ee: &FrameE2eeSessions,
 ) {
     let parsed = match serde_json::from_str::<RelayTerminalClientMessage>(body) {
         Ok(message) => message,
@@ -92,6 +94,7 @@ pub async fn handle_terminal_frame(
                     session_id: None,
                     error: "invalid_terminal_frame".to_string(),
                 },
+                frame_e2ee,
             );
             return;
         }
@@ -118,6 +121,7 @@ pub async fn handle_terminal_frame(
                 sessions,
                 sid,
                 relay_out,
+                frame_e2ee,
                 TerminalOpenConfig {
                     session_id,
                     workspace_id,
@@ -138,12 +142,24 @@ pub async fn handle_terminal_frame(
         }
         RelayTerminalClientMessage::TerminalInput { session_id, data } => {
             if let Err(error) = state.terminal_service.send_input(&session_id, &data).await {
-                send_terminal_error(relay_out, sid, Some(session_id), error.to_string());
+                send_terminal_error(
+                    relay_out,
+                    sid,
+                    frame_e2ee,
+                    Some(session_id),
+                    error.to_string(),
+                );
             }
         }
         RelayTerminalClientMessage::TerminalEnter { session_id } => {
             if let Err(error) = state.terminal_service.send_enter(&session_id).await {
-                send_terminal_error(relay_out, sid, Some(session_id), error.to_string());
+                send_terminal_error(
+                    relay_out,
+                    sid,
+                    frame_e2ee,
+                    Some(session_id),
+                    error.to_string(),
+                );
             }
         }
         RelayTerminalClientMessage::TerminalReport { session_id, data } => {
@@ -152,7 +168,13 @@ pub async fn handle_terminal_frame(
                 .send_terminal_report(&session_id, &data)
                 .await
             {
-                send_terminal_error(relay_out, sid, Some(session_id), error.to_string());
+                send_terminal_error(
+                    relay_out,
+                    sid,
+                    frame_e2ee,
+                    Some(session_id),
+                    error.to_string(),
+                );
             }
         }
         RelayTerminalClientMessage::TerminalResize {
@@ -161,14 +183,38 @@ pub async fn handle_terminal_frame(
             rows,
         } => {
             if let Err(error) = state.terminal_service.resize(&session_id, cols, rows).await {
-                send_terminal_error(relay_out, sid, Some(session_id), error.to_string());
+                send_terminal_error(
+                    relay_out,
+                    sid,
+                    frame_e2ee,
+                    Some(session_id),
+                    error.to_string(),
+                );
             }
         }
         RelayTerminalClientMessage::TerminalClose { session_id } => {
-            close_terminal(state, sessions, sid, relay_out, &session_id, false).await;
+            close_terminal(
+                state,
+                sessions,
+                sid,
+                relay_out,
+                frame_e2ee,
+                &session_id,
+                false,
+            )
+            .await;
         }
         RelayTerminalClientMessage::TerminalDestroy { session_id } => {
-            close_terminal(state, sessions, sid, relay_out, &session_id, true).await;
+            close_terminal(
+                state,
+                sessions,
+                sid,
+                relay_out,
+                frame_e2ee,
+                &session_id,
+                true,
+            )
+            .await;
         }
     }
 }
@@ -223,6 +269,7 @@ async fn open_terminal(
     sessions: &TerminalRelaySessions,
     sid: &str,
     relay_out: &mpsc::UnboundedSender<Message>,
+    frame_e2ee: &FrameE2eeSessions,
     config: TerminalOpenConfig,
 ) {
     handle_terminal_client_close(state, sessions, sid).await;
@@ -315,7 +362,13 @@ async fn open_terminal(
         Ok(value) => value,
         Err(error) => {
             error!(target: "atmos_relay", error = %error, "terminal relay open failed");
-            send_terminal_error(relay_out, sid, Some(session_id), error.to_string());
+            send_terminal_error(
+                relay_out,
+                sid,
+                frame_e2ee,
+                Some(session_id),
+                error.to_string(),
+            );
             return;
         }
     };
@@ -333,18 +386,19 @@ async fn open_terminal(
             snapshot,
         }
     };
-    send_terminal_response(relay_out, sid, &opened);
+    send_terminal_response(relay_out, sid, &opened, frame_e2ee);
 
     let relay_out_clone = relay_out.clone();
     let sid_for_task = sid.to_string();
     let session_id_for_task = session_id.clone();
+    let frame_e2ee = std::sync::Arc::clone(frame_e2ee);
     let output_task = tokio::spawn(async move {
         while let Some(data) = output_rx.recv().await {
             if data.is_empty() {
                 continue;
             }
             let response = relay_terminal_output(&session_id_for_task, &data);
-            send_terminal_response_to_sid(&relay_out_clone, &sid_for_task, &response);
+            send_terminal_response_to_sid(&relay_out_clone, &sid_for_task, &response, &frame_e2ee);
         }
     });
 
@@ -364,6 +418,7 @@ async fn close_terminal(
     sessions: &TerminalRelaySessions,
     sid: &str,
     relay_out: &mpsc::UnboundedSender<Message>,
+    frame_e2ee: &FrameE2eeSessions,
     session_id: &str,
     destroy: bool,
 ) {
@@ -387,6 +442,7 @@ async fn close_terminal(
         send_terminal_error(
             relay_out,
             sid,
+            frame_e2ee,
             Some(session_id.to_string()),
             error.to_string(),
         );
@@ -402,12 +458,13 @@ async fn close_terminal(
             session_id: session_id.to_string(),
         }
     };
-    send_terminal_response(relay_out, sid, &response);
+    send_terminal_response(relay_out, sid, &response, frame_e2ee);
 }
 
 fn send_terminal_error(
     relay_out: &mpsc::UnboundedSender<Message>,
     sid: &str,
+    frame_e2ee: &FrameE2eeSessions,
     session_id: Option<String>,
     error: String,
 ) {
@@ -415,6 +472,7 @@ fn send_terminal_error(
         relay_out,
         sid,
         &TerminalResponse::TerminalError { session_id, error },
+        frame_e2ee,
     );
 }
 
@@ -422,28 +480,21 @@ fn send_terminal_response<T: Serialize>(
     relay_out: &mpsc::UnboundedSender<Message>,
     sid: &str,
     response: &T,
+    frame_e2ee: &FrameE2eeSessions,
 ) {
-    send_terminal_response_to_sid(relay_out, sid, response);
+    send_terminal_response_to_sid(relay_out, sid, response, frame_e2ee);
 }
 
 fn send_terminal_response_to_sid<T: Serialize>(
     relay_out: &mpsc::UnboundedSender<Message>,
     sid: &str,
     response: &T,
+    frame_e2ee: &FrameE2eeSessions,
 ) {
     let Ok(body) = serde_json::to_string(response) else {
         return;
     };
-    let outbound = serde_json::json!({
-        "v": 1_u32,
-        "stream": "terminal",
-        "kind": "frame",
-        "from": "server",
-        "to": format!("client:{sid}"),
-        "body": body,
-    })
-    .to_string();
-    let _ = relay_out.send(Message::Text(outbound));
+    frame_e2ee::emit_frame(relay_out, frame_e2ee, sid, "terminal", body);
 }
 
 fn relay_terminal_output(session_id: &str, data: &[u8]) -> RelayTerminalServerMessage {
@@ -477,6 +528,7 @@ mod tests {
             &TerminalResponse::TerminalClosed {
                 session_id: "session-1".to_string(),
             },
+            &frame_e2ee::new_session_map(),
         );
 
         let message = rx.try_recv().expect("terminal envelope");

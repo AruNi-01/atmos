@@ -173,6 +173,7 @@ export function useNewChat(scopeId: string) {
               chatId,
               localPath: resolved.cwd || ".",
               photos: photos ?? [],
+              e2ee: session.e2ee,
             });
             paths.push(...uploaded);
           } catch (err) {

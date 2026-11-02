@@ -1,5 +1,6 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, test } from "bun:test";
+import { encodeB64Url, generateX25519KeyPair, RELAY_E2EE_ALG } from "@atmos/relay-client";
 import { MobileWsClient, type MobileWsState } from "./mobile-ws-client";
 
 type TimerCall = {
@@ -174,6 +175,22 @@ describe("MobileWsClient", () => {
     expect(FakeMobileWebSocket.instances).toHaveLength(2);
     FakeMobileWebSocket.instances[1]!.open();
     expect(client.state).toBe("open");
+  });
+
+  test("appends e2ee query when hop E2EE is offered", () => {
+    FakeMobileWebSocket.instances = [];
+    const pk = encodeB64Url(generateX25519KeyPair().publicKey);
+    const client = new MobileWsClient("wss://relay.example/ws/client", {
+      WebSocketCtor: FakeMobileWebSocket,
+      e2ee: { enabled: true, alg: RELAY_E2EE_ALG, static_pk: pk },
+      reconnect: false,
+      heartbeatIntervalMs: 0,
+    });
+    client.connect();
+    const raw = FakeMobileWebSocket.instances[0]!;
+    expect(raw.url).toContain("e2ee=1");
+    expect(raw.url).toContain("eph_pk=");
+    client.close();
   });
 
   test("slow-retries after the fast attempt limit instead of giving up", () => {

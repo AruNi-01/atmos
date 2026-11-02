@@ -13,6 +13,8 @@ import {
   type ConnectionState as KernelState,
   type WsSession,
 } from "@atmos/api-client/ws";
+import type { WebSocketLike } from "@atmos/api-client/platform";
+import { attachRelayFrameE2ee } from "@atmos/relay-client";
 import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-store";
 import { syncClientSessionFromStore } from "@/features/connection/lib/sync-client-session";
 import { ensureComputerClientSettingsHydrated } from "@/features/connection/lib/sync-computer-client-settings";
@@ -189,7 +191,12 @@ function ensureSession(): WsSession {
     url: () => latestUrl,
     platform: {
       createWebSocket: (url) =>
-        new WebSocket(url) as unknown as import("@atmos/api-client/platform").WebSocketLike,
+        attachRelayFrameE2ee(
+          (next) => new WebSocket(next) as unknown as WebSocketLike,
+          url,
+          useAtmosComputerStore.getState().relayE2ee,
+          "app",
+        ),
       log: (level, msg, meta) => {
         if (level === "error") {
           console.error("[WebSocket]", msg, meta ?? "");

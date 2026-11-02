@@ -1,4 +1,4 @@
-import { createGatewayFetch } from "@atmos/relay-client";
+import { createGatewayFetch, relayE2eeCsprngAvailable } from "@atmos/relay-client";
 import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-store";
 
 function requestHref(input: RequestInfo | URL): string {
@@ -20,6 +20,7 @@ export function computerFetch(input: RequestInfo | URL, init?: RequestInit): Pro
     computer.connectionMode === "relay" &&
     computer.relayE2ee?.enabled &&
     computer.relayE2ee.static_pk &&
+    relayE2eeCsprngAvailable() &&
     gateway.length > 0 &&
     href.startsWith(gateway)
   ) {

@@ -2,19 +2,26 @@ import { x25519 } from "@noble/curves/ed25519.js";
 import { describe, expect, test } from "bun:test";
 import {
   createGatewayFetch,
+  decodeB64Std,
   decodeB64Url,
   deriveRelayHttpE2eeKey,
   e2eeAad,
+  encodeB64Std,
   encodeB64Url,
   encodeLengthPrefixed,
+  frameAad,
   generateX25519KeyPair,
+  openHttpResponseRecord,
   openRecord,
   parseRelayE2eeOffer,
+  prepareRelayFrameSocket,
   readLengthPrefixedRecord,
   RELAY_E2EE_ALG,
   RELAY_E2EE_HEADER,
   RELAY_E2EE_REQUEST_ID_HEADER,
+  RelayFrameCodec,
   sealRecord,
+  sealRecordWithNonce,
 } from "./e2ee";
 
 function hex32(hex: string): Uint8Array {
@@ -56,8 +63,20 @@ describe("relay HTTP E2EE", () => {
       staticPublic: alicePk,
     });
     expect(computer).toEqual(client);
+    expect(Buffer.from(computer).toString("hex")).toBe(
+      "2087d263409ef4752e1bd67385cd6beb56a708c0f7035122e787f99713f53385",
+    );
 
     const aad = e2eeAad("req-1", 0, "request_chunk");
+    const pinned = sealRecordWithNonce(
+      client,
+      aad,
+      new TextEncoder().encode("hello-e2ee"),
+      new Uint8Array(12),
+    );
+    expect(Buffer.from(pinned).toString("hex")).toBe(
+      "000000000000000000000000d7c9214ce28fe33bcd71a5f9e11b62a4161bd27718c0980996b6",
+    );
     const sealed = sealRecord(client, aad, new TextEncoder().encode("hello-e2ee"));
     expect(new TextDecoder().decode(openRecord(computer, aad, sealed))).toBe("hello-e2ee");
     expect(() => openRecord(computer, e2eeAad("req-1", 1, "request_chunk"), sealed)).toThrow(
@@ -105,9 +124,15 @@ describe("relay HTTP E2EE", () => {
         });
         expect(plain).toEqual(payload);
 
-        const reply = encodeLengthPrefixed(
+        const chunk = encodeLengthPrefixed(
           sealRecord(key, e2eeAad(requestId!, 0, "response_chunk"), payload),
         );
+        const end = encodeLengthPrefixed(
+          sealRecord(key, e2eeAad(requestId!, 1, "response_end"), new Uint8Array(0)),
+        );
+        const reply = new Uint8Array(chunk.byteLength + end.byteLength);
+        reply.set(chunk, 0);
+        reply.set(end, chunk.byteLength);
         return new Response(reply, {
           status: 200,
           headers: {
@@ -165,5 +190,87 @@ describe("relay HTTP E2EE", () => {
     const response = await wrapped("https://relay.example/v1/computers/s/proxy/x");
     expect(response.status).toBe(503);
     await expect(response.json()).resolves.toEqual({ error: "server_offline" });
+  });
+
+  test("createGatewayFetch rejects unrecognized plaintext 4xx", async () => {
+    const computer = generateX25519KeyPair();
+    const wrapped = createGatewayFetch({
+      staticPk: computer.publicKey,
+      fetch: (async () =>
+        new Response("nope", {
+          status: 502,
+          headers: { "Content-Type": "text/plain" },
+        })) as typeof fetch,
+    });
+    await expect(wrapped("https://relay.example/v1/computers/s/proxy/x")).rejects.toMatchObject({
+      message: "e2ee_plaintext_error",
+    });
+  });
+
+  test("openHttpResponseRecord treats response_end as authenticated EOF", () => {
+    const key = generateX25519KeyPair().secretKey;
+    const end = sealRecord(key, e2eeAad("req-end", 1, "response_end"), new Uint8Array(0));
+    expect(openHttpResponseRecord(key, "req-end", 1, end).final).toBe(true);
+  });
+
+  test("seals and opens app/terminal frame bodies; plaintext when encrypt is off", () => {
+    const computer = generateX25519KeyPair();
+    const eph = generateX25519KeyPair();
+    const key = deriveRelayHttpE2eeKey({
+      localSecret: eph.secretKey,
+      peerPublic: computer.publicKey,
+      ephPublic: eph.publicKey,
+      staticPublic: computer.publicKey,
+    });
+    const ephPk = encodeB64Url(eph.publicKey);
+    const codec = new RelayFrameCodec(key, "app", ephPk);
+    const sealed = codec.sealUp('{"type":"ping"}');
+    expect(sealed).not.toContain("ping");
+    const opened = new TextDecoder().decode(
+      openRecord(key, frameAad(ephPk, "app", 0, "frame_c2s"), decodeB64Std(sealed)),
+    );
+    expect(JSON.parse(opened)).toEqual({ type: "ping" });
+
+    const s2c = encodeB64Std(
+      sealRecord(
+        key,
+        frameAad(ephPk, "terminal", 0, "frame_s2c"),
+        new TextEncoder().encode('{"type":"terminal_output"}'),
+      ),
+    );
+    const down = new RelayFrameCodec(key, "terminal", ephPk);
+    expect(JSON.parse(down.openDown(s2c))).toEqual({ type: "terminal_output" });
+
+    const offer = {
+      enabled: true as const,
+      alg: RELAY_E2EE_ALG,
+      static_pk: encodeB64Url(computer.publicKey),
+    };
+    const prepared = prepareRelayFrameSocket("wss://relay.example/ws/client?token=t", offer, "app");
+    expect(prepared.codec).toBeInstanceOf(RelayFrameCodec);
+    expect(prepared.url).toContain("e2ee=1");
+
+    const off = prepareRelayFrameSocket("wss://relay.example/ws/client?token=t", null, "app");
+    expect(off.codec).toBeNull();
+    expect(off.url).toBe("wss://relay.example/ws/client?token=t");
+
+    const local = prepareRelayFrameSocket(
+      "ws://127.0.0.1:30303/ws/terminal/abc",
+      offer,
+      "terminal",
+    );
+    expect(local.codec).toBeNull();
+  });
+
+  test("frame AAD mismatch fails closed", () => {
+    const key = new Uint8Array(32).fill(7);
+    const sealed = sealRecord(
+      key,
+      frameAad("eph", "app", 0, "frame_c2s"),
+      new TextEncoder().encode("hello"),
+    );
+    expect(() => openRecord(key, frameAad("eph", "app", 1, "frame_c2s"), sealed)).toThrow(
+      "e2ee_open_failed",
+    );
   });
 });

@@ -1,6 +1,7 @@
 //! Relay HTTP gateway — stream proxied requests against loopback `apps/api`.
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -79,6 +80,7 @@ pub struct HttpInflight {
     pub acks: SharedAckWindow,
     pub cancel: CancellationToken,
     e2ee: Option<Arc<SessionKey>>,
+    expected_request_seq: Arc<AtomicU32>,
 }
 
 fn spawn_body_admission(
@@ -168,10 +170,11 @@ pub async fn on_http_envelope(
                 Arc::clone(&session.acks),
                 session.cancel.clone(),
                 session.e2ee.clone(),
+                Arc::clone(&session.expected_request_seq),
             )
         })
     };
-    let Some((admit_tx, acks, cancel, e2ee)) = inflight else {
+    let Some((admit_tx, acks, cancel, e2ee, expected_request_seq)) = inflight else {
         return;
     };
     match kind {
@@ -191,6 +194,17 @@ pub async fn on_http_envelope(
                             cancel.cancel();
                             return;
                         };
+                        let expected = expected_request_seq.load(Ordering::SeqCst);
+                        if seq != expected {
+                            let _ = out.send(Message::Text(http_error_envelope(
+                                request_id,
+                                400,
+                                "e2ee_unexpected_seq",
+                            )));
+                            cancel.cancel();
+                            return;
+                        }
+                        expected_request_seq.store(expected.wrapping_add(1), Ordering::SeqCst);
                         match key.open(&e2ee::aad(request_id, seq, HTTP_KIND_REQUEST_CHUNK), &data)
                         {
                             Ok(plain) => plain,
@@ -317,7 +331,11 @@ async fn launch_session(
             match e2ee::session_from_eph_pk(&prelude.eph_pk) {
                 Ok(key) => Some(Arc::new(key)),
                 Err(code) => {
-                    let status = if code == "e2ee_disabled" { 403 } else { 400 };
+                    let status = match code {
+                        "e2ee_disabled" => 403,
+                        "e2ee_key_unreadable" => 500,
+                        _ => 400,
+                    };
                     let _ = out.send(Message::Text(http_error_envelope(request_id, status, code)));
                     return;
                 }
@@ -368,6 +386,7 @@ async fn launch_session(
             acks: Arc::clone(&acks),
             cancel: cancel.clone(),
             e2ee: e2ee.clone(),
+            expected_request_seq: Arc::new(AtomicU32::new(0)),
         },
     );
 
@@ -608,6 +627,19 @@ async fn run_http_stream_inner(
             .map_err(|_| "gateway_internal_error")?;
             offset = end;
         }
+    }
+
+    if let Some(key) = e2ee {
+        let seq = acks.take_slot(cancel).await.map_err(|_| "cancelled")?;
+        let payload = key.seal(&e2ee::aad(request_id, seq, HTTP_KIND_RESPONSE_END), b"")?;
+        let encoded = B64.encode(&payload);
+        out.send(Message::Text(http_envelope(
+            HTTP_KIND_RESPONSE_CHUNK,
+            request_id,
+            Some(seq),
+            Some(encoded),
+        )))
+        .map_err(|_| "gateway_internal_error")?;
     }
 
     out.send(Message::Text(http_envelope(
@@ -917,6 +949,7 @@ mod tests {
                 acks: Arc::new(AckWindow::new(8)),
                 cancel: cancel.clone(),
                 e2ee: None,
+                expected_request_seq: Arc::new(AtomicU32::new(0)),
             },
         );
 
@@ -970,6 +1003,7 @@ mod tests {
                 acks: Arc::new(AckWindow::new(8)),
                 cancel: cancel.clone(),
                 e2ee: None,
+                expected_request_seq: Arc::new(AtomicU32::new(0)),
             },
         );
         on_http_envelope(
@@ -1013,6 +1047,7 @@ mod tests {
                 acks: Arc::new(AckWindow::new(8)),
                 cancel: cancel.clone(),
                 e2ee: None,
+                expected_request_seq: Arc::new(AtomicU32::new(0)),
             },
         );
 
@@ -1528,13 +1563,20 @@ mod tests {
                 Some(HTTP_KIND_RESPONSE_CHUNK) => {
                     let chunk_seq = value["seq"].as_u64().unwrap() as u32;
                     let record = B64.decode(value["body"].as_str().unwrap()).unwrap();
-                    let plain = session
-                        .open(
-                            &e2ee::aad("req-e2ee", chunk_seq, HTTP_KIND_RESPONSE_CHUNK),
-                            &record,
-                        )
-                        .unwrap();
-                    echoed.extend_from_slice(&plain);
+                    match session.open(
+                        &e2ee::aad("req-e2ee", chunk_seq, HTTP_KIND_RESPONSE_CHUNK),
+                        &record,
+                    ) {
+                        Ok(plain) => echoed.extend_from_slice(&plain),
+                        Err(_) => {
+                            session
+                                .open(
+                                    &e2ee::aad("req-e2ee", chunk_seq, HTTP_KIND_RESPONSE_END),
+                                    &record,
+                                )
+                                .unwrap();
+                        }
+                    }
                     acks.ack(chunk_seq);
                 }
                 Some(HTTP_KIND_RESPONSE_END) => break,
@@ -1545,6 +1587,47 @@ mod tests {
         assert_eq!(status, 200);
         assert_eq!(echoed, payload);
         assert_eq!(received.load(AtomicOrdering::SeqCst), payload.len());
+
+        let sessions_seq = new_session_map();
+        let (out_seq, mut rx_seq) = mpsc::unbounded_channel();
+        launch_session(
+            &sessions_seq,
+            "req-e2ee-seq",
+            HttpRelayRequestStart {
+                method: "PUT".into(),
+                path: "/echo".into(),
+                headers: vec![],
+                body_b64: None,
+                streaming: true,
+                e2ee: Some(HttpE2eePrelude {
+                    v: 1,
+                    alg: e2ee::ALG.into(),
+                    eph_pk: eph_pk.clone(),
+                }),
+            },
+            GatewayUpstream {
+                base_url: format!("http://{addr}"),
+                local_token: None,
+            },
+            &out_seq,
+        )
+        .await;
+        let skipped = session
+            .seal(&e2ee::aad("req-e2ee-seq", 1, HTTP_KIND_REQUEST_CHUNK), b"x")
+            .unwrap();
+        on_http_envelope(
+            &sessions_seq,
+            HTTP_KIND_REQUEST_CHUNK,
+            Some("req-e2ee-seq"),
+            Some(1),
+            Some(&B64.encode(&skipped)),
+            &out_seq,
+        )
+        .await;
+        let seq_err = next_text_envelope(&mut rx_seq).await;
+        assert_eq!(seq_err["kind"], "error");
+        let seq_body: Value = serde_json::from_str(seq_err["body"].as_str().unwrap()).unwrap();
+        assert_eq!(seq_body["code"], "e2ee_unexpected_seq");
 
         let sessions_bad = new_session_map();
         let (out_bad, mut rx_bad) = mpsc::unbounded_channel();

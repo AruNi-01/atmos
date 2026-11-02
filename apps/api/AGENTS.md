@@ -21,7 +21,7 @@ apps/api/
 │   ├── main.rs              # Startup, manifest, relay spawn
 │   ├── app_state.rs         # DI container (AppState)
 │   ├── error.rs
-│   ├── relay/               # APP-016 outbound relay + register + HTTP E2EE
+│   ├── relay/               # APP-016 outbound relay + register + hop E2EE
 │   │   ├── mod.rs
 │   │   ├── ingest.rs        # Relay → WsManager injection
 │   │   └── register.rs      # ATMOS_REGISTER_TOKEN one-shot
@@ -107,7 +107,7 @@ On successful `TcpListener::bind`:
 - Use `AppState` for services.
 - Keep main-app WS TS in sync via `@atmos/api-types` (APP-048 / APP-064): when adding `WsAction` or `WsEvent`, update extract fixtures, `actions.ts` / `events.ts`, DTOs, and a **`WsContract` row** in the same change set. Recipe: [packages/api-types/AGENTS.md](../../packages/api-types/AGENTS.md). Do not add oRPC or a parallel REST path for a new interactive action.
 - When changing relay protocol, update `packages/relay` and APP-016 TECH.
-- HTTP E2EE: Computer static X25519 in `~/.atmos/credentials/relay_e2ee.json` (`ATMOS_RELAY_E2EE_PATH` override). Advertise `e2ee_caps` after `/ws/server` connect. `ATMOS_RELAY_E2EE=0` disables. Seal only HTTP chunk bodies; keep `register_token` / `server_secret` / `client_token` unchanged.
+- Hop E2EE: Computer static X25519 in `~/.atmos/credentials/relay_e2ee.json` (`ATMOS_RELAY_E2EE_PATH` override). Advertise `e2ee_caps` after `/ws/server` connect. `ATMOS_RELAY_E2EE=0` disables. Seal HTTP chunk bodies and app/terminal `kind:frame` bodies; keep `register_token` / `server_secret` / `client_token` unchanged. Trust is Hub TOFU via `client_session`, not Relay-MITM-proof.
 
 ---
 

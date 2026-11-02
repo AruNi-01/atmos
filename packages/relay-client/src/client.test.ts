@@ -108,6 +108,31 @@ describe("createRelayClient", () => {
     expect(session.e2ee).toBeUndefined();
   });
 
+  test("createClientSession fails closed on a malformed enabled E2EE offer", async () => {
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          client_token: "client-token",
+          expires_at: 1_900_000_000,
+          gateway_url: "https://relay.example/v1/computers/server/proxy",
+          ws_url: "wss://relay.example/ws/client",
+          e2ee: { enabled: true, alg: RELAY_E2EE_ALG, static_pk: "short" },
+        }),
+        { status: 200 },
+      )) as typeof fetch;
+
+    await expect(
+      createRelayClient({ baseUrl: "https://relay.example" }).createClientSession(
+        "m".repeat(32),
+        "server",
+        { clientKind: "web" },
+      ),
+    ).rejects.toMatchObject({
+      code: "invalid_client_session_response",
+      status: 502,
+    } satisfies Partial<RelayError>);
+  });
+
   test("derives terminal_ws_url from ws_url when omitted", async () => {
     globalThis.fetch = (async () =>
       new Response(

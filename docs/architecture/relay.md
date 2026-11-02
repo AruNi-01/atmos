@@ -32,27 +32,27 @@ Invariants:
 
 Every Computer-facing WebSocket frame is a JSON envelope:
 
-| Field         | Type      | Meaning                                                                                                                                                              |
-| ------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `v`           | `uint`    | Protocol version. Currently `1`.                                                                                                                                     |
-| `stream`      | `string`  | Logical substream (see below).                                                                                                                                       |
-| `kind`        | `string`  | Frame type within that stream.                                                                                                                                       |
-| `from` / `to` | `string`  | `server` or `client:<sid>`.                                                                                                                                          |
-| `request_id`  | `string?` | Correlation id. HTTP gateway keys in-flight work on this value.                                                                                                      |
-| `seq`         | `uint?`   | Chunk sequence for HTTP streaming (`0…`).                                                                                                                            |
-| `body`        | `string?` | Opaque payload. HTTP chunks store standard-base64 bytes here. When HTTP E2EE is on, those bytes are a sealed record (nonce \|\| ciphertext \|\| tag), not plaintext. |
-| `client_type` | `string?` | `web` / `desktop` / `mobile` on client app frames.                                                                                                                   |
+| Field         | Type      | Meaning                                                                                                                                                                                                                                                                       |
+| ------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `v`           | `uint`    | Protocol version. Currently `1`.                                                                                                                                                                                                                                              |
+| `stream`      | `string`  | Logical substream (see below).                                                                                                                                                                                                                                                |
+| `kind`        | `string`  | Frame type within that stream.                                                                                                                                                                                                                                                |
+| `from` / `to` | `string`  | `server` or `client:<sid>`.                                                                                                                                                                                                                                                   |
+| `request_id`  | `string?` | Correlation id. HTTP gateway keys in-flight work on this value.                                                                                                                                                                                                               |
+| `seq`         | `uint?`   | Chunk sequence for HTTP streaming (`0…`).                                                                                                                                                                                                                                     |
+| `body`        | `string?` | Encoding depends on stream/kind. HTTP chunks are standard-base64 bytes (sealed records when hop E2EE is on). HTTP start/error and system events are JSON text. App/terminal `kind:frame` bodies are raw JSON text, or standard-base64 of a sealed record when hop E2EE is on. |
+| `client_type` | `string?` | `web` / `desktop` / `mobile` on client app frames.                                                                                                                                                                                                                            |
 
 Relay does not interpret application actions inside `body`.
 
 ## Stream kinds
 
-| `stream`   | Who speaks it                          | `kind` values                                                                                                                                   | Purpose                               |
-| ---------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
-| `app`      | Client WS ↔ Computer                   | `frame`, `close`                                                                                                                                | Main application WebSocket.           |
-| `terminal` | Terminal client WS ↔ Computer          | `frame`, `close`                                                                                                                                | Terminal I/O multiplex.               |
-| `http`     | HTTP gateway ↔ Computer                | `request`, `request_chunk`, `request_end`, `response_start`, `response_chunk`, `response_end`, `ack`, `cancel`, `error`, plus legacy `response` | Proxied HTTPS to loopback `apps/api`. |
-| `system`   | Computer → Relay, and Relay → Computer | `e2ee_caps`, `external_event`, `external_event_ack`                                                                                             | Caps advertise, provider ingress.     |
+| `stream`   | Who speaks it                          | `kind` values                                                                                                                                   | Purpose                                            |
+| ---------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| `app`      | Client WS ↔ Computer                   | `frame`, `close`                                                                                                                                | Main application WebSocket.                        |
+| `terminal` | Terminal client WS ↔ Computer          | `frame`, `close`                                                                                                                                | Terminal I/O multiplex.                            |
+| `http`     | HTTP gateway ↔ Computer                | `request`, `request_chunk`, `request_end`, `response_start`, `response_chunk`, `response_end`, `ack`, `cancel`, `error`, plus legacy `response` | Proxied HTTPS to loopback `apps/api`.              |
+| `system`   | Computer → Relay, and Relay → Computer | `e2ee_caps`, `e2ee_open`, `external_event`, `external_event_ack`                                                                                | Caps advertise, frame handshake, provider ingress. |
 
 `close` on `app` / `terminal` tears down the matching virtual session on the Computer. HTTP uses `cancel` instead of `close`.
 
@@ -131,52 +131,67 @@ chunks or acks keep moving.
 Worker → ServerHub uses a 4-byte big-endian prelude length, then JSON metadata,
 then raw request bytes. That hop is not the Computer envelope.
 
-## HTTP E2EE (optional, negotiated)
+## Hop E2EE (optional, negotiated)
 
-Approved shape: Computer static X25519 public key + client ephemeral (1A),
-**only HTTP chunk `body` sealed** (2A), encrypt when both ends support **and**
-enable it (3A). Do not force encryption on a rolling deploy.
+Coverage: **HTTP chunk bodies** and **`app` / `terminal` `kind:frame` bodies**.
+Shape: Computer static X25519 public key + client ephemeral. Only those bodies
+are sealed. Encryption is on when both ends support it and enable it. Do not
+force encryption on a rolling deploy. Routing fields stay plaintext.
 
-**Trust (M1).** The Computer keeps a static X25519 secret at
-`~/.atmos/credentials/relay_e2ee.json` (mode `0600`). After the outbound
-`/ws/server` socket comes up it sends `stream: "system"` `kind: "e2ee_caps"`
-with `{ v, alg, enabled, static_pk }`. ServerHub stores **only** `static_pk` on
-`computers.e2ee_static_pk`. Clients receive that public key from the existing
-`POST /v1/computers/:id/client_sessions` response (`e2ee.enabled` + `static_pk`).
-Hub/device credential already gates that route. A QR / link-embedded pubkey is a
-later trust-on-first-use path and is **not** required to encrypt this hop.
+**Trust.** Today's pin is Hub-authenticated TOFU. The Computer keeps a static
+X25519 secret at `~/.atmos/credentials/relay_e2ee.json` (mode `0600`). After
+the outbound `/ws/server` socket comes up it sends `stream: "system"`
+`kind: "e2ee_caps"` with `{ v, alg, enabled, static_pk }`. ServerHub stores
+**only** `static_pk` on `computers.e2ee_static_pk`. Clients receive that public
+key from `POST /v1/computers/:id/client_sessions` (`e2ee.enabled` +
+`static_pk`), which already requires a Hub device credential. **This does not
+protect against an active Relay that substitutes `static_pk`.** A Relay that
+can write D1 or rewrite `client_session` can mint its own key, decrypt, and
+re-seal. Independent confirmation (QR / link-embedded pin) is a follow-up and
+is not implemented here.
 
 **Agreement and AEAD.** ECDH = client ephemeral × Computer static. HKDF-SHA256
 with IKM = shared secret, salt = `eph_pk || static_pk`, info =
-`atmos-relay-http-e2ee-v1`, 32-byte key. AEAD is ChaCha20-Poly1305. Each HTTP
-chunk is sealed independently. Record = 12-byte nonce || ciphertext || 16-byte
-tag. AAD is `{request_id}|{seq}|{kind}` with `kind` `request_chunk` or
-`response_chunk`.
+`atmos-relay-http-e2ee-v1`, 32-byte key. AEAD is ChaCha20-Poly1305. Record =
+12-byte nonce || ciphertext || 16-byte tag. HTTP AAD is
+`{request_id}|{seq}|{kind}` with `kind` `request_chunk`, `response_chunk`, or
+`response_end` (empty record, authenticated EOF). Frame AAD is
+`{eph_pk}|{stream}|{seq}|{kind}` with `kind` `frame_c2s` or `frame_s2c`.
+`stream` is `app` or `terminal`.
 
 **What stays plaintext.** Envelope routing fields (`v`, `stream`, `kind`,
 `from`, `to`, `request_id`, `seq`) and HTTP metadata (`method`, `path`,
 `status`, `headers`, `ack`, `cancel`, `request` / `response_start` /
 `request_end` / `response_end`) stay readable so Relay can route, apply the
-unacked window, and cancel. ServerHub never holds the session key. The client
-seals before `fetch` to `/v1/computers/:id/proxy/*` (headers `X-Atmos-E2EE`,
-`X-Atmos-E2EE-Alg`, `X-Atmos-E2EE-Request-Id`, `X-Atmos-E2EE-Eph-Pk`). The edge
-copies those into the prelude, strips them from forwarded loopback headers, and
-pumps length-prefixed records as `request_chunk` bodies. The Computer opens,
-talks to loopback in plaintext, then seals `response_chunk` records. The Worker
-length-prefixes those onto the HTTPS response and sets `X-Atmos-E2EE: 1`.
+unacked window, and cancel. ServerHub never holds the session key.
+
+**HTTP.** The client seals before `fetch` to `/v1/computers/:id/proxy/*`
+(headers `X-Atmos-E2EE`, `X-Atmos-E2EE-Alg`, `X-Atmos-E2EE-Request-Id`,
+`X-Atmos-E2EE-Eph-Pk`). CORS preflight allows those headers. The edge copies
+them into the prelude only when D1 has a static pk (else `409 e2ee_unavailable`),
+strips them from forwarded loopback headers, and pumps length-prefixed records
+as `request_chunk` bodies. The Computer opens, talks to loopback in plaintext,
+then seals `response_chunk` records plus a final `response_end` record. The
+Worker length-prefixes those onto the HTTPS response and sets `X-Atmos-E2EE: 1`.
+
+**App / terminal frames.** Client WebSocket payloads are the envelope `body`
+(the Worker wraps them). When E2EE is on, that body is standard-base64 of a
+sealed record, not JSON. Query params on `/ws/client` and `/ws/terminal`:
+`e2ee=1`, `e2ee_alg`, `eph_pk`. The Worker forwards those only if D1 has a
+static pk; Hub sends `kind: e2ee_open` to the Computer (never decrypts).
+Terminal binary I/O stays inside JSON as `data_b64`; the sealed unit is the
+UTF-8 JSON text. Local Computer `/ws/terminal/:id` is not this hop.
 
 **Negotiation.** Encrypt only when the Computer advertised a key **and** the
-client offered the hop headers. Omit either side and the hop stays legacy
-plaintext. Computer env `ATMOS_RELAY_E2EE=0` (or `false` / `off` / `no`)
-advertises `enabled: false`, clears D1 `static_pk`, and rejects incoming e2ee
-(`e2ee_disabled`). A client that offered e2ee **fails closed** on a 2xx
-plaintext body (`e2ee_missing_on_response`). Worker 4xx/5xx JSON
-(`server_offline`, `invalid_e2ee`, …) stays readable. Keying is orthogonal to
-`register_token` / `server_secret` / `client_token`. The static secret is never
-placed in public frontend builds.
-
-**This slice.** HTTP gateway hop only. `app` / `terminal` `kind: "frame"` bodies
-are still opaque-to-Relay JSON and are **not** AEAD-wrapped here.
+client offered the hop (`X-Atmos-E2EE*` or WS `e2ee=1`). Omit either side and
+the hop stays legacy plaintext. Computer env `ATMOS_RELAY_E2EE=0` (or `false`
+/ `off` / `no`) advertises `enabled: false`, clears D1 `static_pk`, and
+rejects incoming e2ee (`e2ee_disabled`). A client that offered HTTP e2ee
+**fails closed** on a 2xx plaintext body (`e2ee_missing_on_response`). Worker
+JSON errors (`server_offline`, `invalid_e2ee`, `e2ee_unavailable`, …) stay
+readable. Hub-originated `relay_ctrl` stays plaintext JSON. Keying is
+orthogonal to `register_token` / `server_secret` / `client_token`. The static
+secret is never placed in public frontend builds.
 
 ## Optional ServerHub placement hint
 
@@ -207,5 +222,6 @@ mirrors Hub/D1 is out of scope.
 
 ## Follow-up (not this protocol)
 
-QR / link-embedded Computer pubkey as an alternate trust path. AEAD on `app` /
-`terminal` frames. Org permissions, audit, and quotas.
+QR / link-embedded Computer pubkey as an independent pin (today's TOFU is
+Hub-mediated via `client_session` and is not Relay-MITM-proof). Org
+permissions, audit, and quotas.

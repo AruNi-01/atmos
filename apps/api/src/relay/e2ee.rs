@@ -1,7 +1,8 @@
-//! Relay HTTP gateway E2EE: Computer static X25519 + ChaCha20-Poly1305.
+//! Relay hop E2EE: Computer static X25519 + ChaCha20-Poly1305.
 //!
-//! Routing fields stay plaintext. Only HTTP chunk `body` bytes are sealed.
-//! Orthogonal to `register_token` / `server_secret` / `client_token`.
+//! Routing fields stay plaintext. HTTP chunk bodies and app/terminal
+//! `kind:frame` bodies are sealed. Orthogonal to `register_token` /
+//! `server_secret` / `client_token`.
 
 use std::fs;
 use std::io::Write;
@@ -119,6 +120,30 @@ impl SessionKey {
             )
             .map_err(|_| "e2ee_open_failed")
     }
+
+    #[cfg(test)]
+    pub fn seal_with_nonce(
+        &self,
+        aad: &[u8],
+        plaintext: &[u8],
+        nonce_bytes: [u8; NONCE_LEN],
+    ) -> Result<Vec<u8>, &'static str> {
+        let cipher = ChaCha20Poly1305::new_from_slice(&self.key).map_err(|_| "e2ee_key")?;
+        let nonce = Nonce::from(nonce_bytes);
+        let ciphertext = cipher
+            .encrypt(
+                &nonce,
+                Payload {
+                    msg: plaintext,
+                    aad,
+                },
+            )
+            .map_err(|_| "e2ee_seal_failed")?;
+        let mut out = Vec::with_capacity(NONCE_LEN + ciphertext.len());
+        out.extend_from_slice(&nonce_bytes);
+        out.extend_from_slice(&ciphertext);
+        Ok(out)
+    }
 }
 
 pub fn aad(request_id: &str, seq: u32, kind: &str) -> Vec<u8> {
@@ -160,27 +185,29 @@ pub fn load_or_create_static_key() -> Result<StaticKey, String> {
     Ok(StaticKey { secret, public })
 }
 
-pub fn advertise_caps_body() -> Option<String> {
+fn disabled_caps_body() -> String {
+    serde_json::json!({
+        "v": VERSION,
+        "alg": ALG,
+        "enabled": false,
+    })
+    .to_string()
+}
+
+pub fn advertise_caps_body() -> String {
     if !e2ee_enabled() {
-        return Some(
-            serde_json::json!({
-                "v": VERSION,
-                "alg": ALG,
-                "enabled": false,
-            })
-            .to_string(),
-        );
+        return disabled_caps_body();
     }
-    let key = load_or_create_static_key().ok()?;
-    Some(
-        serde_json::json!({
+    match load_or_create_static_key() {
+        Ok(key) => serde_json::json!({
             "v": VERSION,
             "alg": ALG,
             "enabled": true,
             "static_pk": key.public_b64(),
         })
         .to_string(),
-    )
+        Err(_) => disabled_caps_body(),
+    }
 }
 
 pub fn session_from_eph_pk(eph_pk_b64: &str) -> Result<SessionKey, &'static str> {
@@ -351,6 +378,10 @@ mod tests {
         let from_client =
             SessionKey::derive_from_eph(&bob_sk, &bob_pk, alice_pk.as_bytes()).unwrap();
         assert_eq!(from_computer.key, from_client.key);
+        assert_eq!(
+            hex32_str(&from_computer.key),
+            "2087d263409ef4752e1bd67385cd6beb56a708c0f7035122e787f99713f53385"
+        );
 
         let aad0 = aad("req-1", 0, "request_chunk");
         let sealed = from_client.seal(&aad0, b"hello-e2ee").unwrap();
@@ -360,6 +391,18 @@ mod tests {
             .open(&aad("req-1", 1, "request_chunk"), &sealed)
             .is_err());
         assert!(from_computer.open(&aad0, &sealed[..10]).is_err());
+
+        let pinned = from_client
+            .seal_with_nonce(&aad0, b"hello-e2ee", [0u8; 12])
+            .unwrap();
+        assert_eq!(
+            hex32_str(&pinned),
+            "000000000000000000000000d7c9214ce28fe33bcd71a5f9e11b62a4161bd27718c0980996b6"
+        );
+    }
+
+    fn hex32_str(bytes: &[u8]) -> String {
+        bytes.iter().map(|byte| format!("{byte:02x}")).collect()
     }
 
     #[test]

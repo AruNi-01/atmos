@@ -59,7 +59,7 @@
 
 - 组织/工作区级别的 **Computer** 池与权限继承。
 - Relay 区域选择（就近接入）。
-- 端到端加密（E2EE）：HTTP gateway hop 已按协商开关密封 chunk `body`（Relay 仍可见路由字段）。`app` / `terminal` 帧 AEAD 与 QR/链接内公钥信任路径仍为后续。
+- 端到端加密（E2EE）：Relay 仅见密文 envelope。
 
 ## 5. 明确不包含（Out of Scope）
 

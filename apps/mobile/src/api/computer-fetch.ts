@@ -1,4 +1,8 @@
-import { createGatewayFetch, type ClientSessionResponse } from "@atmos/relay-client";
+import {
+  createGatewayFetch,
+  relayE2eeCsprngAvailable,
+  type ClientSessionResponse,
+} from "@atmos/relay-client";
 
 /** Gateway `fetch` that seals HTTP bodies when the client session advertised E2EE. */
 export function computerFetch(
@@ -6,7 +10,7 @@ export function computerFetch(
   input: RequestInfo | URL,
   init?: RequestInit,
 ): Promise<Response> {
-  if (session?.e2ee?.enabled && session.e2ee.static_pk) {
+  if (session?.e2ee?.enabled && session.e2ee.static_pk && relayE2eeCsprngAvailable()) {
     return createGatewayFetch({ staticPk: session.e2ee.static_pk })(input, init);
   }
   return fetch(input, init);

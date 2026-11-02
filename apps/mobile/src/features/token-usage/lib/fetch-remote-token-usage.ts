@@ -1,4 +1,5 @@
 import type { TokenUsageOverviewResponse } from "@atmos/api-types/ws/dto/token-usage";
+import type { RelayE2eeOffer } from "@atmos/relay-client";
 
 export const REMOTE_TOKEN_USAGE_CONNECT_WAIT_MS = 15_000;
 export const REMOTE_TOKEN_USAGE_REQUEST_TIMEOUT_MS = 60_000;
@@ -37,8 +38,11 @@ export type RemoteTokenUsageSession = {
 };
 
 export type FetchRemoteTokenUsageDeps = {
-  createClientSession: (serverId: string) => Promise<{ ws_url: string }>;
-  openSession: (wsUrl: string) => RemoteTokenUsageSession;
+  createClientSession: (serverId: string) => Promise<{
+    ws_url: string;
+    e2ee?: RelayE2eeOffer;
+  }>;
+  openSession: (wsUrl: string, e2ee?: RelayE2eeOffer) => RemoteTokenUsageSession;
 };
 
 export async function fetchRemoteTokenUsageOverview(
@@ -51,7 +55,7 @@ export async function fetchRemoteTokenUsageOverview(
   }
 
   const sessionInfo = await deps.createClientSession(trimmed);
-  const session = deps.openSession(sessionInfo.ws_url);
+  const session = deps.openSession(sessionInfo.ws_url, sessionInfo.e2ee);
   try {
     await session.waitUntilConnected(REMOTE_TOKEN_USAGE_CONNECT_WAIT_MS);
     return await session.request(

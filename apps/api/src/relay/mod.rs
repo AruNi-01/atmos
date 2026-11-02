@@ -2,6 +2,7 @@
 
 pub(crate) mod e2ee;
 pub(crate) mod external_events;
+mod frame_e2ee;
 mod http_gateway;
 pub(crate) mod http_stream;
 mod ingest;

@@ -4,6 +4,7 @@ export type {
   TerminalSnapshot,
 } from "@atmos/shared/terminal";
 import type { TerminalClientMessage, TerminalServerMessage } from "@atmos/shared/terminal";
+import { attachRelayFrameE2ee, type RelayE2eeOffer } from "@atmos/relay-client";
 import { preferredComputerWebSocket } from "@/api/url-session-websocket";
 
 type TerminalWebSocketLike = {
@@ -25,6 +26,7 @@ export type TerminalWsState = "idle" | "connecting" | "open" | "reconnecting" | 
 type TerminalWsClientOptions = {
   WebSocketCtor?: TerminalWebSocketCtor;
   clearTimeout?: (timer: TerminalTimer) => void;
+  e2ee?: RelayE2eeOffer | null;
   reconnect?: boolean;
   reconnectInitialDelayMs?: number;
   reconnectMaxDelayMs?: number;
@@ -49,6 +51,7 @@ export class TerminalWsClient {
 
   private readonly WebSocketCtor: TerminalWebSocketCtor;
   private readonly clearTimer: (timer: TerminalTimer) => void;
+  private readonly e2ee: RelayE2eeOffer | null | undefined;
   private readonly reconnect: boolean;
   private readonly reconnectInitialDelayMs: number;
   private readonly reconnectMaxDelayMs: number;
@@ -62,6 +65,7 @@ export class TerminalWsClient {
     this.WebSocketCtor =
       options.WebSocketCtor ?? (preferredComputerWebSocket as unknown as TerminalWebSocketCtor);
     this.clearTimer = options.clearTimeout ?? clearTimeout;
+    this.e2ee = options.e2ee;
     this.reconnect = options.reconnect ?? true;
     this.reconnectInitialDelayMs =
       options.reconnectInitialDelayMs ?? DEFAULT_RECONNECT_INITIAL_DELAY_MS;
@@ -78,7 +82,12 @@ export class TerminalWsClient {
   private openSocket(state: TerminalWsState) {
     this.clearReconnectTimer();
     this.setState(state);
-    const socket = new this.WebSocketCtor(this.terminalWsUrl);
+    const socket = attachRelayFrameE2ee(
+      (url) => new this.WebSocketCtor(url),
+      this.terminalWsUrl,
+      this.e2ee,
+      "terminal",
+    );
     this.socket = socket as WebSocket;
     this.socket.onopen = () => {
       this.reconnectAttempt = 0;

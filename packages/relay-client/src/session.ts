@@ -41,6 +41,9 @@ export function parseClientSessionResponse(payload: unknown): ClientSessionRespo
   }
 
   const e2ee = parseRelayE2eeOffer(response.e2ee);
+  if (!e2ee && (response.e2ee as { enabled?: unknown } | undefined)?.enabled === true) {
+    throw invalidClientSessionResponse();
+  }
 
   return {
     client_token: response.client_token,

@@ -115,6 +115,27 @@ describe("query-identity-lifecycle scope bumps", () => {
     expect(useAtmosComputerStore.getState().relaySessionRevision).toBe(revision);
   });
 
+  test("omitting relayE2ee clears a previous Computer static key", async () => {
+    await applyRelaySessionTransport({
+      relayWebSocketUrl: "wss://relay.example/ws",
+      relayGatewayHttpBase: "https://relay.example/gw",
+      relayClientToken: "client-tok",
+      relayE2ee: {
+        enabled: true,
+        alg: "x25519-chacha20poly1305",
+        static_pk: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      },
+    });
+    expect(useAtmosComputerStore.getState().relayE2ee?.static_pk).toBeTruthy();
+
+    await applyRelaySessionTransport({
+      relayWebSocketUrl: "wss://relay.example/ws-2",
+      relayGatewayHttpBase: "https://relay.example/gw-2",
+      relayClientToken: "client-tok-2",
+    });
+    expect(useAtmosComputerStore.getState().relayE2ee).toBeNull();
+  });
+
   test("logout and relay session reset clear computer query roots", async () => {
     const client = getAtmosWebQueryClient();
     // Isolate factory usage remains available for non-singleton tests.

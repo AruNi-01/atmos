@@ -184,6 +184,9 @@ class ByteReader {
     while (this.buf.length < n) {
       const { done, value } = await this.reader.read();
       if (done) {
+        if (this.buf.length > 0) {
+          throw new Error("truncated_e2ee_record");
+        }
         return null;
       }
       if (!value || value.byteLength === 0) {

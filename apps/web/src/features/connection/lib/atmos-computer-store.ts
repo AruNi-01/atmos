@@ -31,7 +31,7 @@ interface AtmosComputerData {
   relayWebSocketUrl: string | null;
   relayGatewayHttpBase: string | null;
   relayClientToken: string | null;
-  /** Computer static X25519 public key for HTTP E2EE. Memory only; not a secret. */
+  /** Computer static X25519 public key for hop E2EE. Memory only; not a secret. */
   relayE2ee: RelayE2eeOffer | null;
   registerCommandShown: string | null;
   registerTokenExpiresAt: number | null;
@@ -182,7 +182,7 @@ export const useAtmosComputerStore = create<AtmosComputerStore>((set, get) => ({
 
   setRelaySessionTransport: (session) => {
     const current = get();
-    const nextE2ee = session.relayE2ee === undefined ? current.relayE2ee : session.relayE2ee;
+    const nextE2ee = session.relayE2ee ?? null;
     const changed =
       current.relayWebSocketUrl !== session.relayWebSocketUrl ||
       current.relayGatewayHttpBase !== session.relayGatewayHttpBase ||

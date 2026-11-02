@@ -158,7 +158,7 @@ function withCors(res: Response): Response {
   h.set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
   h.set(
     "Access-Control-Allow-Headers",
-    `Content-Type, Authorization, X-Request-Id, ${RELAY_SECRET_HEADER}, X-GitHub-Event, X-GitHub-Delivery, X-Hub-Signature-256`,
+    `Content-Type, Authorization, X-Request-Id, ${RELAY_SECRET_HEADER}, X-GitHub-Event, X-GitHub-Delivery, X-Hub-Signature-256, X-Atmos-E2EE, X-Atmos-E2EE-Alg, X-Atmos-E2EE-Request-Id, X-Atmos-E2EE-Eph-Pk`,
   );
   return new Response(res.body, { status: res.status, headers: h });
 }
@@ -859,11 +859,24 @@ async function handleHttpGatewayProxy(
   if (e2ee === "invalid") {
     return json({ error: "invalid_e2ee" }, 400);
   }
+  let forwardedE2ee = e2ee;
+  if (e2ee) {
+    const computer = await env.DB.prepare(
+      "SELECT e2ee_static_pk FROM computers WHERE server_id = ? LIMIT 1",
+    )
+      .bind(route.serverId)
+      .first<{ e2ee_static_pk: string | null }>();
+    const staticPk = computer?.e2ee_static_pk?.trim() ?? "";
+    if (staticPk.length < 42) {
+      return json({ error: "e2ee_unavailable" }, 409);
+    }
+    forwardedE2ee = e2ee;
+  }
   const prelude = encodeGatewayPrelude({
     method: request.method,
     path: upstreamPath,
     headers: collectForwardHeaders(request),
-    ...(e2ee ? { e2ee } : {}),
+    ...(forwardedE2ee ? { e2ee: forwardedE2ee } : {}),
   });
 
   const { readable, writable } = new TransformStream<Uint8Array>();
@@ -991,9 +1004,11 @@ async function handleClientWebSocket(
     return json({ error: "bad_client_token" }, 403);
   }
 
-  const comp = await env.DB.prepare("SELECT revoked FROM computers WHERE server_id = ? LIMIT 1")
+  const comp = await env.DB.prepare(
+    "SELECT revoked, e2ee_static_pk FROM computers WHERE server_id = ? LIMIT 1",
+  )
     .bind(serverId)
-    .first<{ revoked: number }>();
+    .first<{ revoked: number; e2ee_static_pk: string | null }>();
 
   if (!comp || comp.revoked) {
     return json({ error: "computer_revoked" }, 403);
@@ -1006,6 +1021,20 @@ async function handleClientWebSocket(
   inner.searchParams.set("sid", sid);
   inner.searchParams.set("stream", stream);
   inner.searchParams.set("client_type", clientType);
+  const wantsE2ee = outerUrl.searchParams.get("e2ee")?.trim() === "1";
+  if (wantsE2ee) {
+    const staticPk = comp.e2ee_static_pk?.trim() ?? "";
+    if (staticPk.length < 42) {
+      return json({ error: "e2ee_unavailable" }, 409);
+    }
+    inner.searchParams.set("e2ee", "1");
+    inner.searchParams.set("e2ee_alg", outerUrl.searchParams.get("e2ee_alg") ?? "");
+    inner.searchParams.set("eph_pk", outerUrl.searchParams.get("eph_pk") ?? "");
+  } else {
+    inner.searchParams.delete("e2ee");
+    inner.searchParams.delete("e2ee_alg");
+    inner.searchParams.delete("eph_pk");
+  }
   const forward = new Request(inner.toString(), request);
   return stub.fetch(forward);
 }

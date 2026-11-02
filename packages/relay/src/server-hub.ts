@@ -19,6 +19,7 @@ import {
   type DeliveryAckStatus,
 } from "./delivery-state";
 import type { RelayEnvelope } from "./envelope";
+import { e2eeOpenEnvelope, parseClientFrameE2ee } from "./frame-e2ee";
 import {
   decodeGatewayStream,
   HTTP_STREAM,
@@ -40,7 +41,13 @@ interface ExternalEventAckBody {
 
 export type PeerMeta =
   | { role: "server"; server_id: string }
-  | { role: "client"; sid: string; stream?: "app" | "terminal"; client_type?: string };
+  | {
+      role: "client";
+      sid: string;
+      stream?: "app" | "terminal";
+      client_type?: string;
+      eph_pk?: string;
+    };
 
 type PendingHttp = {
   onEnvelope: (envelope: RelayEnvelope) => Promise<void>;
@@ -142,11 +149,14 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
       ) {
         const stream = (raw as { stream?: string }).stream;
         const clientType = (raw as { client_type?: string }).client_type;
+        const ephPk = (raw as { eph_pk?: string }).eph_pk;
         return {
           role: "client",
           sid: (raw as { sid: string }).sid,
           stream: stream === "terminal" ? "terminal" : "app",
-          client_type: typeof clientType === "string" && clientType.trim() ? clientType.trim() : undefined,
+          client_type:
+            typeof clientType === "string" && clientType.trim() ? clientType.trim() : undefined,
+          eph_pk: typeof ephPk === "string" && ephPk.trim() ? ephPk.trim() : undefined,
         };
       }
       return null;
@@ -216,6 +226,7 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
       // checks "is any server still up?" and finds the new one) cannot
       // accidentally clear last_seen_at right after we just set it.
       await this.markServerSeen(serverId);
+      this.rebindClientFrameE2ee(workerSide);
 
       return new Response(null, { status: 101, webSocket: clientSide });
     }
@@ -237,8 +248,25 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
         }
       }
 
-      workerSide.serializeAttachment({ role: "client", sid, stream, client_type: clientType } satisfies PeerMeta);
+      const frameE2ee = parseClientFrameE2ee(url);
+      if (frameE2ee === "invalid") {
+        return new Response(JSON.stringify({ error: "invalid_e2ee" }), {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      workerSide.serializeAttachment({
+        role: "client",
+        sid,
+        stream,
+        client_type: clientType,
+        ...(frameE2ee ? { eph_pk: frameE2ee.eph_pk } : {}),
+      } satisfies PeerMeta);
       this.ctx.acceptWebSocket(workerSide, [TAG_CLIENT_ALL, tagForClient(sid)]);
+      const up = this.getServerSocket();
+      if (up && frameE2ee) {
+        this.sendE2eeOpen(up, sid, stream, frameE2ee.eph_pk);
+      }
 
       return new Response(null, { status: 101, webSocket: clientSide });
     }
@@ -275,6 +303,12 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
     if (meta.e2ee && requestId !== meta.e2ee.request_id) {
       return new Response(JSON.stringify({ error: "invalid_e2ee" }), {
         status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    if (this.pendingHttp.has(requestId)) {
+      return new Response(JSON.stringify({ error: "duplicate_request_id" }), {
+        status: 409,
         headers: { "Content-Type": "application/json" },
       });
     }
@@ -387,7 +421,8 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
     let parsed: { enabled?: boolean; alg?: string; static_pk?: string };
     try {
       parsed = JSON.parse(body) as { enabled?: boolean; alg?: string; static_pk?: string };
-    } catch {
+    } catch (error) {
+      console.warn("persistE2eeCaps parse failed", error instanceof Error ? error.name : "error");
       return;
     }
     const now = Math.floor(Date.now() / 1000);
@@ -402,6 +437,10 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
       }
       const pk = parsed.static_pk?.trim() ?? "";
       if (parsed.alg !== "x25519-chacha20poly1305" || pk.length < 42) {
+        console.warn(
+          "persistE2eeCaps rejected payload",
+          parsed.alg === "x25519-chacha20poly1305" ? "short_static_pk" : "bad_alg",
+        );
         return;
       }
       await this.env.DB.prepare(
@@ -409,8 +448,33 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
       )
         .bind(pk, now, serverId)
         .run();
+    } catch (error) {
+      console.warn(
+        "persistE2eeCaps D1 failed",
+        error instanceof Error ? error.name : "error",
+      );
+    }
+  }
+
+  private sendE2eeOpen(
+    up: WebSocket,
+    sid: string,
+    stream: "app" | "terminal",
+    ephPk: string,
+  ): void {
+    try {
+      up.send(JSON.stringify(e2eeOpenEnvelope(sid, stream, ephPk)));
     } catch {
-      /* schema not migrated yet, or D1 unavailable — non-fatal */
+      /* noop */
+    }
+  }
+
+  private rebindClientFrameE2ee(up: WebSocket): void {
+    for (const client of this.getAllClientSockets()) {
+      const meta = this.parseMeta(client);
+      if (meta?.role === "client" && meta.eph_pk) {
+        this.sendE2eeOpen(up, meta.sid, meta.stream ?? "app", meta.eph_pk);
+      }
     }
   }
 

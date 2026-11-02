@@ -8,6 +8,7 @@ import {
   encodeB64Url,
   encodeLengthPrefixed,
   generateX25519KeyPair,
+  openHttpResponseRecord,
   openRecord,
   readLengthPrefixedRecord,
   RELAY_E2EE_ALG,
@@ -299,6 +300,19 @@ function createComputerPeer(opts: {
       }
     }
     if (!abort.signal.aborted) {
+      if (opts.e2ee && meta.e2ee) {
+        const seq = await responseWindow.takeSlot(abort.signal);
+        const key = sessionKey(opts.e2ee, meta);
+        const end = sealRecord(key, e2eeAad(requestId, seq, "response_end"), new Uint8Array(0));
+        send(
+          httpEnvelope({
+            kind: HTTP_KIND.responseChunk,
+            requestId,
+            seq,
+            body: u8ToB64(end),
+          }),
+        );
+      }
       send(httpEnvelope({ kind: HTTP_KIND.responseEnd, requestId }));
     }
   }
@@ -511,7 +525,9 @@ describe("true-link HTTP gateway (in-process Worker prelude + hub helper + compu
     );
     abort.abort();
     const settled = await pending;
-    await delay(120);
+    for (let i = 0; i < 200 && !upstream.stats.cancelled; i += 1) {
+      await delay(10);
+    }
     const cancel = traces.find((event) => event.kind === HTTP_KIND.cancel && event.dir === "out");
     await dumpTrace("03-cancel.json", {
       cancel,
@@ -798,10 +814,14 @@ describe("true-link HTTP gateway (in-process Worker prelude + hub helper + compu
     for (;;) {
       const record = await readLengthPrefixedRecord(reader, leftover);
       if (!record) {
+        throw new Error("e2ee_truncated_stream");
+      }
+      const step = openHttpResponseRecord(key, requestId, replySeq, record);
+      replySeq += 1;
+      if (step.final) {
         break;
       }
-      opened.push(openRecord(key, e2eeAad(requestId, replySeq, "response_chunk"), record));
-      replySeq += 1;
+      opened.push(step.plain);
     }
     const echoed = new Uint8Array(opened.reduce((sum, part) => sum + part.byteLength, 0));
     at = 0;
@@ -916,7 +936,9 @@ describe("true-link HTTP gateway (in-process Worker prelude + hub helper + compu
     );
     abort.abort();
     const settled = await pending;
-    await delay(120);
+    for (let i = 0; i < 200 && !upstream.stats.cancelled; i += 1) {
+      await delay(10);
+    }
     const cancel = traces.find((event) => event.kind === HTTP_KIND.cancel && event.dir === "out");
     await dumpTrace("06-e2ee-cancel.json", {
       cancel,

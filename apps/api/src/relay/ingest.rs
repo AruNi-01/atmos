@@ -307,18 +307,18 @@ pub async fn run(
     let sessions: Arc<RwLock<HashMap<String, Session>>> = Arc::new(RwLock::new(HashMap::new()));
     let terminal_sessions: Arc<TerminalRelaySessions> = Arc::new(RwLock::new(HashMap::new()));
     let http_sessions = http_gateway::new_session_map();
+    let frame_e2ee = crate::relay::frame_e2ee::new_session_map();
 
-    if let Some(caps_body) = crate::relay::e2ee::advertise_caps_body() {
-        let caps = serde_json::json!({
-            "v": 1_u32,
-            "stream": "system",
-            "kind": "e2ee_caps",
-            "from": "server",
-            "body": caps_body,
-        })
-        .to_string();
-        let _ = out_tx.send(Message::Text(caps));
-    }
+    let caps_body = crate::relay::e2ee::advertise_caps_body();
+    let caps = serde_json::json!({
+        "v": 1_u32,
+        "stream": "system",
+        "kind": "e2ee_caps",
+        "from": "server",
+        "body": caps_body,
+    })
+    .to_string();
+    let _ = out_tx.send(Message::Text(caps));
 
     let outcome = loop {
         let next = tokio::select! {
@@ -405,6 +405,7 @@ pub async fn run(
                 ) {
                     match close {
                         RelaySessionClose::Terminal { sid } => {
+                            crate::relay::frame_e2ee::remove_session(&frame_e2ee, &sid);
                             terminal::handle_terminal_client_close(
                                 &state,
                                 &terminal_sessions,
@@ -413,11 +414,51 @@ pub async fn run(
                             .await;
                         }
                         RelaySessionClose::App { sid } => {
+                            crate::relay::frame_e2ee::remove_session(&frame_e2ee, &sid);
                             apply_app_session_close(&sessions, &sid, |conn_id| {
                                 let ws_service = Arc::clone(&state.ws_service);
                                 async move { ws_service.unregister(&conn_id).await }
                             })
                             .await;
+                        }
+                    }
+                    continue;
+                }
+
+                if env.kind == "e2ee_open" {
+                    let Some(from) = env.from.as_deref() else {
+                        continue;
+                    };
+                    let Some(sid) = from.strip_prefix("client:") else {
+                        continue;
+                    };
+                    match crate::relay::frame_e2ee::open_from_e2ee_open(
+                        env.body.as_deref().unwrap_or("{}"),
+                    ) {
+                        Ok(session) => {
+                            crate::relay::frame_e2ee::insert_session(
+                                &frame_e2ee,
+                                sid.to_string(),
+                                session,
+                            );
+                        }
+                        Err(code) => {
+                            warn!(
+                                target: "atmos_relay",
+                                code,
+                                "relay frame e2ee_open failed"
+                            );
+                            crate::relay::frame_e2ee::emit_frame(
+                                &out_tx,
+                                &frame_e2ee,
+                                sid,
+                                env.stream.as_deref().unwrap_or("app"),
+                                serde_json::json!({
+                                    "type": "relay_ctrl",
+                                    "code": code,
+                                })
+                                .to_string(),
+                            );
                         }
                     }
                     continue;
@@ -433,16 +474,44 @@ pub async fn run(
                     continue;
                 };
                 let sid = rest.to_string();
+                let stream = env.stream.as_deref().unwrap_or("app");
+                let raw_body = env.body.unwrap_or_default();
+                let body = match crate::relay::frame_e2ee::open_c2s(
+                    &frame_e2ee,
+                    &sid,
+                    stream,
+                    &raw_body,
+                ) {
+                    Ok(opened) => opened,
+                    Err(code) => {
+                        warn!(
+                            target: "atmos_relay",
+                            code,
+                            "relay frame e2ee open failed"
+                        );
+                        crate::relay::frame_e2ee::emit_frame(
+                            &out_tx,
+                            &frame_e2ee,
+                            &sid,
+                            stream,
+                            serde_json::json!({
+                                "type": "relay_ctrl",
+                                "code": code,
+                            })
+                            .to_string(),
+                        );
+                        continue;
+                    }
+                };
 
-                let body = env.body.unwrap_or_default();
-
-                if env.stream.as_deref() == Some("terminal") {
+                if stream == "terminal" {
                     terminal::handle_terminal_frame(
                         &state,
                         &terminal_sessions,
                         &sid,
                         &body,
                         &out_tx,
+                        &frame_e2ee,
                     )
                     .await;
                     continue;
@@ -459,6 +528,7 @@ pub async fn run(
                     sid.clone(),
                     client_type,
                     &out_tx,
+                    &frame_e2ee,
                 )
                 .await
                 {
@@ -471,18 +541,16 @@ pub async fn run(
 
                 let state = state.clone();
                 let out_tx = out_tx.clone();
+                let frame_e2ee = Arc::clone(&frame_e2ee);
                 tokio::spawn(async move {
                     if let Some(reply) = state.ws_service.handle_message(&conn_id, &body).await {
-                        let outbound = serde_json::json!( {
-                            "v": 1_u32,
-                            "stream": "app",
-                            "kind": "frame",
-                            "from": "server",
-                            "to": format!("client:{sid}"),
-                            "body": reply,
-                        })
-                        .to_string();
-                        let _ = out_tx.send(Message::Text(outbound));
+                        crate::relay::frame_e2ee::emit_frame(
+                            &out_tx,
+                            &frame_e2ee,
+                            &sid,
+                            "app",
+                            reply,
+                        );
                     }
                 });
             }
@@ -547,6 +615,7 @@ async fn ensure_session(
     sid: String,
     client_type: ClientType,
     relay_out: &mpsc::UnboundedSender<Message>,
+    frame_e2ee: &crate::relay::frame_e2ee::FrameE2eeSessions,
 ) -> Result<String, String> {
     let mut locked = sessions.write().await;
 
@@ -559,20 +628,16 @@ async fn ensure_session(
 
     let relay_out_clone = relay_out.clone();
     let sid_for_task = sid.clone();
+    let frame_e2ee = Arc::clone(frame_e2ee);
     tokio::spawn(async move {
         while let Some(msg) = rx.recv().await {
-            let frame = serde_json::json!( {
-                "v": 1_u32,
-                "stream": "app",
-                "kind": "frame",
-                "from": "server",
-                "to": format!("client:{sid_for_task}"),
-                "body": msg,
-            })
-            .to_string();
-            if relay_out_clone.send(Message::Text(frame)).is_err() {
-                break;
-            }
+            crate::relay::frame_e2ee::emit_frame(
+                &relay_out_clone,
+                &frame_e2ee,
+                &sid_for_task,
+                "app",
+                msg,
+            );
         }
     });
 
