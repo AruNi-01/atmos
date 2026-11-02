@@ -56,14 +56,44 @@ describe("wrapRelayE2eeSocket", () => {
     wrapped.onmessage = (event) => inbound.push(String(event.data));
 
     wrapped.send('{"hello":1}');
-    expect(raw.sent).toHaveLength(1);
+    wrapped.send('{"hello":2}');
+    expect(raw.sent).toHaveLength(2);
     expect(raw.sent[0]).not.toContain("hello");
     expect(
       new TextDecoder().decode(
         openRecord(key, frameAad(ephPk, "app", 0, "frame_c2s"), decodeB64Std(raw.sent[0]!)),
       ),
     ).toBe('{"hello":1}');
+    expect(
+      new TextDecoder().decode(
+        openRecord(key, frameAad(ephPk, "app", 1, "frame_c2s"), decodeB64Std(raw.sent[1]!)),
+      ),
+    ).toBe('{"hello":2}');
 
+    const s2c0 = encodeB64Std(
+      sealRecord(
+        key,
+        frameAad(ephPk, "app", 0, "frame_s2c"),
+        new TextEncoder().encode('{"ok":true}'),
+      ),
+    );
+    const s2c1 = encodeB64Std(
+      sealRecord(key, frameAad(ephPk, "app", 1, "frame_s2c"), new TextEncoder().encode('{"ok":2}')),
+    );
+    raw.emit(s2c0);
+    raw.emit(s2c1);
+    expect(inbound).toEqual(['{"ok":true}', '{"ok":2}']);
+    raw.emit(s2c0);
+    expect(raw.closed).toEqual({ code: 4003, reason: "e2ee_open_failed" });
+  });
+
+  test("listener errors do not close the socket as e2ee_open_failed", () => {
+    const { key, ephPk, codec } = session();
+    const raw = new FakeSocket();
+    const wrapped = wrapRelayE2eeSocket(raw, codec);
+    wrapped.onmessage = () => {
+      throw new Error("listener-bug");
+    };
     const s2c = encodeB64Std(
       sealRecord(
         key,
@@ -71,8 +101,8 @@ describe("wrapRelayE2eeSocket", () => {
         new TextEncoder().encode('{"ok":true}'),
       ),
     );
-    raw.emit(s2c);
-    expect(inbound).toEqual(['{"ok":true}']);
+    expect(() => raw.emit(s2c)).toThrow("listener-bug");
+    expect(raw.closed).toBeNull();
   });
 
   test("passes Worker plaintext relay_ctrl and closes on garbage", () => {

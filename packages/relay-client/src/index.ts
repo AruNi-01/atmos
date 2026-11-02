@@ -20,6 +20,7 @@ export {
 export { RelayError, relayErrorFromBody } from "./errors";
 export {
   createGatewayFetch,
+  decodeB64Std,
   decodeB64Url,
   deriveRelayHttpE2eeKey,
   e2eeAad,
@@ -30,6 +31,7 @@ export {
   generateX25519KeyPair,
   isRelayFrameSocketUrl,
   isValidEphPk,
+  openHttpRequestRecord,
   openHttpResponseRecord,
   openRecord,
   parseRelayE2eeOffer,
@@ -47,7 +49,6 @@ export {
   RELAY_E2EE_WS_FLAG,
   RelayFrameCodec,
   sealRecord,
-  sealRecordWithNonce,
   type CreateGatewayFetchOptions,
   type RelayE2eeSessionBlock,
   type RelayFrameStream,

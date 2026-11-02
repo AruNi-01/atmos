@@ -3,6 +3,7 @@
 import { cancelAndRemoveQueries } from "@/providers/app/query-client";
 import { getComputerQueryScope, getRelayQueryScope } from "@/api/query/query-scope";
 import {
+  relayE2eeOffersEqual,
   resolveRelayUrl,
   useAtmosComputerStore,
   type AtmosComputerConnectionMode,
@@ -78,7 +79,7 @@ export async function applyRelaySessionTransport(session: RelaySessionTransport)
     store.relayWebSocketUrl !== session.relayWebSocketUrl ||
     store.relayGatewayHttpBase !== session.relayGatewayHttpBase ||
     store.relayClientToken !== session.relayClientToken ||
-    store.relayE2ee !== nextE2ee;
+    !relayE2eeOffersEqual(store.relayE2ee, nextE2ee);
 
   if (!changed) return;
 

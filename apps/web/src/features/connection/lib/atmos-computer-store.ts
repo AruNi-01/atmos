@@ -75,6 +75,21 @@ const envRelayUrl =
 
 export { DEFAULT_RELAY_URL };
 
+export function relayE2eeOffersEqual(
+  left: RelayE2eeOffer | null | undefined,
+  right: RelayE2eeOffer | null | undefined,
+): boolean {
+  if (left == null && right == null) {
+    return true;
+  }
+  if (left == null || right == null) {
+    return false;
+  }
+  return (
+    left.enabled === right.enabled && left.alg === right.alg && left.static_pk === right.static_pk
+  );
+}
+
 export function resolveRelayUrl(raw?: string | null): string {
   const trimmed = (raw ?? "").trim();
   if (trimmed) {
@@ -187,7 +202,7 @@ export const useAtmosComputerStore = create<AtmosComputerStore>((set, get) => ({
       current.relayWebSocketUrl !== session.relayWebSocketUrl ||
       current.relayGatewayHttpBase !== session.relayGatewayHttpBase ||
       current.relayClientToken !== session.relayClientToken ||
-      current.relayE2ee !== nextE2ee;
+      !relayE2eeOffersEqual(current.relayE2ee, nextE2ee);
     if (!changed) return;
     set({
       relayWebSocketUrl: session.relayWebSocketUrl,

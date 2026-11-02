@@ -86,7 +86,7 @@ Default relay URL: `https://relay.atmos.land` (`ATMOS_RELAY_URL` override). Self
 - Run D1 migrations before deploy when schema changes.
 - For provider ingress, verify webhook/auth first, normalize only small event metadata, match route metadata, dedupe delivery records, and dispatch a `stream: "system"` envelope to the target ServerHub.
 - Use the Hub device credential for relay route/setup mutations. The Computer `server_secret` is only for the outbound server WebSocket.
-- Hop E2EE is optional and negotiated. Encrypt HTTP chunks and app/terminal `kind:frame` bodies only when the Computer advertised `e2ee_caps` **and** the client offered the hop. Apply D1 migration `0010_e2ee_static_pk.sql` before deploy.
+- Hop E2EE is optional and negotiated. Encrypt HTTP chunks and app/terminal `kind:frame` bodies only when the Computer advertised `enabled: true` **with a stored static pk** and the client offered the hop. An `e2ee_caps` with `enabled: false` clears D1 `static_pk` and is not an encrypt signal. Apply D1 migration `0010_e2ee_static_pk.sql` before deploy.
 
 ---
 

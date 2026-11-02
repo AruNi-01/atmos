@@ -265,5 +265,10 @@ describe("HTTP gateway worker proxy stream", () => {
     expect(allow).toContain("X-Atmos-E2EE-Alg");
     expect(allow).toContain("X-Atmos-E2EE-Request-Id");
     expect(allow).toContain("X-Atmos-E2EE-Eph-Pk");
+    const expose = response.headers.get("Access-Control-Expose-Headers") ?? "";
+    expect(expose).toContain("X-Atmos-E2EE");
+    expect(expose).toContain("X-Atmos-E2EE-Alg");
+    expect(expose).toContain("X-Atmos-E2EE-Request-Id");
+    expect(expose).toContain("X-Atmos-E2EE-Eph-Pk");
   });
 });

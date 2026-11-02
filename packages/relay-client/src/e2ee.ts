@@ -51,7 +51,7 @@ export type RelayE2eeSessionBlock =
     };
 
 export type RelayFrameStream = "app" | "terminal";
-export type RelayHttpAadKind = "request_chunk" | "response_chunk" | "response_end";
+export type RelayHttpAadKind = "request_chunk" | "request_end" | "response_chunk" | "response_end";
 export type RelayFrameAadKind = "frame_c2s" | "frame_s2c";
 
 export function parseRelayE2eeOffer(raw: unknown): RelayE2eeOffer | undefined {
@@ -112,7 +112,15 @@ export function deriveRelayHttpE2eeKey(opts: {
   ephPublic: Uint8Array;
   staticPublic: Uint8Array;
 }): Uint8Array {
-  const shared = x25519.getSharedSecret(opts.localSecret, opts.peerPublic);
+  let shared: Uint8Array;
+  try {
+    shared = x25519.getSharedSecret(opts.localSecret, opts.peerPublic);
+  } catch {
+    throw new Error("e2ee_non_contributory");
+  }
+  if (shared.every((byte) => byte === 0)) {
+    throw new Error("e2ee_non_contributory");
+  }
   const salt = new Uint8Array(opts.ephPublic.length + opts.staticPublic.length);
   salt.set(opts.ephPublic, 0);
   salt.set(opts.staticPublic, opts.ephPublic.length);
@@ -190,6 +198,29 @@ export async function readLengthPrefixedRecord(
   return record;
 }
 
+export function openHttpRequestRecord(
+  key: Uint8Array,
+  requestId: string,
+  seq: number,
+  record: Uint8Array,
+): { plain: Uint8Array; final: boolean } {
+  try {
+    return {
+      plain: openRecord(key, e2eeAad(requestId, seq, "request_chunk"), record),
+      final: false,
+    };
+  } catch (error) {
+    if (!(error instanceof Error) || error.message !== "e2ee_open_failed") {
+      throw error;
+    }
+    const plain = openRecord(key, e2eeAad(requestId, seq, "request_end"), record);
+    if (plain.byteLength !== 0) {
+      throw new Error("e2ee_open_failed");
+    }
+    return { plain, final: true };
+  }
+}
+
 export function openHttpResponseRecord(
   key: Uint8Array,
   requestId: string,
@@ -234,7 +265,7 @@ export function createGatewayFetch(opts: CreateGatewayFetchOptions): typeof fetc
     const method = (
       init?.method ?? (input instanceof Request ? input.method : "GET")
     ).toUpperCase();
-    const requestId = crypto.randomUUID();
+    const requestId = randomRequestId();
     const eph = generateX25519KeyPair();
     const key = deriveRelayHttpE2eeKey({
       localSecret: eph.secretKey,
@@ -406,6 +437,11 @@ function sealBodyStream(
         buffered += step.value.byteLength;
       }
       if (buffered === 0) {
+        if (done && seq > 0) {
+          const sealed = sealRecord(key, e2eeAad(requestId, seq, "request_end"), new Uint8Array(0));
+          seq += 1;
+          controller.enqueue(encodeLengthPrefixed(sealed));
+        }
         controller.close();
         return;
       }
@@ -561,6 +597,15 @@ function concatBytes(parts: Uint8Array[]): Uint8Array {
   return out;
 }
 
+function randomRequestId(): string {
+  const bytes = randomBytes(16);
+  let hex = "";
+  for (const byte of bytes) {
+    hex += byte.toString(16).padStart(2, "0");
+  }
+  return hex;
+}
+
 function randomBytes(n: number): Uint8Array {
   if (!relayE2eeCsprngAvailable()) {
     throw new Error("e2ee_csprng_unavailable");
@@ -615,9 +660,5 @@ export function decodeB64Std(value: string): Uint8Array {
 }
 
 export function isValidEphPk(value: string): boolean {
-  try {
-    return decodeB64Url(value).byteLength === KEY_LEN;
-  } catch {
-    return false;
-  }
+  return /^[A-Za-z0-9_-]{43}$/.test(value);
 }

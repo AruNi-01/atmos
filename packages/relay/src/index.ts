@@ -160,6 +160,10 @@ function withCors(res: Response): Response {
     "Access-Control-Allow-Headers",
     `Content-Type, Authorization, X-Request-Id, ${RELAY_SECRET_HEADER}, X-GitHub-Event, X-GitHub-Delivery, X-Hub-Signature-256, X-Atmos-E2EE, X-Atmos-E2EE-Alg, X-Atmos-E2EE-Request-Id, X-Atmos-E2EE-Eph-Pk`,
   );
+  h.set(
+    "Access-Control-Expose-Headers",
+    "X-Atmos-E2EE, X-Atmos-E2EE-Alg, X-Atmos-E2EE-Request-Id, X-Atmos-E2EE-Eph-Pk",
+  );
   return new Response(res.body, { status: res.status, headers: h });
 }
 

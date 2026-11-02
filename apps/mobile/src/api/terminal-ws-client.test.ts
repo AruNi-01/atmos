@@ -1,6 +1,15 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, test } from "bun:test";
-import { encodeB64Url, generateX25519KeyPair, RELAY_E2EE_ALG } from "@atmos/relay-client";
+import {
+  decodeB64Std,
+  decodeB64Url,
+  deriveRelayHttpE2eeKey,
+  encodeB64Url,
+  frameAad,
+  generateX25519KeyPair,
+  openRecord,
+  RELAY_E2EE_ALG,
+} from "@atmos/relay-client";
 import { TerminalWsClient, type TerminalWsState } from "./terminal-ws-client";
 
 type TimerCall = {
@@ -170,7 +179,8 @@ describe("TerminalWsClient", () => {
 
   test("seals terminal frames when hop E2EE is offered", () => {
     FakeTerminalWebSocket.instances = [];
-    const pk = encodeB64Url(generateX25519KeyPair().publicKey);
+    const computer = generateX25519KeyPair();
+    const pk = encodeB64Url(computer.publicKey);
     const client = new TerminalWsClient("wss://relay.example/ws/terminal", {
       WebSocketCtor: FakeTerminalWebSocket,
       clearTimeout: () => {},
@@ -196,6 +206,22 @@ describe("TerminalWsClient", () => {
     });
     expect(raw.sent).toHaveLength(1);
     expect(raw.sent[0]).not.toContain("hello-plain");
+    const ephPk = new URL(raw.url).searchParams.get("eph_pk");
+    expect(ephPk).toBeTruthy();
+    const key = deriveRelayHttpE2eeKey({
+      localSecret: computer.secretKey,
+      peerPublic: decodeB64Url(ephPk!),
+      ephPublic: decodeB64Url(ephPk!),
+      staticPublic: computer.publicKey,
+    });
+    const opened = new TextDecoder().decode(
+      openRecord(key, frameAad(ephPk!, "terminal", 0, "frame_c2s"), decodeB64Std(raw.sent[0]!)),
+    );
+    expect(JSON.parse(opened)).toEqual({
+      type: "terminal_input",
+      session_id: "session",
+      data: "hello-plain",
+    });
     client.close();
   });
 });

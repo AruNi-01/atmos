@@ -154,10 +154,11 @@ is not implemented here.
 with IKM = shared secret, salt = `eph_pk || static_pk`, info =
 `atmos-relay-http-e2ee-v1`, 32-byte key. AEAD is ChaCha20-Poly1305. Record =
 12-byte nonce || ciphertext || 16-byte tag. HTTP AAD is
-`{request_id}|{seq}|{kind}` with `kind` `request_chunk`, `response_chunk`, or
-`response_end` (empty record, authenticated EOF). Frame AAD is
+`{request_id}|{seq}|{kind}` with `kind` `request_chunk`, `request_end` (empty
+record after any request bytes), `response_chunk`, or `response_end` (empty
+record, authenticated EOF; omitted for 204/205/304). Frame AAD is
 `{eph_pk}|{stream}|{seq}|{kind}` with `kind` `frame_c2s` or `frame_s2c`.
-`stream` is `app` or `terminal`.
+`stream` is `app` or `terminal`. Low-order X25519 points are rejected.
 
 **What stays plaintext.** Envelope routing fields (`v`, `stream`, `kind`,
 `from`, `to`, `request_id`, `seq`) and HTTP metadata (`method`, `path`,
@@ -167,18 +168,20 @@ unacked window, and cancel. ServerHub never holds the session key.
 
 **HTTP.** The client seals before `fetch` to `/v1/computers/:id/proxy/*`
 (headers `X-Atmos-E2EE`, `X-Atmos-E2EE-Alg`, `X-Atmos-E2EE-Request-Id`,
-`X-Atmos-E2EE-Eph-Pk`). CORS preflight allows those headers. The edge copies
-them into the prelude only when D1 has a static pk (else `409 e2ee_unavailable`),
-strips them from forwarded loopback headers, and pumps length-prefixed records
-as `request_chunk` bodies. The Computer opens, talks to loopback in plaintext,
-then seals `response_chunk` records plus a final `response_end` record. The
+`X-Atmos-E2EE-Eph-Pk`). CORS preflight allows those headers and exposes them
+on the response. The edge copies them into the prelude only when D1 has a
+static pk (else `409 e2ee_unavailable`), strips them from forwarded loopback
+headers, and pumps length-prefixed records as `request_chunk` bodies. After
+any request bytes the client also seals an empty `request_end` record. The
+Computer opens, talks to loopback in plaintext, then seals `response_chunk`
+records plus a final `response_end` record (skipped for 204/205/304). The
 Worker length-prefixes those onto the HTTPS response and sets `X-Atmos-E2EE: 1`.
 
 **App / terminal frames.** Client WebSocket payloads are the envelope `body`
 (the Worker wraps them). When E2EE is on, that body is standard-base64 of a
 sealed record, not JSON. Query params on `/ws/client` and `/ws/terminal`:
 `e2ee=1`, `e2ee_alg`, `eph_pk`. The Worker forwards those only if D1 has a
-static pk; Hub sends `kind: e2ee_open` to the Computer (never decrypts).
+static pk; ServerHub sends `kind: e2ee_open` to the Computer (never decrypts).
 Terminal binary I/O stays inside JSON as `data_b64`; the sealed unit is the
 UTF-8 JSON text. Local Computer `/ws/terminal/:id` is not this hop.
 
@@ -189,7 +192,7 @@ the hop stays legacy plaintext. Computer env `ATMOS_RELAY_E2EE=0` (or `false`
 rejects incoming e2ee (`e2ee_disabled`). A client that offered HTTP e2ee
 **fails closed** on a 2xx plaintext body (`e2ee_missing_on_response`). Worker
 JSON errors (`server_offline`, `invalid_e2ee`, `e2ee_unavailable`, …) stay
-readable. Hub-originated `relay_ctrl` stays plaintext JSON. Keying is
+readable. ServerHub-originated `relay_ctrl` stays plaintext JSON. Keying is
 orthogonal to `register_token` / `server_secret` / `client_token`. The static
 secret is never placed in public frontend builds.
 

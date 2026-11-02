@@ -58,13 +58,9 @@ pub struct SessionKey {
 impl SessionKey {
     pub fn derive(static_key: &StaticKey, eph_pk: &[u8]) -> Result<Self, &'static str> {
         let eph = public_from_slice(eph_pk)?;
-        let shared = static_key.secret.diffie_hellman(&eph);
+        let shared = contributory_shared(&static_key.secret, &eph)?;
         Ok(Self {
-            key: hkdf_session(
-                shared.as_bytes(),
-                eph.as_bytes(),
-                static_key.public.as_bytes(),
-            ),
+            key: hkdf_session(&shared, eph.as_bytes(), static_key.public.as_bytes()),
         })
     }
 
@@ -75,30 +71,16 @@ impl SessionKey {
         static_pk: &[u8],
     ) -> Result<Self, &'static str> {
         let remote = public_from_slice(static_pk)?;
-        let shared = eph_secret.diffie_hellman(&remote);
+        let shared = contributory_shared(eph_secret, &remote)?;
         Ok(Self {
-            key: hkdf_session(shared.as_bytes(), eph_public.as_bytes(), remote.as_bytes()),
+            key: hkdf_session(&shared, eph_public.as_bytes(), remote.as_bytes()),
         })
     }
 
     pub fn seal(&self, aad: &[u8], plaintext: &[u8]) -> Result<Vec<u8>, &'static str> {
-        let cipher = ChaCha20Poly1305::new_from_slice(&self.key).map_err(|_| "e2ee_key")?;
         let mut nonce_bytes = [0u8; NONCE_LEN];
         OsRng.fill_bytes(&mut nonce_bytes);
-        let nonce = Nonce::from(nonce_bytes);
-        let ciphertext = cipher
-            .encrypt(
-                &nonce,
-                Payload {
-                    msg: plaintext,
-                    aad,
-                },
-            )
-            .map_err(|_| "e2ee_seal_failed")?;
-        let mut out = Vec::with_capacity(NONCE_LEN + ciphertext.len());
-        out.extend_from_slice(&nonce_bytes);
-        out.extend_from_slice(&ciphertext);
-        Ok(out)
+        seal_record(&self.key, aad, plaintext, nonce_bytes)
     }
 
     pub fn open(&self, aad: &[u8], record: &[u8]) -> Result<Vec<u8>, &'static str> {
@@ -128,22 +110,42 @@ impl SessionKey {
         plaintext: &[u8],
         nonce_bytes: [u8; NONCE_LEN],
     ) -> Result<Vec<u8>, &'static str> {
-        let cipher = ChaCha20Poly1305::new_from_slice(&self.key).map_err(|_| "e2ee_key")?;
-        let nonce = Nonce::from(nonce_bytes);
-        let ciphertext = cipher
-            .encrypt(
-                &nonce,
-                Payload {
-                    msg: plaintext,
-                    aad,
-                },
-            )
-            .map_err(|_| "e2ee_seal_failed")?;
-        let mut out = Vec::with_capacity(NONCE_LEN + ciphertext.len());
-        out.extend_from_slice(&nonce_bytes);
-        out.extend_from_slice(&ciphertext);
-        Ok(out)
+        seal_record(&self.key, aad, plaintext, nonce_bytes)
     }
+}
+
+fn seal_record(
+    key: &[u8; KEY_LEN],
+    aad: &[u8],
+    plaintext: &[u8],
+    nonce_bytes: [u8; NONCE_LEN],
+) -> Result<Vec<u8>, &'static str> {
+    let cipher = ChaCha20Poly1305::new_from_slice(key).map_err(|_| "e2ee_key")?;
+    let nonce = Nonce::from(nonce_bytes);
+    let ciphertext = cipher
+        .encrypt(
+            &nonce,
+            Payload {
+                msg: plaintext,
+                aad,
+            },
+        )
+        .map_err(|_| "e2ee_seal_failed")?;
+    let mut out = Vec::with_capacity(NONCE_LEN + ciphertext.len());
+    out.extend_from_slice(&nonce_bytes);
+    out.extend_from_slice(&ciphertext);
+    Ok(out)
+}
+
+fn contributory_shared(
+    secret: &StaticSecret,
+    public: &PublicKey,
+) -> Result<[u8; KEY_LEN], &'static str> {
+    let shared = secret.diffie_hellman(public);
+    if !shared.was_contributory() {
+        return Err("e2ee_non_contributory");
+    }
+    Ok(*shared.as_bytes())
 }
 
 pub fn aad(request_id: &str, seq: u32, kind: &str) -> Vec<u8> {
@@ -206,7 +208,14 @@ pub fn advertise_caps_body() -> String {
             "static_pk": key.public_b64(),
         })
         .to_string(),
-        Err(_) => disabled_caps_body(),
+        Err(error) => {
+            tracing::warn!(
+                target: "atmos_relay",
+                error = %error,
+                "relay e2ee key load failed; advertising disabled"
+            );
+            disabled_caps_body()
+        }
     }
 }
 
@@ -391,6 +400,10 @@ mod tests {
             .open(&aad("req-1", 1, "request_chunk"), &sealed)
             .is_err());
         assert!(from_computer.open(&aad0, &sealed[..10]).is_err());
+        assert!(matches!(
+            SessionKey::derive(&alice, &[0u8; KEY_LEN]),
+            Err("e2ee_non_contributory")
+        ));
 
         let pinned = from_client
             .seal_with_nonce(&aad0, b"hello-e2ee", [0u8; 12])

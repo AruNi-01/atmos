@@ -8,8 +8,8 @@ import {
   encodeB64Url,
   encodeLengthPrefixed,
   generateX25519KeyPair,
+  openHttpRequestRecord,
   openHttpResponseRecord,
-  openRecord,
   readLengthPrefixedRecord,
   RELAY_E2EE_ALG,
   sealRecord,
@@ -160,6 +160,7 @@ function createComputerPeer(opts: {
   let requestId = "";
   let meta: GatewayMeta = { method: "GET", path: "/", headers: [] };
   const parts: Uint8Array[] = [];
+  let sawRequestEnd = false;
   const abort = new AbortController();
 
   const send = (envelope: RelayEnvelope) => {
@@ -184,7 +185,14 @@ function createComputerPeer(opts: {
       let bytes = b64ToU8(envelope.body);
       if (opts.e2ee && meta.e2ee && envelope.seq !== undefined) {
         const key = sessionKey(opts.e2ee, meta);
-        bytes = openRecord(key, e2eeAad(requestId, envelope.seq, "request_chunk"), bytes);
+        const opened = openHttpRequestRecord(key, requestId, envelope.seq, bytes);
+        if (opened.final) {
+          sawRequestEnd = true;
+          await delay(opts.ackDelayMs);
+          send(httpEnvelope({ kind: HTTP_KIND.ack, requestId, seq: envelope.seq }));
+          return;
+        }
+        bytes = opened.plain;
       }
       parts.push(bytes);
       await delay(opts.ackDelayMs);
@@ -200,6 +208,16 @@ function createComputerPeer(opts: {
       return;
     }
     if (envelope.kind !== HTTP_KIND.requestEnd) {
+      return;
+    }
+    if (opts.e2ee && meta.e2ee && parts.length > 0 && !sawRequestEnd) {
+      send(
+        httpEnvelope({
+          kind: HTTP_KIND.error,
+          requestId,
+          body: JSON.stringify({ status: 400, code: "truncated_e2ee_record" }),
+        }),
+      );
       return;
     }
 
@@ -300,7 +318,7 @@ function createComputerPeer(opts: {
       }
     }
     if (!abort.signal.aborted) {
-      if (opts.e2ee && meta.e2ee) {
+      if (opts.e2ee && meta.e2ee && !httpStatusNullBody(response.status)) {
         const seq = await responseWindow.takeSlot(abort.signal);
         const key = sessionKey(opts.e2ee, meta);
         const end = sealRecord(key, e2eeAad(requestId, seq, "response_end"), new Uint8Array(0));
@@ -736,6 +754,11 @@ describe("true-link HTTP gateway (in-process Worker prelude + hub helper + compu
       offset = end;
       seq += 1;
     }
+    records.push(
+      encodeLengthPrefixed(
+        sealRecord(key, e2eeAad(requestId, seq, "request_end"), new Uint8Array(0)),
+      ),
+    );
     const framed = new Uint8Array(records.reduce((sum, record) => sum + record.byteLength, 0));
     let at = 0;
     for (const record of records) {

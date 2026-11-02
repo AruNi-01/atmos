@@ -1,23 +1,15 @@
-/** App/terminal frame E2EE handshake helpers. Hub never holds the session key. */
+/** App/terminal frame E2EE handshake helpers. ServerHub never holds the session key. */
 
 import type { RelayEnvelope } from "./envelope";
 
 const ALG = "x25519-chacha20poly1305";
-const KEY_LEN = 32;
 
 export type ClientFrameE2ee = {
   eph_pk: string;
 };
 
 function isValidEphPk(value: string): boolean {
-  try {
-    const padded = value.replace(/-/g, "+").replace(/_/g, "/");
-    const pad = padded.length % 4 === 0 ? "" : "=".repeat(4 - (padded.length % 4));
-    const binary = atob(padded + pad);
-    return binary.length === KEY_LEN;
-  } catch {
-    return false;
-  }
+  return /^[A-Za-z0-9_-]{43}$/.test(value);
 }
 
 export function parseClientFrameE2ee(url: URL): ClientFrameE2ee | null | "invalid" {

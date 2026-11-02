@@ -71,15 +71,18 @@ export function wrapRelayE2eeSocket<T extends RelayE2eeSocketLike>(
           fn?.({ data: text });
           return;
         }
+        let opened: string;
         try {
-          fn?.({ data: codec.openDown(text) });
+          opened = codec.openDown(text);
         } catch {
           try {
             raw.close(4003, "e2ee_open_failed");
           } catch {
             /* ignore */
           }
+          return;
         }
+        fn?.({ data: opened });
       };
     },
   };

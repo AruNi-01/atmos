@@ -111,6 +111,33 @@ describe("fetchRemoteTokenUsageOverview", () => {
     ).rejects.toThrow("offline");
     expect(disconnected).toBe(true);
   });
+
+  it("forwards createClientSession e2ee into openSession", async () => {
+    const offer = {
+      enabled: true as const,
+      alg: "x25519-chacha20poly1305" as const,
+      static_pk: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    };
+    let seen: typeof offer | undefined;
+    const result = await fetchRemoteTokenUsageOverview("srv_other", {
+      createClientSession: async () => ({
+        ws_url: "wss://relay.example/ws/client?server_id=srv_other",
+        e2ee: offer,
+      }),
+      openSession: (wsUrl, e2ee) => {
+        expect(wsUrl).toBe("wss://relay.example/ws/client?server_id=srv_other");
+        seen = e2ee as typeof offer;
+        return {
+          connect: async () => undefined,
+          waitUntilConnected: async () => undefined,
+          request: async () => overview(3),
+          disconnect: () => undefined,
+        };
+      },
+    });
+    expect(result.summary.total_tokens).toBe(3);
+    expect(seen).toEqual(offer);
+  });
 });
 
 describe("fetchAllComputersTokenUsage", () => {

@@ -24,9 +24,24 @@ describe("client frame E2EE handshake", () => {
 
   test("treats missing flag as plaintext and rejects a short eph", () => {
     expect(parseClientFrameE2ee(new URL("https://relay.atmos.land/ws/client"))).toBeNull();
+    expect(
+      parseClientFrameE2ee(
+        new URL(
+          "https://relay.atmos.land/ws/client?e2ee=0&e2ee_alg=x25519-chacha20poly1305&eph_pk=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        ),
+      ),
+    ).toBeNull();
     const bad = new URL(
       "https://relay.atmos.land/ws/terminal?e2ee=1&e2ee_alg=x25519-chacha20poly1305&eph_pk=short",
     );
     expect(parseClientFrameE2ee(bad)).toBe("invalid");
+    const padded = new URL(
+      "https://relay.atmos.land/ws/client?e2ee=1&e2ee_alg=x25519-chacha20poly1305&eph_pk=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+    );
+    expect(parseClientFrameE2ee(padded)).toBe("invalid");
+    const wrongAlg = new URL(
+      "https://relay.atmos.land/ws/client?e2ee=1&e2ee_alg=aes-256-gcm&eph_pk=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    );
+    expect(parseClientFrameE2ee(wrongAlg)).toBe("invalid");
   });
 });

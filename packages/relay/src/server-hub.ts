@@ -221,12 +221,15 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
       workerSide.serializeAttachment({ role: "server", server_id: serverId } satisfies PeerMeta);
       this.ctx.acceptWebSocket(workerSide, [TAG_SERVER]);
 
+      // Rebind before any await so retained clients do not send ciphertext
+      // into a Computer that has not yet received e2ee_open.
+      this.rebindClientFrameE2ee(workerSide);
+
       // Bump presence here — *after* the new socket is accepted — so the
       // replacement order (set new) → (close fires for old, which then
       // checks "is any server still up?" and finds the new one) cannot
       // accidentally clear last_seen_at right after we just set it.
       await this.markServerSeen(serverId);
-      this.rebindClientFrameE2ee(workerSide);
 
       return new Response(null, { status: 101, webSocket: clientSide });
     }
@@ -605,6 +608,10 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
       }
     }
     if (meta?.role === "client") {
+      // A replaced socket's late close must not tear down the new SID owner.
+      if (this.getClientSocket(meta.sid)) {
+        return;
+      }
       const up = this.getServerSocket();
       if (up) {
         try {

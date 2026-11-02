@@ -66,7 +66,13 @@ pub fn open_from_e2ee_open(body: &str) -> Result<Arc<FrameSession>, &'static str
 }
 
 pub fn insert_session(map: &FrameE2eeSessions, sid: String, session: Arc<FrameSession>) {
-    write_map(map).insert(sid, session);
+    let mut locked = write_map(map);
+    if let Some(existing) = locked.get(&sid) {
+        if existing.eph_pk == session.eph_pk {
+            return;
+        }
+    }
+    locked.insert(sid, session);
 }
 
 pub fn remove_session(map: &FrameE2eeSessions, sid: &str) {
@@ -101,24 +107,31 @@ pub fn emit_frame(
     body: String,
 ) {
     let session = read_map(map).get(sid).cloned();
-    let body = if let Some(session) = session {
-        let seq = {
-            let mut locked = session
-                .next_s2c
-                .lock()
-                .unwrap_or_else(|poisoned| poisoned.into_inner());
-            let seq = *locked;
-            *locked = seq.wrapping_add(1);
-            seq
-        };
+    if let Some(session) = session {
+        let mut locked = session
+            .next_s2c
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let seq = *locked;
+        *locked = seq.wrapping_add(1);
         let aad = frame_aad(&session.eph_pk, stream, seq, KIND_S2C);
-        match session.key.seal(&aad, body.as_bytes()) {
-            Ok(record) => B64.encode(&record),
+        let record = match session.key.seal(&aad, body.as_bytes()) {
+            Ok(record) => record,
             Err(_) => return,
-        }
-    } else {
-        body
-    };
+        };
+        let body = B64.encode(&record);
+        let outbound = serde_json::json!({
+            "v": 1_u32,
+            "stream": stream,
+            "kind": "frame",
+            "from": "server",
+            "to": format!("client:{sid}"),
+            "body": body,
+        })
+        .to_string();
+        let _ = out.send(Message::Text(outbound));
+        return;
+    }
     let outbound = serde_json::json!({
         "v": 1_u32,
         "stream": stream,
@@ -167,6 +180,22 @@ mod tests {
         assert_eq!(opened, "hello-frame");
         let replay = open_c2s(&map, "sid-1", "app", &B64.encode(&sealed));
         assert_eq!(replay.unwrap_err(), "e2ee_open_failed");
+        insert_session(
+            &map,
+            "sid-1".into(),
+            open_from_e2ee_open(&format!(
+                r#"{{"v":1,"alg":"{}","eph_pk":"{eph_pk}"}}"#,
+                e2ee::ALG
+            ))
+            .unwrap(),
+        );
+        let second = client
+            .seal(&frame_aad(&eph_pk, "app", 1, KIND_C2S), b"again")
+            .unwrap();
+        assert_eq!(
+            open_c2s(&map, "sid-1", "app", &B64.encode(&second)).unwrap(),
+            "again"
+        );
         drop(_env);
         let _ = std::fs::remove_file(&path);
         let _ = std::fs::remove_dir(&dir);

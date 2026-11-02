@@ -98,6 +98,28 @@ describe("query-identity-lifecycle scope bumps", () => {
     expect(getComputerQueryScope().relaySessionRevision).toBe(before + 1);
   });
 
+  test("identical e2ee offer by value is a no-op", async () => {
+    const offer = {
+      enabled: true as const,
+      alg: "x25519-chacha20poly1305" as const,
+      static_pk: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    };
+    await applyRelaySessionTransport({
+      relayWebSocketUrl: "wss://relay.example/ws",
+      relayGatewayHttpBase: "https://relay.example/gw",
+      relayClientToken: "client-tok",
+      relayE2ee: { ...offer },
+    });
+    const revision = useAtmosComputerStore.getState().relaySessionRevision;
+    await applyRelaySessionTransport({
+      relayWebSocketUrl: "wss://relay.example/ws",
+      relayGatewayHttpBase: "https://relay.example/gw",
+      relayClientToken: "client-tok",
+      relayE2ee: { ...offer },
+    });
+    expect(useAtmosComputerStore.getState().relaySessionRevision).toBe(revision);
+  });
+
   test("identical relay session transport is a no-op", async () => {
     await applyRelaySessionTransport({
       relayWebSocketUrl: "wss://relay.example/ws",

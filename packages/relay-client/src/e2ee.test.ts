@@ -11,6 +11,7 @@ import {
   encodeLengthPrefixed,
   frameAad,
   generateX25519KeyPair,
+  openHttpRequestRecord,
   openHttpResponseRecord,
   openRecord,
   parseRelayE2eeOffer,
@@ -118,11 +119,15 @@ describe("relay HTTP E2EE", () => {
         const plain = new Uint8Array(payload.byteLength);
         let at = 0;
         records.forEach((record, seq) => {
-          const opened = openRecord(key, e2eeAad(requestId!, seq, "request_chunk"), record);
-          plain.set(opened, at);
-          at += opened.byteLength;
+          const opened = openHttpRequestRecord(key, requestId!, seq, record);
+          if (opened.final) {
+            expect(seq).toBe(records.length - 1);
+            return;
+          }
+          plain.set(opened.plain, at);
+          at += opened.plain.byteLength;
         });
-        expect(plain).toEqual(payload);
+        expect(plain.subarray(0, at)).toEqual(payload);
 
         const chunk = encodeLengthPrefixed(
           sealRecord(key, e2eeAad(requestId!, 0, "response_chunk"), payload),
@@ -192,7 +197,7 @@ describe("relay HTTP E2EE", () => {
     await expect(response.json()).resolves.toEqual({ error: "server_offline" });
   });
 
-  test("createGatewayFetch rejects unrecognized plaintext 4xx", async () => {
+  test("createGatewayFetch rejects unrecognized plaintext 5xx", async () => {
     const computer = generateX25519KeyPair();
     const wrapped = createGatewayFetch({
       staticPk: computer.publicKey,
@@ -260,6 +265,18 @@ describe("relay HTTP E2EE", () => {
       "terminal",
     );
     expect(local.codec).toBeNull();
+  });
+
+  test("rejects a non-contributory X25519 public key", () => {
+    const local = generateX25519KeyPair();
+    expect(() =>
+      deriveRelayHttpE2eeKey({
+        localSecret: local.secretKey,
+        peerPublic: new Uint8Array(32),
+        ephPublic: new Uint8Array(32),
+        staticPublic: local.publicKey,
+      }),
+    ).toThrow("e2ee_non_contributory");
   });
 
   test("frame AAD mismatch fails closed", () => {
