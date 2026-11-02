@@ -1,4 +1,5 @@
 import type { Env } from "./index";
+import { getServerHub } from "./hub-stub";
 
 export interface GithubTriggerEnvelope {
   delivery_id: string;
@@ -44,8 +45,7 @@ export async function dispatchExternalEventToServer(
     body: JSON.stringify(event),
   };
 
-  const id = env.SERVER_HUB.idFromName(event.server_id);
-  const stub = env.SERVER_HUB.get(id);
+  const stub = getServerHub(env, event.server_id);
   let response: Response;
   try {
     response = await stub.fetch(

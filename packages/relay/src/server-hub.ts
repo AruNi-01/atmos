@@ -1,17 +1,15 @@
 /**
- * APP-016 — ServerHub Durable Object: routes browser ↔ daemon traffic.
+ * APP-016 — ServerHub: routes browser ↔ Computer traffic.
  *
- * Stateless across hibernation: instead of keeping `serverSock` / `browsers`
- * in instance fields (which evaporate on eviction), every lookup goes through
- * `ctx.getWebSockets(tag)`. WebSocket Hibernation guarantees those references
- * are restored verbatim when the DO is woken back up — so a relay flow that
- * was idle for hours still resumes without a "server_offline" false positive.
+ * Stateless across hibernation: instead of keeping sockets in instance
+ * fields (which evaporate on eviction), every lookup goes through
+ * `ctx.getWebSockets(tag)`. Hibernation restores those references when
+ * the hub wakes, so an idle relay flow still resumes without a
+ * "server_offline" false positive.
  *
- * Cost: Cloudflare's WS Hibernation API does not bill duration while every
- * peer is idle, and pings/pongs handled by the runtime (via
- * `setWebSocketAutoResponse`) never wake the DO. The only billed events are
- * actual app-level frames (HTTP gateway requests, browser sends, daemon
- * sends), which is what we want.
+ * Protocol PING/PONG and leftover app-level ping auto-responses do not
+ * wake the hub. The work that costs CPU is real app frames (HTTP gateway,
+ * browser sends, Computer sends).
  */
 
 import { DurableObject } from "cloudflare:workers";
@@ -20,34 +18,12 @@ import {
   providerFromRelayAddress,
   type DeliveryAckStatus,
 } from "./delivery-state";
+import type { RelayEnvelope } from "./envelope";
+import { decodeGatewayStream, HTTP_STREAM, startHubHttpProxy } from "./http-stream";
 
 export interface ServerHubEnv {
   SERVER_HUB: DurableObjectNamespace<ServerHub>;
   DB: D1Database;
-}
-
-interface RelayEnvelope {
-  v: number;
-  stream?: string;
-  kind: string;
-  client_type?: string;
-  from?: string;
-  to?: string;
-  request_id?: string;
-  body?: string;
-}
-
-interface HttpRelayRequestBody {
-  method: string;
-  path: string;
-  headers: [string, string][];
-  body_b64?: string | null;
-}
-
-interface HttpRelayResponseBody {
-  status: number;
-  headers: [string, string][];
-  body_b64?: string | null;
 }
 
 interface ExternalEventAckBody {
@@ -62,11 +38,9 @@ export type PeerMeta =
   | { role: "client"; sid: string; stream?: "app" | "terminal"; client_type?: string };
 
 type PendingHttp = {
-  resolve: (response: Response) => void;
-  reject: (err: Error) => void;
+  onEnvelope: (envelope: RelayEnvelope) => Promise<void>;
+  abort: () => void;
 };
-
-const HTTP_GATEWAY_TIMEOUT_MS = 60_000;
 
 /** Hibernation tags — pick by role / sid in `ctx.getWebSockets`. */
 const TAG_SERVER = "server";
@@ -74,10 +48,9 @@ const TAG_CLIENT_ALL = "client";
 const tagForClient = (sid: string) => `client:${sid}`;
 
 export class ServerHub extends DurableObject<ServerHubEnv> {
-  /** In-flight HTTP gateway requests waiting on a daemon response.
-   * Per-invocation only — the CF runtime keeps the DO alive while any
-   * `fetch` handler holds an outstanding promise, so we don't need to
-   * persist this. */
+  /** In-flight HTTP gateway requests. Per-invocation only: the runtime
+   * keeps the hub alive while a `fetch` handler or streamed body is
+   * outstanding, so this map is not persisted. */
   private readonly pendingHttp = new Map<string, PendingHttp>();
 
   constructor(ctx: DurableObjectState, env: ServerHubEnv) {
@@ -86,7 +59,7 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
     // Defense in depth: if a stale browser tab still sends app-level "ping"
     // text frames (we have removed it from the current client, but cached
     // bundles may persist), the edge auto-replies "pong" without ever
-    // waking this DO. Zero billing impact.
+    // waking this hub.
     try {
       ctx.setWebSocketAutoResponse(
         new WebSocketRequestResponsePair("ping", "pong"),
@@ -191,7 +164,7 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
       }
     }
     for (const [id, pending] of this.pendingHttp) {
-      pending.reject(new Error("server_offline"));
+      pending.abort();
       this.pendingHttp.delete(id);
     }
   }
@@ -277,9 +250,12 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
       });
     }
 
-    let httpBody: HttpRelayRequestBody;
+    let meta;
+    let rest: ReadableStream<Uint8Array>;
     try {
-      httpBody = (await request.json()) as HttpRelayRequestBody;
+      const decoded = await decodeGatewayStream(request.body);
+      meta = decoded.meta;
+      rest = decoded.rest;
     } catch {
       return new Response(JSON.stringify({ error: "invalid_gateway_descriptor" }), {
         status: 400,
@@ -288,47 +264,41 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
     }
 
     const requestId = crypto.randomUUID();
+    const abort = new AbortController();
+    if (request.signal.aborted) {
+      abort.abort();
+    } else {
+      request.signal.addEventListener("abort", () => abort.abort(), { once: true });
+    }
 
-    const envelope: RelayEnvelope = {
-      v: 1,
-      stream: "http",
-      kind: "request",
-      request_id: requestId,
-      body: JSON.stringify(httpBody),
-    };
+    const handle = startHubHttpProxy({
+      send: (envelope) => {
+        up.send(JSON.stringify(envelope));
+      },
+      requestId,
+      method: meta.method,
+      path: meta.path,
+      headers: meta.headers,
+      requestBody: rest,
+      signal: abort.signal,
+      onSettled: () => {
+        this.pendingHttp.delete(requestId);
+      },
+    });
+
+    this.pendingHttp.set(requestId, {
+      onEnvelope: handle.onEnvelope,
+      abort: () => abort.abort(),
+    });
 
     try {
-      const response = await new Promise<Response>((resolve, reject) => {
-        const timer = setTimeout(() => {
-          this.pendingHttp.delete(requestId);
-          reject(new Error("gateway_timeout"));
-        }, HTTP_GATEWAY_TIMEOUT_MS);
-
-        this.pendingHttp.set(requestId, {
-          resolve: (res) => {
-            clearTimeout(timer);
-            resolve(res);
-          },
-          reject: (err) => {
-            clearTimeout(timer);
-            reject(err);
-          },
-        });
-
-        try {
-          up.send(JSON.stringify(envelope));
-        } catch (e) {
-          this.pendingHttp.delete(requestId);
-          clearTimeout(timer);
-          reject(e instanceof Error ? e : new Error(String(e)));
-        }
-      });
-      return response;
+      return await handle.response;
     } catch (e) {
+      this.pendingHttp.delete(requestId);
       const msg = e instanceof Error ? e.message : String(e);
-      if (msg === "server_offline") {
-        return new Response(JSON.stringify({ error: "server_offline" }), {
-          status: 503,
+      if (msg === "AbortError" || msg === "Aborted") {
+        return new Response(JSON.stringify({ error: "client_disconnected" }), {
+          status: 499,
           headers: { "Content-Type": "application/json" },
         });
       }
@@ -430,45 +400,6 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
     }
   }
 
-  private fulfillHttpResponse(requestId: string, payload: string) {
-    const pending = this.pendingHttp.get(requestId);
-    if (!pending) {
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(payload) as HttpRelayResponseBody;
-      if (typeof parsed.status !== "number") {
-        throw new Error("invalid_http_response");
-      }
-
-      const headers = new Headers();
-      for (const [k, v] of parsed.headers ?? []) {
-        headers.set(k, v);
-      }
-
-      let body: Uint8Array | null = null;
-      if (parsed.body_b64) {
-        const binary = atob(parsed.body_b64);
-        body = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) {
-          body[i] = binary.charCodeAt(i);
-        }
-      }
-
-      pending.resolve(
-        new Response(body, {
-          status: parsed.status,
-          headers,
-        }),
-      );
-    } catch {
-      pending.reject(new Error("invalid_http_response"));
-    } finally {
-      this.pendingHttp.delete(requestId);
-    }
-  }
-
   async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer) {
     const meta = this.parseMeta(ws);
     if (!meta) {
@@ -516,9 +447,12 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
     if (meta.role === "server") {
       try {
         const env = JSON.parse(payload) as RelayEnvelope;
-        if (env.stream === "http" && env.kind === "response" && env.request_id) {
-          this.fulfillHttpResponse(env.request_id, env.body ?? "{}");
-          return;
+        if (env.stream === HTTP_STREAM && env.request_id) {
+          const pending = this.pendingHttp.get(env.request_id);
+          if (pending) {
+            await pending.onEnvelope(env);
+            return;
+          }
         }
         if (env.stream === "system" && env.kind === "external_event_ack") {
           await this.handleExternalEventAck(env, meta.server_id);

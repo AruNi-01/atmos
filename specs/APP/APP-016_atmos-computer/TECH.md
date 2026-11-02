@@ -626,3 +626,16 @@ Private Relay authentication was added as an optional outer gate for self-hosted
 - The Relay secret is not placed in WebSocket URLs.
 
 D1 note: the Worker binding still uses the configured `database_id`; the database display name in `wrangler.toml` is not a data migration and does not change the schema.
+
+---
+
+## Implementation Delta - 2026-11-02
+
+HTTP gateway no longer ships whole request/response bodies as a single envelope `body_b64` on the hot path.
+
+- Edge `/v1/computers/:id/proxy/*` streams the client body into ServerHub (length-prefixed JSON prelude + raw bytes).
+- ServerHub ↔ Computer `stream: "http"` uses chunked frames (`request` / `request_chunk` / `request_end` / `response_start` / `response_chunk` / `response_end`) plus `ack` (unacked window = 8 × 32 KiB) and `cancel` keyed by `request_id`.
+- Computer daemon (`apps/api` `relay/http_gateway.rs`) aborts the loopback HTTP call when it receives `cancel` or the outbound relay socket shuts down.
+- Protocol write-up: [`docs/architecture/relay.md`](../../../docs/architecture/relay.md).
+- Optional first-create placement: Worker env `RELAY_HUB_LOCATION_HINT`.
+- **Not in this delta:** APP-016 M5 envelope encryption. Streaming does not implement a half crypto layer; M5 remains a follow-up.

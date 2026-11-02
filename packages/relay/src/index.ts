@@ -1,6 +1,8 @@
-/** APP-016: Worker — relay REST + WebSocket + HTTP gateway to ServerHub DO. */
+/** APP-016: Relay edge — REST + WebSocket + HTTP gateway to ServerHub. */
 
 import { collectForwardHeaders, matchGatewayPath, validateGatewayAccess } from "./http-gateway";
+import { encodeGatewayPrelude, pipeGatewayRequestBody } from "./http-stream";
+import { getServerHub } from "./hub-stub";
 import { buildClientSessionUrls } from "./client-session";
 import {
   createGithubSetupSession,
@@ -23,6 +25,11 @@ export interface Env {
   RELAY_SECRET_KEY?: string;
   /** Hub → Relay device projection (APP-056). */
   RELAY_HUB_SYNC_SECRET?: string;
+  /**
+   * Optional ServerHub first-create placement hint (wnam, enam, sam, weur,
+   * eeur, apac, oc, afr, me). Ignored after the hub instance already exists.
+   */
+  RELAY_HUB_LOCATION_HINT?: string;
   GITHUB_APP_ID?: string;
   GITHUB_APP_SLUG?: string;
   GITHUB_APP_PRIVATE_KEY?: string;
@@ -104,7 +111,7 @@ const worker = {
 
     const gateway = matchGatewayPath(path);
     if (gateway) {
-      return withCors(await handleHttpGatewayProxy(request, env, url, gateway));
+      return withCors(await handleHttpGatewayProxy(request, env, url, gateway, _ctx));
     }
 
     if (path === "/v1/github/webhook" && request.method === "POST") {
@@ -816,6 +823,7 @@ async function handleHttpGatewayProxy(
   env: Env,
   url: URL,
   route: { serverId: string; upstreamPath: string },
+  ctx: ExecutionContext,
 ): Promise<Response> {
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 204 });
@@ -833,36 +841,37 @@ async function handleHttpGatewayProxy(
   }
 
   const upstreamPath = route.upstreamPath + url.search;
-  const id = env.SERVER_HUB.idFromName(route.serverId);
-  const stub = env.SERVER_HUB.get(id);
-
-  let bodyB64: string | null = null;
-  if (request.method !== "GET" && request.method !== "HEAD" && request.body) {
-    const bytes = new Uint8Array(await request.arrayBuffer());
-    let binary = "";
-    for (const b of bytes) {
-      binary += String.fromCharCode(b);
-    }
-    bodyB64 = btoa(binary);
-  }
-
-  const descriptor = {
+  const stub = getServerHub(env, route.serverId);
+  const prelude = encodeGatewayPrelude({
     method: request.method,
     path: upstreamPath,
     headers: collectForwardHeaders(request),
-    body_b64: bodyB64,
-  };
-
-  const forward = new Request("https://do.internal/gateway", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Relay-Http-Gateway": "1",
-    },
-    body: JSON.stringify(descriptor),
   });
 
-  return stub.fetch(forward);
+  const { readable, writable } = new TransformStream<Uint8Array>();
+  const pipe = pipeGatewayRequestBody(
+    writable,
+    prelude,
+    request.method === "GET" || request.method === "HEAD" ? null : (request.body ?? null),
+    request.signal,
+  );
+  if (typeof ctx.waitUntil === "function") {
+    ctx.waitUntil(pipe.catch(() => undefined));
+  } else {
+    void pipe.catch(() => undefined);
+  }
+
+  const init: RequestInit & { duplex?: "half" } = {
+    method: "POST",
+    headers: {
+      "X-Relay-Http-Gateway": "1",
+    },
+    body: readable,
+    signal: request.signal,
+    duplex: "half",
+  };
+
+  return stub.fetch(new Request("https://hub.internal/gateway", init));
 }
 
 async function handlePtDesignRoom(request: Request, env: Env, roomId: string): Promise<Response> {
@@ -911,13 +920,12 @@ async function handleServerWebSocket(request: Request, env: Env, url: URL): Prom
     return json({ error: "bad_server_credentials" }, 403);
   }
 
-  // `last_seen_at` is bumped inside the DO (after acceptWebSocket) — see
+  // `last_seen_at` is bumped inside ServerHub (after acceptWebSocket) — see
   // `ServerHub.markServerSeen`. Doing the write here too would race with
   // the close-handler from a prior server WS being replaced and could end
   // up wiping presence right after we restored it.
 
-  const id = env.SERVER_HUB.idFromName(serverId);
-  const stub = env.SERVER_HUB.get(id);
+  const stub = getServerHub(env, serverId);
   const forward = new Request(
     `${url.origin}/internal?role=server&server_id=${encodeURIComponent(serverId)}`,
     request,
@@ -966,8 +974,7 @@ async function handleClientWebSocket(
   }
 
   const sid = crypto.randomUUID();
-  const id = env.SERVER_HUB.idFromName(serverId);
-  const stub = env.SERVER_HUB.get(id);
+  const stub = getServerHub(env, serverId);
   const inner = new URL(request.url);
   inner.searchParams.set("role", "client");
   inner.searchParams.set("sid", sid);

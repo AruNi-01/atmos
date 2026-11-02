@@ -183,7 +183,7 @@ All JSON. CORS `*` for dev. If `RELAY_SECRET_KEY` is configured, protected route
 | PATCH  | `/v1/computers/:id`                         | Bearer device credential                        | Rename                                                                                                                                            |
 | POST   | `/v1/computers/:id/revoke`                  | Bearer device credential                        | Revokes                                                                                                                                           |
 | POST   | `/v1/computers/:id/client_sessions`         | Bearer device credential                        | `{ client_token, expires_at, ws_url, gateway_url }`                                                                                               |
-| *      | `/v1/computers/:id/proxy/*`                 | Bearer `client_token` or device credential      | HTTP gateway to remote `apps/api`                                                                                                                 |
+| *      | `/v1/computers/:id/proxy/*`                 | Bearer `client_token` or device credential      | Chunked HTTP gateway to remote `apps/api` (unacked window + cancel). See [`docs/architecture/relay.md`](../../docs/architecture/relay.md).        |
 | POST   | `/v1/github/webhook`                        | GitHub `X-Hub-Signature-256`                    | Webhook ingress                                                                                                                                   |
 | POST   | `/v1/github/setup_sessions`                 | Bearer device credential                        | GitHub App install setup state                                                                                                                    |
 | GET    | `/v1/github/callback`                       | GitHub OAuth callback + setup state             | Stores installation for `user_id`                                                                                                                 |
@@ -209,7 +209,7 @@ No device credential. Anyone with the room id can sit on the socket; the encrypt
 - **Server (Rust)** — `GET /ws/server?server_id=…` plus `Authorization: Bearer <server_secret>` (no secret in query).
 - **Client (browser)** — `GET /ws/client?server_id=…&token=…&client_type=web`.
 
-Envelope format between relay and upstream server matches `specs/APP/APP-016_atmos-computer/TECH.md` §4 (`v`, `kind`, `from`, `to`, `body`).
+Envelope format between relay and upstream server matches `specs/APP/APP-016_atmos-computer/TECH.md` §4 (`v`, `kind`, `from`, `to`, `body`) and the HTTP streaming kinds in [`docs/architecture/relay.md`](../../docs/architecture/relay.md).
 
 GitHub trigger dispatch uses a server-directed system envelope; see APP-019 / `event-dispatch.ts`.
 

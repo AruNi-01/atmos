@@ -1,4 +1,4 @@
-/** APP-016: HTTP gateway auth + path helpers (Worker → DO → Server outbound WS). */
+/** APP-016: HTTP gateway auth + path helpers (edge → ServerHub → Computer WS). */
 
 import type { Env } from "./index";
 

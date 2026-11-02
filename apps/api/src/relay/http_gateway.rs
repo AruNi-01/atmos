@@ -1,26 +1,28 @@
-//! Relay HTTP gateway — execute proxied requests against loopback `apps/api`.
+//! Relay HTTP gateway — stream proxied requests against loopback `apps/api`.
+
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::Duration;
 
 use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
+use futures_util::StreamExt;
 use reqwest::header::{HeaderName, HeaderValue, AUTHORIZATION};
 use reqwest::Method;
 use runtime_manager::read_runtime_manifest;
 use serde::Deserialize;
+use tokio::io::AsyncWriteExt;
+use tokio::sync::{mpsc, RwLock};
+use tokio_tungstenite::tungstenite::Message;
+use tokio_util::io::ReaderStream;
+use tokio_util::sync::CancellationToken;
 use tracing::warn;
 
-#[derive(Debug, Deserialize)]
-struct HttpRelayRequestBody {
-    method: String,
-    path: String,
-    headers: Vec<(String, String)>,
-    body_b64: Option<String>,
-}
-
-#[derive(Debug, serde::Serialize)]
-struct HttpRelayResponseBody {
-    status: u16,
-    headers: Vec<(String, String)>,
-    body_b64: Option<String>,
-}
+use super::http_stream::{
+    http_envelope, http_error_envelope, AckWindow, SharedAckWindow, HTTP_KIND_ACK,
+    HTTP_KIND_CANCEL, HTTP_KIND_REQUEST, HTTP_KIND_REQUEST_CHUNK, HTTP_KIND_REQUEST_END,
+    HTTP_KIND_RESPONSE_CHUNK, HTTP_KIND_RESPONSE_END, HTTP_KIND_RESPONSE_START,
+    HTTP_STREAM_CHUNK_SIZE, HTTP_STREAM_WINDOW,
+};
 
 const HOP_BY_HOP: &[&str] = &[
     "connection",
@@ -34,72 +36,277 @@ const HOP_BY_HOP: &[&str] = &[
     "host",
 ];
 
-/// Handle `stream == "http"` envelope from relay; returns JSON body for the response envelope.
-pub async fn handle_http_envelope(body: &str) -> Option<String> {
-    let req: HttpRelayRequestBody = match serde_json::from_str(body) {
+#[derive(Debug, Deserialize)]
+pub struct HttpRelayRequestStart {
+    method: String,
+    path: String,
+    headers: Vec<(String, String)>,
+    #[serde(default)]
+    body_b64: Option<String>,
+    #[serde(default)]
+    streaming: bool,
+}
+
+#[derive(Debug, serde::Serialize)]
+struct HttpRelayResponseStart {
+    status: u16,
+    headers: Vec<(String, String)>,
+}
+
+pub enum RequestBodyEvent {
+    Chunk { data: Vec<u8> },
+    End,
+}
+
+pub struct HttpInflight {
+    pub body_tx: mpsc::UnboundedSender<RequestBodyEvent>,
+    pub acks: SharedAckWindow,
+    pub cancel: CancellationToken,
+}
+
+pub type HttpGatewaySessions = Arc<RwLock<HashMap<String, HttpInflight>>>;
+
+#[derive(Clone)]
+pub struct GatewayUpstream {
+    pub base_url: String,
+    pub local_token: Option<String>,
+}
+
+pub fn new_session_map() -> HttpGatewaySessions {
+    Arc::new(RwLock::new(HashMap::new()))
+}
+
+pub async fn cancel_all(sessions: &HttpGatewaySessions) {
+    let mut locked = sessions.write().await;
+    for (_, session) in locked.drain() {
+        session.cancel.cancel();
+    }
+}
+
+pub async fn on_http_envelope(
+    sessions: &HttpGatewaySessions,
+    kind: &str,
+    request_id: Option<&str>,
+    seq: Option<u32>,
+    body: Option<&str>,
+    out: &mpsc::UnboundedSender<Message>,
+) {
+    let Some(request_id) = request_id.filter(|id| !id.is_empty()) else {
+        return;
+    };
+
+    if kind == HTTP_KIND_REQUEST {
+        start_session(sessions, request_id, body.unwrap_or("{}"), out).await;
+        return;
+    }
+
+    if kind == HTTP_KIND_CANCEL {
+        if let Some(session) = sessions.write().await.remove(request_id) {
+            session.cancel.cancel();
+        }
+        return;
+    }
+
+    let locked = sessions.read().await;
+    let Some(session) = locked.get(request_id) else {
+        return;
+    };
+    match kind {
+        k if k == HTTP_KIND_REQUEST_CHUNK => {
+            let Some(b64) = body.filter(|s| !s.is_empty()) else {
+                return;
+            };
+            match B64.decode(b64) {
+                Ok(data) => {
+                    let _ = session.body_tx.send(RequestBodyEvent::Chunk { data });
+                    let ack = http_envelope(HTTP_KIND_ACK, request_id, seq, None);
+                    let _ = out.send(Message::Text(ack));
+                }
+                Err(error) => {
+                    warn!(
+                        target: "atmos_relay",
+                        error = %error,
+                        request_id = %request_id,
+                        "http gateway chunk base64 decode failed"
+                    );
+                    session.cancel.cancel();
+                }
+            }
+        }
+        k if k == HTTP_KIND_REQUEST_END => {
+            let _ = session.body_tx.send(RequestBodyEvent::End);
+        }
+        k if k == HTTP_KIND_ACK => {
+            if let Some(seq) = seq {
+                session.acks.ack(seq);
+            }
+        }
+        _ => {}
+    }
+}
+
+async fn start_session(
+    sessions: &HttpGatewaySessions,
+    request_id: &str,
+    body: &str,
+    out: &mpsc::UnboundedSender<Message>,
+) {
+    let start: HttpRelayRequestStart = match serde_json::from_str(body) {
         Ok(v) => v,
-        Err(e) => {
+        Err(error) => {
             warn!(
                 target: "atmos_relay",
-                error = %e,
+                error = %error,
                 "http gateway request decode failed"
             );
-            return Some(error_response(400, "invalid_http_request"));
+            let _ = out.send(Message::Text(http_error_envelope(
+                request_id,
+                400,
+                "invalid_http_request",
+            )));
+            return;
         }
     };
 
-    let manifest = match read_runtime_manifest() {
-        Ok(Some(m)) => m,
-        Ok(None) => {
-            return Some(error_response(503, "runtime_manifest_missing"));
-        }
-        Err(e) => {
-            warn!(target: "atmos_relay", error = %e, "manifest read failed");
-            return Some(error_response(503, "runtime_manifest_unreadable"));
+    let upstream = match gateway_upstream() {
+        Ok(v) => v,
+        Err(code) => {
+            let _ = out.send(Message::Text(http_error_envelope(request_id, 503, code)));
+            return;
         }
     };
 
-    let base = manifest.api.url.trim_end_matches('/');
-    let path = if req.path.starts_with('/') {
-        req.path.clone()
+    let (body_tx, body_rx) = mpsc::unbounded_channel();
+    let acks = Arc::new(AckWindow::new(HTTP_STREAM_WINDOW));
+    let cancel = CancellationToken::new();
+    if !start.streaming {
+        if let Some(b64) = start.body_b64.as_ref().filter(|s| !s.is_empty()) {
+            match B64.decode(b64) {
+                Ok(data) => {
+                    let _ = body_tx.send(RequestBodyEvent::Chunk { data });
+                }
+                Err(error) => {
+                    warn!(
+                        target: "atmos_relay",
+                        error = %error,
+                        "http gateway body base64 decode failed"
+                    );
+                    let _ = out.send(Message::Text(http_error_envelope(
+                        request_id,
+                        400,
+                        "invalid_body",
+                    )));
+                    return;
+                }
+            }
+        }
+        let _ = body_tx.send(RequestBodyEvent::End);
+    }
+
+    sessions.write().await.insert(
+        request_id.to_string(),
+        HttpInflight {
+            body_tx,
+            acks: Arc::clone(&acks),
+            cancel: cancel.clone(),
+        },
+    );
+
+    let request_id = request_id.to_string();
+    let out = out.clone();
+    let sessions = Arc::clone(sessions);
+    tokio::spawn(async move {
+        run_http_stream(HttpStreamParams {
+            request_id: request_id.clone(),
+            start,
+            upstream,
+            body_events: body_rx,
+            acks,
+            cancel,
+            out,
+            chunk_size: HTTP_STREAM_CHUNK_SIZE,
+        })
+        .await;
+        sessions.write().await.remove(&request_id);
+    });
+}
+
+struct HttpStreamParams {
+    request_id: String,
+    start: HttpRelayRequestStart,
+    upstream: GatewayUpstream,
+    body_events: mpsc::UnboundedReceiver<RequestBodyEvent>,
+    acks: SharedAckWindow,
+    cancel: CancellationToken,
+    out: mpsc::UnboundedSender<Message>,
+    chunk_size: usize,
+}
+
+async fn run_http_stream(params: HttpStreamParams) {
+    let HttpStreamParams {
+        request_id,
+        start,
+        upstream,
+        body_events,
+        acks,
+        cancel,
+        out,
+        chunk_size,
+    } = params;
+
+    if let Err(code) = run_http_stream_inner(
+        &request_id,
+        start,
+        upstream,
+        body_events,
+        acks,
+        &cancel,
+        &out,
+        chunk_size,
+    )
+    .await
+    {
+        if !cancel.is_cancelled() {
+            let _ = out.send(Message::Text(http_error_envelope(&request_id, 502, code)));
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn run_http_stream_inner(
+    request_id: &str,
+    start: HttpRelayRequestStart,
+    upstream: GatewayUpstream,
+    mut body_events: mpsc::UnboundedReceiver<RequestBodyEvent>,
+    acks: SharedAckWindow,
+    cancel: &CancellationToken,
+    out: &mpsc::UnboundedSender<Message>,
+    chunk_size: usize,
+) -> Result<(), &'static str> {
+    let base = upstream.base_url.trim_end_matches('/');
+    let path = if start.path.starts_with('/') {
+        start.path.clone()
     } else {
-        format!("/{}", req.path)
+        format!("/{}", start.path)
     };
     let url = format!("{base}{path}");
 
-    let method = match Method::from_bytes(req.method.as_bytes()) {
-        Ok(m) => m,
-        Err(_) => {
-            return Some(error_response(400, "invalid_method"));
-        }
-    };
-
-    let client = match reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(55))
+    let method = Method::from_bytes(start.method.as_bytes()).map_err(|_| "invalid_method")?;
+    let client = reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(10))
         .build()
-    {
-        Ok(c) => c,
-        Err(e) => {
-            warn!(target: "atmos_relay", error = %e, "http gateway client build failed");
-            return Some(error_response(502, "gateway_client_error"));
-        }
-    };
+        .map_err(|_| "gateway_client_error")?;
 
     let mut builder = client.request(method, &url);
-
     let mut has_auth = false;
-    for (name, value) in &req.headers {
+    for (name, value) in &start.headers {
         let lower = name.to_ascii_lowercase();
         if HOP_BY_HOP.contains(&lower.as_str()) {
             continue;
         }
-        // Gateway Bearer is for the edge only — never forward to loopback.
         if lower == "authorization" {
             continue;
         }
-        // The remote browser's origin belongs to the edge hop, which already
-        // authenticated this request. Forwarding it would make the local origin
-        // guard judge a page it cannot reason about.
         if lower == "origin" || lower == "referer" {
             continue;
         }
@@ -116,37 +323,49 @@ pub async fn handle_http_envelope(body: &str) -> Option<String> {
         }
         builder = builder.header(header_name, header_value);
     }
-
     if !has_auth {
-        if let Some(token) = relay_gateway_local_token() {
+        if let Some(token) = upstream.local_token.as_deref().filter(|s| !s.is_empty()) {
+            builder = builder.header(AUTHORIZATION, format!("Bearer {token}"));
+        } else if let Some(token) = relay_gateway_local_token() {
             builder = builder.header(AUTHORIZATION, format!("Bearer {token}"));
         }
     }
     builder = builder.header("X-Atmos-Relay-Gateway", "1");
 
-    if let Some(b64) = req.body_b64.as_ref().filter(|s| !s.is_empty()) {
-        match B64.decode(b64) {
-            Ok(bytes) => {
-                builder = builder.body(bytes);
-            }
-            Err(e) => {
-                warn!(target: "atmos_relay", error = %e, "http gateway body base64 decode failed");
-                return Some(error_response(400, "invalid_body"));
+    let (writer, reader) =
+        tokio::io::duplex((HTTP_STREAM_WINDOW as usize) * HTTP_STREAM_CHUNK_SIZE.max(1));
+    let feeder_cancel = cancel.clone();
+    let feeder = tokio::spawn(async move {
+        let mut writer = writer;
+        loop {
+            tokio::select! {
+                _ = feeder_cancel.cancelled() => {
+                    break;
+                }
+                event = body_events.recv() => {
+                    match event {
+                        Some(RequestBodyEvent::Chunk { data }) => {
+                            if writer.write_all(&data).await.is_err() {
+                                break;
+                            }
+                        }
+                        Some(RequestBodyEvent::End) | None => break,
+                    }
+                }
             }
         }
-    }
+        let _ = writer.shutdown().await;
+    });
 
-    let resp = match builder.send().await {
-        Ok(r) => r,
-        Err(e) => {
-            warn!(
-                target: "atmos_relay",
-                error = %e,
-                url = %url,
-                "http gateway upstream request failed"
-            );
-            return Some(error_response(502, "upstream_unreachable"));
+    builder = builder.body(reqwest::Body::wrap_stream(ReaderStream::new(reader)));
+
+    let send = builder.send();
+    let resp = tokio::select! {
+        _ = cancel.cancelled() => {
+            feeder.abort();
+            return Ok(());
         }
+        result = send => result.map_err(|_| "upstream_unreachable")?,
     };
 
     let status = resp.status().as_u16();
@@ -156,42 +375,83 @@ pub async fn handle_http_envelope(body: &str) -> Option<String> {
         if HOP_BY_HOP.contains(&lower.as_str()) {
             continue;
         }
-        if let Ok(v) = value.to_str() {
-            out_headers.push((name.to_string(), v.to_string()));
+        if let Ok(value) = value.to_str() {
+            out_headers.push((name.to_string(), value.to_string()));
         }
     }
 
-    let bytes = match resp.bytes().await {
-        Ok(b) => b,
-        Err(e) => {
-            warn!(target: "atmos_relay", error = %e, "http gateway read body failed");
-            return Some(error_response(502, "upstream_body_error"));
-        }
-    };
-
-    let body_b64 = if bytes.is_empty() {
-        None
-    } else {
-        Some(B64.encode(bytes))
-    };
-
-    let payload = HttpRelayResponseBody {
+    let start_body = serde_json::to_string(&HttpRelayResponseStart {
         status,
         headers: out_headers,
-        body_b64,
-    };
+    })
+    .map_err(|_| "response_encode_error")?;
+    out.send(Message::Text(http_envelope(
+        HTTP_KIND_RESPONSE_START,
+        request_id,
+        None,
+        Some(start_body),
+    )))
+    .map_err(|_| "gateway_internal_error")?;
 
-    match serde_json::to_string(&payload) {
-        Ok(s) => Some(s),
-        Err(e) => {
-            warn!(target: "atmos_relay", error = %e, "http gateway response encode failed");
-            Some(error_response(500, "response_encode_error"))
+    let mut byte_stream = resp.bytes_stream();
+    loop {
+        let next = tokio::select! {
+            _ = cancel.cancelled() => {
+                feeder.abort();
+                return Ok(());
+            }
+            part = byte_stream.next() => part,
+        };
+        let Some(part) = next else {
+            break;
+        };
+        let bytes = part.map_err(|_| "upstream_body_error")?;
+        if bytes.is_empty() {
+            continue;
+        }
+        let mut offset = 0;
+        while offset < bytes.len() {
+            if cancel.is_cancelled() {
+                feeder.abort();
+                return Ok(());
+            }
+            let end = (offset + chunk_size).min(bytes.len());
+            let seq = acks.take_slot(cancel).await.map_err(|_| "cancelled")?;
+            let encoded = B64.encode(&bytes[offset..end]);
+            out.send(Message::Text(http_envelope(
+                HTTP_KIND_RESPONSE_CHUNK,
+                request_id,
+                Some(seq),
+                Some(encoded),
+            )))
+            .map_err(|_| "gateway_internal_error")?;
+            offset = end;
         }
     }
+
+    out.send(Message::Text(http_envelope(
+        HTTP_KIND_RESPONSE_END,
+        request_id,
+        None,
+        None,
+    )))
+    .map_err(|_| "gateway_internal_error")?;
+    feeder.abort();
+    Ok(())
 }
 
-pub(crate) fn encode_error_response(status: u16, code: &str) -> String {
-    error_response(status, code)
+fn gateway_upstream() -> Result<GatewayUpstream, &'static str> {
+    match read_runtime_manifest() {
+        Ok(Some(manifest)) => Ok(GatewayUpstream {
+            base_url: manifest.api.url,
+            local_token: relay_gateway_local_token(),
+        }),
+        Ok(None) => Err("runtime_manifest_missing"),
+        Err(error) => {
+            warn!(target: "atmos_relay", error = %error, "manifest read failed");
+            Err("runtime_manifest_unreadable")
+        }
+    }
 }
 
 fn relay_gateway_local_token() -> Option<String> {
@@ -205,11 +465,264 @@ fn relay_gateway_local_token() -> Option<String> {
     None
 }
 
-fn error_response(status: u16, code: &str) -> String {
-    let payload = HttpRelayResponseBody {
-        status,
-        headers: vec![("content-type".to_string(), "application/json".to_string())],
-        body_b64: Some(B64.encode(format!(r#"{{"error":"{code}"}}"#))),
-    };
-    serde_json::to_string(&payload).unwrap_or_else(|_| "{}".into())
+#[cfg(test)]
+pub(crate) async fn run_http_stream_for_test(params: HttpStreamTestParams) {
+    run_http_stream(HttpStreamParams {
+        request_id: params.request_id,
+        start: params.start,
+        upstream: params.upstream,
+        body_events: params.body_events,
+        acks: params.acks,
+        cancel: params.cancel,
+        out: params.out,
+        chunk_size: params.chunk_size,
+    })
+    .await;
+}
+
+#[cfg(test)]
+pub(crate) struct HttpStreamTestParams {
+    pub request_id: String,
+    pub start: HttpRelayRequestStart,
+    pub upstream: GatewayUpstream,
+    pub body_events: mpsc::UnboundedReceiver<RequestBodyEvent>,
+    pub acks: SharedAckWindow,
+    pub cancel: CancellationToken,
+    pub out: mpsc::UnboundedSender<Message>,
+    pub chunk_size: usize,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::body::Body;
+    use axum::extract::DefaultBodyLimit;
+    use axum::response::IntoResponse;
+    use axum::routing::{get, put};
+    use axum::Router;
+    use serde_json::Value;
+    use std::net::SocketAddr;
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering as AtomicOrdering};
+    use std::sync::Arc;
+    use std::time::Duration;
+    use tokio::sync::mpsc;
+
+    fn parse_env(text: &str) -> Value {
+        serde_json::from_str(text).expect("envelope json")
+    }
+
+    async fn start_echo_server() -> (SocketAddr, Arc<AtomicUsize>, Arc<AtomicBool>) {
+        let received = Arc::new(AtomicUsize::new(0));
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let received_c = Arc::clone(&received);
+        let cancelled_c = Arc::clone(&cancelled);
+        let app = Router::new()
+            .route(
+                "/echo",
+                put(move |body: axum::body::Bytes| async move {
+                    received_c.fetch_add(body.len(), AtomicOrdering::SeqCst);
+                    body
+                }),
+            )
+            .route(
+                "/slow",
+                get(move || {
+                    let cancelled = Arc::clone(&cancelled_c);
+                    async move {
+                        let (tx, rx) = mpsc::channel::<Result<Vec<u8>, std::io::Error>>(1);
+                        tokio::spawn(async move {
+                            loop {
+                                if tx.send(Ok(vec![b'x'; 4096])).await.is_err() {
+                                    cancelled.store(true, AtomicOrdering::SeqCst);
+                                    break;
+                                }
+                                tokio::time::sleep(Duration::from_millis(15)).await;
+                            }
+                        });
+                        let stream = futures_util::stream::unfold(rx, |mut rx| async move {
+                            rx.recv().await.map(|item| (item, rx))
+                        });
+                        Body::from_stream(stream).into_response()
+                    }
+                }),
+            )
+            .layer(DefaultBodyLimit::max(32 * 1024 * 1024));
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            axum::serve(listener, app).await.unwrap();
+        });
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        (addr, received, cancelled)
+    }
+
+    #[tokio::test]
+    async fn streams_several_megabytes_with_backpressure() {
+        let (addr, received, _) = start_echo_server().await;
+        let payload = vec![0x5a; 4 * 1024 * 1024];
+        let (out_tx, mut out_rx) = mpsc::unbounded_channel();
+        let (body_tx, body_rx) = mpsc::unbounded_channel();
+        let acks = Arc::new(AckWindow::new(2));
+        let cancel = CancellationToken::new();
+        let request_id = "req-large".to_string();
+
+        let acks_for_task = Arc::clone(&acks);
+        let pump = tokio::spawn(async move {
+            run_http_stream_for_test(HttpStreamTestParams {
+                request_id,
+                start: HttpRelayRequestStart {
+                    method: "PUT".into(),
+                    path: "/echo".into(),
+                    headers: vec![("content-type".into(), "application/octet-stream".into())],
+                    body_b64: None,
+                    streaming: true,
+                },
+                upstream: GatewayUpstream {
+                    base_url: format!("http://{addr}"),
+                    local_token: None,
+                },
+                body_events: body_rx,
+                acks: acks_for_task,
+                cancel,
+                out: out_tx,
+                chunk_size: 32 * 1024,
+            })
+            .await;
+        });
+
+        let mut offset = 0;
+        while offset < payload.len() {
+            let end = (offset + 32 * 1024).min(payload.len());
+            body_tx
+                .send(RequestBodyEvent::Chunk {
+                    data: payload[offset..end].to_vec(),
+                })
+                .unwrap();
+            offset = end;
+        }
+        body_tx.send(RequestBodyEvent::End).unwrap();
+
+        let mut echoed = Vec::new();
+        loop {
+            let msg = tokio::time::timeout(Duration::from_secs(15), out_rx.recv())
+                .await
+                .expect("timed out")
+                .expect("closed");
+            let Message::Text(text) = msg else {
+                continue;
+            };
+            let value = parse_env(&text);
+            match value["kind"].as_str() {
+                Some(HTTP_KIND_RESPONSE_CHUNK) => {
+                    let seq = value["seq"].as_u64().unwrap() as u32;
+                    let chunk = B64
+                        .decode(value["body"].as_str().unwrap())
+                        .expect("chunk b64");
+                    echoed.extend_from_slice(&chunk);
+                    acks.ack(seq);
+                }
+                Some(HTTP_KIND_RESPONSE_END) => break,
+                Some("error") => {
+                    panic!("gateway error: {value}");
+                }
+                _ => {}
+            }
+        }
+
+        pump.await.unwrap();
+        assert_eq!(received.load(AtomicOrdering::SeqCst), payload.len());
+        assert_eq!(echoed, payload);
+        assert!(acks.blocked() >= 1, "window must stall on unacked chunks");
+    }
+
+    #[tokio::test]
+    async fn cancel_stops_in_flight_upstream_response() {
+        let (addr, _, cancelled) = start_echo_server().await;
+        let (out_tx, mut out_rx) = mpsc::unbounded_channel();
+        let (body_tx, body_rx) = mpsc::unbounded_channel();
+        let acks = Arc::new(AckWindow::new(8));
+        let cancel = CancellationToken::new();
+        let request_id = "req-cancel".to_string();
+
+        let runner_cancel = cancel.clone();
+        let acks_for_task = Arc::clone(&acks);
+        tokio::spawn(async move {
+            run_http_stream_for_test(HttpStreamTestParams {
+                request_id,
+                start: HttpRelayRequestStart {
+                    method: "GET".into(),
+                    path: "/slow".into(),
+                    headers: vec![],
+                    body_b64: None,
+                    streaming: true,
+                },
+                upstream: GatewayUpstream {
+                    base_url: format!("http://{addr}"),
+                    local_token: None,
+                },
+                body_events: body_rx,
+                acks: acks_for_task,
+                cancel: runner_cancel,
+                out: out_tx,
+                chunk_size: 32 * 1024,
+            })
+            .await;
+        });
+        body_tx.send(RequestBodyEvent::End).unwrap();
+
+        let mut saw_chunk = false;
+        while let Ok(Some(msg)) = tokio::time::timeout(Duration::from_secs(5), out_rx.recv()).await
+        {
+            let Message::Text(text) = msg else { continue };
+            let value = parse_env(&text);
+            if value["kind"].as_str() == Some(HTTP_KIND_RESPONSE_CHUNK) {
+                let seq = value["seq"].as_u64().unwrap() as u32;
+                acks.ack(seq);
+                saw_chunk = true;
+                break;
+            }
+        }
+        assert!(saw_chunk, "upstream must start streaming before cancel");
+        cancel.cancel();
+
+        tokio::time::timeout(Duration::from_secs(3), async {
+            while !cancelled.load(AtomicOrdering::SeqCst) {
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .expect("upstream HTTP was not cancelled after client abort");
+        assert!(cancelled.load(AtomicOrdering::SeqCst));
+    }
+
+    #[tokio::test]
+    async fn ingest_cancel_kind_stops_session() {
+        let sessions = new_session_map();
+        let (out_tx, _out_rx) = mpsc::unbounded_channel();
+        let cancel = CancellationToken::new();
+        let (body_tx, mut body_rx) = mpsc::unbounded_channel();
+        sessions.write().await.insert(
+            "req-1".into(),
+            HttpInflight {
+                body_tx,
+                acks: Arc::new(AckWindow::new(8)),
+                cancel: cancel.clone(),
+            },
+        );
+
+        on_http_envelope(
+            &sessions,
+            HTTP_KIND_CANCEL,
+            Some("req-1"),
+            None,
+            None,
+            &out_tx,
+        )
+        .await;
+
+        assert!(cancel.is_cancelled());
+        assert!(sessions.read().await.get("req-1").is_none());
+        assert!(body_rx.recv().await.is_none());
+    }
 }

@@ -20,8 +20,12 @@
 packages/relay/
 ├── src/
 │   ├── index.ts          # Worker routes (relay REST + WS upgrade)
-│   ├── server-hub.ts     # Durable Object per server_id
-│   ├── pt-design-room.ts # Durable Object per Prototype Design collab room
+│   ├── server-hub.ts     # ServerHub per server_id
+│   ├── http-stream.ts    # HTTP gateway chunked frames + unacked window
+│   ├── http-gateway.ts   # HTTP gateway auth + path helpers
+│   ├── hub-stub.ts       # ServerHub stub + optional placement hint
+│   ├── envelope.ts       # Shared data-plane envelope type
+│   ├── pt-design-room.ts # Prototype Design collab room
 │   ├── github-app.ts     # GitHub App OAuth/JWT/install token helpers
 │   ├── github-webhook.ts # Webhook signature verification + normalization
 │   ├── event-routes.ts   # GitHub setup, route CRUD, and matching
@@ -84,5 +88,6 @@ Default relay URL: `https://relay.atmos.land` (`ATMOS_RELAY_URL` override). Self
 
 ## Related
 
+- [Relay protocol](../../docs/architecture/relay.md)
 - [apps/api/AGENTS.md](../../apps/api/AGENTS.md)
 - [crates/runtime-manager/AGENTS.md](../../crates/runtime-manager/AGENTS.md)

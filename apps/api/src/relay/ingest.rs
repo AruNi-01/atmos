@@ -1,10 +1,9 @@
-//! Outbound Cloudflare relay link (APP-016). Multiplexes browser sessions into one WSS.
+//! Outbound Atmos Relay link (APP-016). Multiplexes browser sessions into one WSS.
 //!
-//! Keepalive strategy: server-initiated **WebSocket protocol PING** every 25 s. Cloudflare
-//! auto-responds with PONG at the edge — the relay Durable Object is **not** woken up, so
-//! keepalive traffic incurs no Worker requests, no DO CPU time, no GB-s charges.
-//! See `docs/architecture/relay.md` (and `specs/APP/APP-016_atmos-computer/TECH.md`) for
-//! the broader cost model.
+//! Keepalive strategy: server-initiated **WebSocket protocol PING** every 25 s.
+//! The relay edge auto-responds with PONG without waking ServerHub, so keepalive
+//! traffic does not run hub CPU. See `docs/architecture/relay.md` (and
+//! `specs/APP/APP-016_atmos-computer/TECH.md`) for the broader cost model.
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -48,6 +47,8 @@ struct RelayEnvelope {
     #[allow(dead_code)]
     to: Option<String>,
     request_id: Option<String>,
+    #[serde(default)]
+    seq: Option<u32>,
     body: Option<String>,
 }
 
@@ -287,10 +288,9 @@ pub async fn run(
         let _ = sink.send(Message::Close(None)).await;
     });
 
-    // Ping task: send a protocol PING every PING_INTERVAL. Cloudflare answers
-    // PONG at the edge without waking the Durable Object (zero billing impact),
-    // and any NAT box between us and the edge sees fresh traffic so its
-    // conntrack entry never expires.
+    // Ping task: send a protocol PING every PING_INTERVAL. The relay edge
+    // answers PONG without waking ServerHub, and any NAT box between us and
+    // the edge sees fresh traffic so its conntrack entry never expires.
     let ping_tx = out_tx.clone();
     let ping_task = tokio::spawn(async move {
         let mut interval = tokio::time::interval(PING_INTERVAL);
@@ -306,6 +306,7 @@ pub async fn run(
 
     let sessions: Arc<RwLock<HashMap<String, Session>>> = Arc::new(RwLock::new(HashMap::new()));
     let terminal_sessions: Arc<TerminalRelaySessions> = Arc::new(RwLock::new(HashMap::new()));
+    let http_sessions = http_gateway::new_session_map();
 
     let outcome = loop {
         let next = tokio::select! {
@@ -332,40 +333,16 @@ pub async fn run(
                     continue;
                 }
 
-                if env.stream.as_deref() == Some("http") && env.kind == "request" {
-                    let Some(request_id) = env.request_id.clone() else {
-                        continue;
-                    };
-                    let body = env.body.unwrap_or_default();
-                    let relay_out = out_tx.clone();
-                    tokio::spawn(async move {
-                        let response_body = match http_gateway::handle_http_envelope(&body).await {
-                            Some(body) => body,
-                            None => {
-                                warn!(
-                                    target: "atmos_relay",
-                                    request_id = %request_id,
-                                    "http gateway handler returned no response"
-                                );
-                                http_gateway::encode_error_response(500, "gateway_internal_error")
-                            }
-                        };
-                        let outbound = serde_json::json!({
-                            "v": 1_u32,
-                            "stream": "http",
-                            "kind": "response",
-                            "request_id": request_id,
-                            "body": response_body,
-                        })
-                        .to_string();
-                        if let Err(error) = relay_out.send(Message::Text(outbound)) {
-                            warn!(
-                                target: "atmos_relay",
-                                error = %error,
-                                "http relay response could not be queued; delivery may have failed"
-                            );
-                        }
-                    });
+                if env.stream.as_deref() == Some("http") {
+                    http_gateway::on_http_envelope(
+                        &http_sessions,
+                        &env.kind,
+                        env.request_id.as_deref(),
+                        env.seq,
+                        env.body.as_deref(),
+                        &out_tx,
+                    )
+                    .await;
                     continue;
                 }
 
@@ -498,8 +475,8 @@ pub async fn run(
                 });
             }
             Some(Ok(Message::Ping(payload))) => {
-                // Echo back so CF/peers know we're alive. Pong is also cheap on
-                // the edge and never wakes the Durable Object.
+                // Echo back so the edge / peers know we're alive. Pong is
+                // handled at the socket layer and does not wake ServerHub.
                 let _ = out_tx.send(Message::Pong(payload));
             }
             Some(Ok(Message::Pong(_))) => {
@@ -530,6 +507,7 @@ pub async fn run(
 
     ping_task.abort();
     writer.abort();
+    http_gateway::cancel_all(&http_sessions).await;
     drop(out_tx);
 
     let mut locked = sessions.write().await;

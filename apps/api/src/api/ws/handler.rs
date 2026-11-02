@@ -2,9 +2,9 @@
 //!
 //! `WsService` is intentionally transport-only: framing, lifecycle, and
 //! WebSocket protocol-level ping/pong belong to the upstream framework
-//! (axum/tokio-tungstenite/Cloudflare). Application code never sends
-//! app-level `"ping"`/`"pong"` strings — those wake hibernated Durable
-//! Objects in relay mode and burn billable CPU for zero functional value.
+//! (axum/tokio-tungstenite/relay edge). Application code never sends
+//! app-level `"ping"`/`"pong"` strings — those wake a hibernated ServerHub
+//! in relay mode and burn billable CPU for zero functional value.
 //! See `docs/architecture/relay.md` for the cost rationale.
 
 use async_trait::async_trait;
