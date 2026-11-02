@@ -8,6 +8,7 @@ Canonical on-disk layout (no legacy root-level secret/config files).
     computer-client.json
     linear_local_keys.json
     relay_identity.json
+    relay_e2ee.json          # Computer static X25519 (HTTP E2EE); mode 0600
 
   state/                # sessions & discovery
     runtime_manifest.json
@@ -53,13 +54,13 @@ Canonical on-disk layout (no legacy root-level secret/config files).
 
 ## Rules
 
-| Kind                 | Directory      | Examples                                          |
-| -------------------- | -------------- | ------------------------------------------------- |
-| Secrets              | `credentials/` | device credential, Linear API keys, server_secret |
-| Session / discovery  | `state/`       | runtime manifest, relay client session            |
-| Preferences          | `config/`      | function_settings, code agents, LLM providers     |
-| Large / feature data | `data/`        | SQLite, workspaces, desktop-use                   |
-| Install              | top-level      | `bin/`, `runtime/`, `skills/`                     |
+| Kind                 | Directory      | Examples                                                                   |
+| -------------------- | -------------- | -------------------------------------------------------------------------- |
+| Secrets              | `credentials/` | device credential, Linear API keys, server_secret, HTTP E2EE static secret |
+| Session / discovery  | `state/`       | runtime manifest, relay client session                                     |
+| Preferences          | `config/`      | function_settings, code agents, LLM providers                              |
+| Large / feature data | `data/`        | SQLite, workspaces, desktop-use                                            |
+| Install              | top-level      | `bin/`, `runtime/`, `skills/`                                              |
 
 - Hub OAuth tokens stay on **Hub**, not under `credentials/`.
 - Path helpers: `runtime_manager::layout` (and matching crates that mirror the same relative paths).

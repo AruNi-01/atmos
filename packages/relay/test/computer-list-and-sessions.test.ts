@@ -50,7 +50,7 @@ function computerListEnv(rows: Array<Record<string, unknown>>) {
   };
 }
 
-function clientSessionEnv(options: { sessionCount?: number } = {}) {
+function clientSessionEnv(options: { sessionCount?: number; e2eePk?: string | null } = {}) {
   const calls: Array<{ sql: string; args: unknown[]; op?: string }> = [];
   return {
     calls,
@@ -67,8 +67,8 @@ function clientSessionEnv(options: { sessionCount?: number } = {}) {
                   if (sql.includes("SELECT device_id, user_id FROM devices")) {
                     return { device_id: "dev_1", user_id: "user_1" };
                   }
-                  if (sql.includes("SELECT revoked FROM computers")) {
-                    return { revoked: 0 };
+                  if (sql.includes("SELECT revoked") && sql.includes("FROM computers")) {
+                    return { revoked: 0, e2ee_static_pk: options.e2eePk ?? null };
                   }
                   if (sql.includes("SELECT COUNT(*) AS count FROM client_sessions")) {
                     return { count: options.sessionCount ?? 0 };
@@ -177,6 +177,7 @@ describe("POST client_sessions concurrent rows", () => {
     const body = (await response.json()) as { client_token?: string; ws_url?: string };
     expect(body.client_token).toBeTruthy();
     expect(body.ws_url).toContain("server_id=srv_1");
+    expect((body as { e2ee?: { enabled?: boolean } }).e2ee).toEqual({ enabled: false });
 
     const wipeAll = harness.calls.some(
       (c) =>
@@ -213,5 +214,32 @@ describe("POST client_sessions concurrent rows", () => {
     );
     expect(overflowDelete).toBeTruthy();
     expect(overflowDelete?.args).toEqual(["srv_1", "user_1", 1]);
+  });
+
+  test("returns the Computer static public key when advertised", async () => {
+    const pk = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    const harness = clientSessionEnv({ e2eePk: pk });
+    const { default: worker } = await import("../src/index");
+    const response = await worker.fetch(
+      new Request("https://relay.atmos.land/v1/computers/srv_1/client_sessions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${DEVICE_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ client_kind: "web" }),
+      }),
+      harness.env as never,
+      {} as never,
+    );
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      e2ee?: { enabled?: boolean; alg?: string; static_pk?: string };
+    };
+    expect(body.e2ee).toEqual({
+      enabled: true,
+      alg: "x25519-chacha20poly1305",
+      static_pk: pk,
+    });
   });
 });

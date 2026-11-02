@@ -19,7 +19,12 @@ import {
   type DeliveryAckStatus,
 } from "./delivery-state";
 import type { RelayEnvelope } from "./envelope";
-import { decodeGatewayStream, HTTP_STREAM, startHubHttpProxy } from "./http-stream";
+import {
+  decodeGatewayStream,
+  HTTP_STREAM,
+  isValidE2eeRequestId,
+  startHubHttpProxy,
+} from "./http-stream";
 
 export interface ServerHubEnv {
   SERVER_HUB: DurableObjectNamespace<ServerHub>;
@@ -263,7 +268,16 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
       });
     }
 
-    const requestId = crypto.randomUUID();
+    const requestId =
+      meta.e2ee && isValidE2eeRequestId(meta.e2ee.request_id)
+        ? meta.e2ee.request_id
+        : crypto.randomUUID();
+    if (meta.e2ee && requestId !== meta.e2ee.request_id) {
+      return new Response(JSON.stringify({ error: "invalid_e2ee" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
     const abort = new AbortController();
     if (request.signal.aborted) {
       abort.abort();
@@ -281,6 +295,8 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
       headers: meta.headers,
       requestBody: rest,
       signal: abort.signal,
+      presealed: Boolean(meta.e2ee),
+      e2ee: meta.e2ee,
       onSettled: () => {
         this.pendingHttp.delete(requestId);
       },
@@ -364,6 +380,37 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
         status: 502,
         headers: { "Content-Type": "application/json" },
       });
+    }
+  }
+
+  private async persistE2eeCaps(serverId: string, body: string): Promise<void> {
+    let parsed: { enabled?: boolean; alg?: string; static_pk?: string };
+    try {
+      parsed = JSON.parse(body) as { enabled?: boolean; alg?: string; static_pk?: string };
+    } catch {
+      return;
+    }
+    const now = Math.floor(Date.now() / 1000);
+    try {
+      if (parsed.enabled === false) {
+        await this.env.DB.prepare(
+          "UPDATE computers SET e2ee_static_pk = NULL, updated_at = ? WHERE server_id = ?",
+        )
+          .bind(now, serverId)
+          .run();
+        return;
+      }
+      const pk = parsed.static_pk?.trim() ?? "";
+      if (parsed.alg !== "x25519-chacha20poly1305" || pk.length < 42) {
+        return;
+      }
+      await this.env.DB.prepare(
+        "UPDATE computers SET e2ee_static_pk = ?, updated_at = ? WHERE server_id = ?",
+      )
+        .bind(pk, now, serverId)
+        .run();
+    } catch {
+      /* schema not migrated yet, or D1 unavailable — non-fatal */
     }
   }
 
@@ -459,6 +506,10 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
             await pending.onEnvelope(env);
             return;
           }
+        }
+        if (env.stream === "system" && env.kind === "e2ee_caps") {
+          await this.persistE2eeCaps(meta.server_id, env.body ?? "{}");
+          return;
         }
         if (env.stream === "system" && env.kind === "external_event_ack") {
           await this.handleExternalEventAck(env, meta.server_id);

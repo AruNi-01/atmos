@@ -1,5 +1,6 @@
 //! APP-016 Atmos Computer — outbound relay to the Atmos Relay edge.
 
+pub(crate) mod e2ee;
 pub(crate) mod external_events;
 mod http_gateway;
 pub(crate) mod http_stream;

@@ -7,6 +7,7 @@ import {
   useAtmosComputerStore,
   type AtmosComputerConnectionMode,
 } from "@/features/connection/lib/atmos-computer-store";
+import type { RelayE2eeOffer } from "@atmos/relay-client";
 
 type IdentityPatch = {
   relayUrl?: string;
@@ -19,6 +20,7 @@ type RelaySessionTransport = {
   relayWebSocketUrl: string | null;
   relayGatewayHttpBase: string | null;
   relayClientToken: string | null;
+  relayE2ee?: RelayE2eeOffer | null;
 };
 
 function removeComputerQueries(): Promise<void> {
@@ -71,10 +73,12 @@ export async function applyIdentityBearingComputerSettings(patch: IdentityPatch)
  */
 export async function applyRelaySessionTransport(session: RelaySessionTransport): Promise<void> {
   const store = useAtmosComputerStore.getState();
+  const nextE2ee = session.relayE2ee === undefined ? store.relayE2ee : session.relayE2ee;
   const changed =
     store.relayWebSocketUrl !== session.relayWebSocketUrl ||
     store.relayGatewayHttpBase !== session.relayGatewayHttpBase ||
-    store.relayClientToken !== session.relayClientToken;
+    store.relayClientToken !== session.relayClientToken ||
+    store.relayE2ee !== nextE2ee;
 
   if (!changed) return;
 

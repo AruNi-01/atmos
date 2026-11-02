@@ -1,6 +1,18 @@
 import { afterAll, describe, expect, mock, test } from "bun:test";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import {
+  decodeB64Url,
+  deriveRelayHttpE2eeKey,
+  e2eeAad,
+  encodeB64Url,
+  encodeLengthPrefixed,
+  generateX25519KeyPair,
+  openRecord,
+  readLengthPrefixedRecord,
+  RELAY_E2EE_ALG,
+  sealRecord,
+} from "../../relay-client/src/e2ee";
 import type { RelayEnvelope } from "../src/envelope";
 import {
   AckWindow,
@@ -141,6 +153,7 @@ function createComputerPeer(opts: {
   traces: TraceEvent[];
   startedAt: number;
   ackDelayMs: number;
+  e2ee?: { secretKey: Uint8Array; publicKey: Uint8Array };
 }) {
   const responseWindow = new AckWindow(2);
   let requestId = "";
@@ -167,7 +180,12 @@ function createComputerPeer(opts: {
       return;
     }
     if (envelope.kind === HTTP_KIND.requestChunk && envelope.body) {
-      parts.push(b64ToU8(envelope.body));
+      let bytes = b64ToU8(envelope.body);
+      if (opts.e2ee && meta.e2ee && envelope.seq !== undefined) {
+        const key = sessionKey(opts.e2ee, meta);
+        bytes = openRecord(key, e2eeAad(requestId, envelope.seq, "request_chunk"), bytes);
+      }
+      parts.push(bytes);
       await delay(opts.ackDelayMs);
       send(httpEnvelope({ kind: HTTP_KIND.ack, requestId, seq: envelope.seq }));
       return;
@@ -251,12 +269,17 @@ function createComputerPeer(opts: {
           while (cursor < value.byteLength) {
             const end = Math.min(value.byteLength, cursor + HTTP_STREAM_CHUNK_SIZE);
             const seq = await responseWindow.takeSlot(abort.signal);
+            let piece = value.slice(cursor, end);
+            if (opts.e2ee && meta.e2ee) {
+              const key = sessionKey(opts.e2ee, meta);
+              piece = sealRecord(key, e2eeAad(requestId, seq, "response_chunk"), piece);
+            }
             send(
               httpEnvelope({
                 kind: HTTP_KIND.responseChunk,
                 requestId,
                 seq,
-                body: u8ToB64(value.slice(cursor, end)),
+                body: u8ToB64(piece),
               }),
             );
             cursor = end;
@@ -287,7 +310,20 @@ function createComputerPeer(opts: {
   };
 }
 
-describe("true-link HTTP gateway (edge prelude + hub stream + computer HTTP)", () => {
+function sessionKey(
+  computer: { secretKey: Uint8Array; publicKey: Uint8Array },
+  meta: GatewayMeta,
+): Uint8Array {
+  const ephPk = decodeB64Url(meta.e2ee!.eph_pk);
+  return deriveRelayHttpE2eeKey({
+    localSecret: computer.secretKey,
+    peerPublic: ephPk,
+    ephPublic: ephPk,
+    staticPublic: computer.publicKey,
+  });
+}
+
+describe("true-link HTTP gateway (in-process Worker prelude + hub helper + computer HTTP)", () => {
   const stops: Array<() => void> = [];
   afterAll(() => {
     for (const stop of stops) {
@@ -654,4 +690,241 @@ describe("true-link HTTP gateway (edge prelude + hub stream + computer HTTP)", (
       path: decoded.meta.path,
     });
   }, 30_000);
+
+  test("streams several MiB with HTTP E2EE on and keeps plaintext compatible", async () => {
+    const payload = bytesOf(2 * 1024 * 1024, 0x3c);
+    const startedAt = Date.now();
+    const traces: TraceEvent[] = [];
+    const upstream = startUpstream();
+    stops.push(upstream.stop);
+    const computerKeys = generateX25519KeyPair();
+    const clientEph = generateX25519KeyPair();
+    const requestId = "true-link-e2ee";
+    const key = deriveRelayHttpE2eeKey({
+      localSecret: clientEph.secretKey,
+      peerPublic: computerKeys.publicKey,
+      ephPublic: clientEph.publicKey,
+      staticPublic: computerKeys.publicKey,
+    });
+    const records: Uint8Array[] = [];
+    let offset = 0;
+    let seq = 0;
+    while (offset < payload.byteLength) {
+      const end = Math.min(payload.byteLength, offset + HTTP_STREAM_CHUNK_SIZE);
+      const sealed = sealRecord(
+        key,
+        e2eeAad(requestId, seq, "request_chunk"),
+        payload.slice(offset, end),
+      );
+      records.push(encodeLengthPrefixed(sealed));
+      offset = end;
+      seq += 1;
+    }
+    const framed = new Uint8Array(records.reduce((sum, record) => sum + record.byteLength, 0));
+    let at = 0;
+    for (const record of records) {
+      framed.set(record, at);
+      at += record.byteLength;
+    }
+
+    const hub: {
+      onEnvelope?: (envelope: RelayEnvelope) => Promise<void>;
+      blocked?: () => number;
+    } = {};
+    const computer = createComputerPeer({
+      origin: upstream.origin,
+      sendToHub: (envelope) => {
+        void hub.onEnvelope?.(wireEnvelope(envelope));
+      },
+      traces,
+      startedAt,
+      ackDelayMs: 4,
+      e2ee: computerKeys,
+    });
+    const prelude = encodeGatewayPrelude({
+      method: "PUT",
+      path: "/echo",
+      headers: [["content-type", "application/octet-stream"]],
+      e2ee: {
+        v: 1,
+        alg: RELAY_E2EE_ALG,
+        request_id: requestId,
+        eph_pk: encodeB64Url(clientEph.publicKey),
+      },
+    });
+    const { readable, writable } = new TransformStream<Uint8Array>();
+    void pipeGatewayRequestBody(
+      writable,
+      prelude,
+      new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(framed);
+          controller.close();
+        },
+      }),
+    );
+    const decoded = await decodeGatewayStream(readable);
+    const handle = startHubHttpProxy({
+      send: (envelope) => {
+        traces.push({
+          tMs: Date.now() - startedAt,
+          hop: "hub-computer",
+          dir: "out",
+          kind: envelope.kind,
+          seq: envelope.seq,
+          bytes: envelope.body ? b64ToU8Safe(envelope.body, envelope.kind) : 0,
+        });
+        computer.onEnvelope(wireEnvelope(envelope));
+      },
+      requestId,
+      method: decoded.meta.method,
+      path: decoded.meta.path,
+      headers: decoded.meta.headers as [string, string][],
+      requestBody: decoded.rest,
+      presealed: true,
+      e2ee: decoded.meta.e2ee,
+      windowSize: HTTP_STREAM_WINDOW,
+      idleTimeoutMs: 30_000,
+    });
+    hub.onEnvelope = handle.onEnvelope;
+    hub.blocked = () => handle.requestWindow.blocked;
+
+    const response = await handle.response;
+    expect(response.headers.get("X-Atmos-E2EE")).toBe("1");
+    const leftover = { buf: new Uint8Array(0) };
+    const reader = response.body!.getReader();
+    const opened: Uint8Array[] = [];
+    let replySeq = 0;
+    for (;;) {
+      const record = await readLengthPrefixedRecord(reader, leftover);
+      if (!record) {
+        break;
+      }
+      opened.push(openRecord(key, e2eeAad(requestId, replySeq, "response_chunk"), record));
+      replySeq += 1;
+    }
+    const echoed = new Uint8Array(opened.reduce((sum, part) => sum + part.byteLength, 0));
+    at = 0;
+    for (const part of opened) {
+      echoed.set(part, at);
+      at += part.byteLength;
+    }
+    await dumpTrace("05-e2ee-streaming.json", {
+      bytes: payload.byteLength,
+      status: response.status,
+      requestChunks: traces.filter((event) => event.kind === HTTP_KIND.requestChunk).length,
+      blocked: handle.requestWindow.blocked,
+      e2ee: true,
+    });
+    expect(response.status).toBe(200);
+    expect(echoed).toEqual(payload);
+    expect(upstream.stats.received).toBe(payload.byteLength);
+    expect(handle.requestWindow.blocked).toBeGreaterThan(0);
+
+    const plain = startHubHttpProxy({
+      send: (envelope) => {
+        if (envelope.kind === HTTP_KIND.request) {
+          expect(JSON.parse(envelope.body ?? "{}").e2ee).toBeUndefined();
+        }
+      },
+      requestId: "plaintext-compat",
+      method: "GET",
+      path: "/empty",
+      headers: [],
+      requestBody: null,
+    });
+    await plain.onEnvelope(
+      httpEnvelope({
+        kind: HTTP_KIND.responseStart,
+        requestId: "plaintext-compat",
+        body: JSON.stringify({ status: 204, headers: [] }),
+      }),
+    );
+    await plain.onEnvelope(
+      httpEnvelope({ kind: HTTP_KIND.responseEnd, requestId: "plaintext-compat" }),
+    );
+    const plainResponse = await plain.response;
+    expect(plainResponse.status).toBe(204);
+    expect(plainResponse.headers.get("X-Atmos-E2EE")).toBeNull();
+  }, 60_000);
+
+  test("cancel still aborts upstream when HTTP E2EE is on", async () => {
+    const startedAt = Date.now();
+    const traces: TraceEvent[] = [];
+    const upstream = startUpstream();
+    stops.push(upstream.stop);
+    const abort = new AbortController();
+    const computerKeys = generateX25519KeyPair();
+    const clientEph = generateX25519KeyPair();
+    const requestId = "true-link-e2ee-cancel";
+    const hub: { onEnvelope?: (envelope: RelayEnvelope) => Promise<void> } = {};
+    const computer = createComputerPeer({
+      origin: upstream.origin,
+      sendToHub: (envelope) => {
+        traces.push({
+          tMs: Date.now() - startedAt,
+          hop: "hub-computer",
+          dir: "in",
+          kind: envelope.kind,
+          seq: envelope.seq,
+        });
+        void hub.onEnvelope?.(wireEnvelope(envelope));
+      },
+      traces,
+      startedAt,
+      ackDelayMs: 0,
+      e2ee: computerKeys,
+    });
+
+    const handle = startHubHttpProxy({
+      send: (envelope) => {
+        traces.push({
+          tMs: Date.now() - startedAt,
+          hop: "hub-computer",
+          dir: "out",
+          kind: envelope.kind,
+          seq: envelope.seq,
+        });
+        computer.onEnvelope(wireEnvelope(envelope));
+      },
+      requestId,
+      method: "GET",
+      path: "/slow",
+      headers: [],
+      requestBody: null,
+      signal: abort.signal,
+      presealed: true,
+      e2ee: {
+        v: 1,
+        alg: RELAY_E2EE_ALG,
+        request_id: requestId,
+        eph_pk: encodeB64Url(clientEph.publicKey),
+      },
+      idleTimeoutMs: 20_000,
+    });
+    hub.onEnvelope = handle.onEnvelope;
+
+    for (let i = 0; i < 50; i += 1) {
+      if (traces.some((event) => event.kind === HTTP_KIND.responseStart)) {
+        break;
+      }
+      await delay(10);
+    }
+    const pending = handle.response.then(
+      (response) => ({ ok: true as const, response }),
+      (error: unknown) => ({ ok: false as const, error }),
+    );
+    abort.abort();
+    const settled = await pending;
+    await delay(120);
+    const cancel = traces.find((event) => event.kind === HTTP_KIND.cancel && event.dir === "out");
+    await dumpTrace("06-e2ee-cancel.json", {
+      cancel,
+      settled: settled.ok ? { status: settled.response.status } : { error: String(settled.error) },
+      upstreamCancelled: upstream.stats.cancelled,
+      e2ee: true,
+    });
+    expect(cancel).toBeTruthy();
+    expect(upstream.stats.cancelled).toBe(true);
+  }, 20_000);
 });

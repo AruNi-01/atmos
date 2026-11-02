@@ -17,6 +17,7 @@ use tokio_util::io::ReaderStream;
 use tokio_util::sync::CancellationToken;
 use tracing::warn;
 
+use super::e2ee::{self, SessionKey};
 use super::http_stream::{
     http_envelope, http_error_envelope, AckWindow, SharedAckWindow, HTTP_KIND_ACK,
     HTTP_KIND_CANCEL, HTTP_KIND_REQUEST, HTTP_KIND_REQUEST_CHUNK, HTTP_KIND_REQUEST_END,
@@ -37,6 +38,14 @@ const HOP_BY_HOP: &[&str] = &[
 ];
 
 #[derive(Debug, Deserialize)]
+pub struct HttpE2eePrelude {
+    #[serde(default)]
+    v: u32,
+    alg: String,
+    eph_pk: String,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct HttpRelayRequestStart {
     method: String,
     path: String,
@@ -45,6 +54,8 @@ pub struct HttpRelayRequestStart {
     body_b64: Option<String>,
     #[serde(default)]
     streaming: bool,
+    #[serde(default)]
+    e2ee: Option<HttpE2eePrelude>,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -67,6 +78,7 @@ pub struct HttpInflight {
     admit_tx: mpsc::UnboundedSender<AdmitMsg>,
     pub acks: SharedAckWindow,
     pub cancel: CancellationToken,
+    e2ee: Option<Arc<SessionKey>>,
 }
 
 fn spawn_body_admission(
@@ -155,10 +167,11 @@ pub async fn on_http_envelope(
                 session.admit_tx.clone(),
                 Arc::clone(&session.acks),
                 session.cancel.clone(),
+                session.e2ee.clone(),
             )
         })
     };
-    let Some((admit_tx, acks, cancel)) = inflight else {
+    let Some((admit_tx, acks, cancel, e2ee)) = inflight else {
         return;
     };
     match kind {
@@ -168,7 +181,39 @@ pub async fn on_http_envelope(
             };
             match B64.decode(b64) {
                 Ok(data) => {
-                    if admit_tx.send(AdmitMsg::Chunk { data, seq }).is_err() {
+                    let opened = if let Some(key) = e2ee.as_ref() {
+                        let Some(seq) = seq else {
+                            let _ = out.send(Message::Text(http_error_envelope(
+                                request_id,
+                                400,
+                                "invalid_e2ee",
+                            )));
+                            cancel.cancel();
+                            return;
+                        };
+                        match key.open(&e2ee::aad(request_id, seq, HTTP_KIND_REQUEST_CHUNK), &data)
+                        {
+                            Ok(plain) => plain,
+                            Err(code) => {
+                                warn!(
+                                    target: "atmos_relay",
+                                    request_id = %request_id,
+                                    "http gateway e2ee open failed"
+                                );
+                                let _ = out.send(Message::Text(http_error_envelope(
+                                    request_id, 400, code,
+                                )));
+                                cancel.cancel();
+                                return;
+                            }
+                        }
+                    } else {
+                        data
+                    };
+                    if admit_tx
+                        .send(AdmitMsg::Chunk { data: opened, seq })
+                        .is_err()
+                    {
                         cancel.cancel();
                     }
                 }
@@ -232,6 +277,15 @@ async fn start_session(
         return;
     }
 
+    if start.e2ee.is_some() && !start.streaming {
+        let _ = out.send(Message::Text(http_error_envelope(
+            request_id,
+            400,
+            "e2ee_requires_streaming",
+        )));
+        return;
+    }
+
     let upstream = match gateway_upstream() {
         Ok(v) => v,
         Err(code) => {
@@ -250,6 +304,28 @@ async fn launch_session(
     upstream: GatewayUpstream,
     out: &mpsc::UnboundedSender<Message>,
 ) {
+    let e2ee = match start.e2ee.as_ref() {
+        Some(prelude) => {
+            if prelude.alg != e2ee::ALG || (prelude.v != 0 && prelude.v != e2ee::VERSION) {
+                let _ = out.send(Message::Text(http_error_envelope(
+                    request_id,
+                    400,
+                    "e2ee_unsupported",
+                )));
+                return;
+            }
+            match e2ee::session_from_eph_pk(&prelude.eph_pk) {
+                Ok(key) => Some(Arc::new(key)),
+                Err(code) => {
+                    let status = if code == "e2ee_disabled" { 403 } else { 400 };
+                    let _ = out.send(Message::Text(http_error_envelope(request_id, status, code)));
+                    return;
+                }
+            }
+        }
+        None => None,
+    };
+
     let (body_tx, body_rx) = mpsc::channel(HTTP_STREAM_WINDOW as usize);
     let (admit_tx, admit_rx) = mpsc::unbounded_channel();
     let acks = Arc::new(AckWindow::new(HTTP_STREAM_WINDOW));
@@ -291,6 +367,7 @@ async fn launch_session(
             admit_tx,
             acks: Arc::clone(&acks),
             cancel: cancel.clone(),
+            e2ee: e2ee.clone(),
         },
     );
 
@@ -307,6 +384,7 @@ async fn launch_session(
             cancel,
             out,
             chunk_size: HTTP_STREAM_CHUNK_SIZE,
+            e2ee,
         })
         .await;
         sessions.write().await.remove(&request_id);
@@ -322,6 +400,7 @@ struct HttpStreamParams {
     cancel: CancellationToken,
     out: mpsc::UnboundedSender<Message>,
     chunk_size: usize,
+    e2ee: Option<Arc<SessionKey>>,
 }
 
 async fn run_http_stream(params: HttpStreamParams) {
@@ -334,6 +413,7 @@ async fn run_http_stream(params: HttpStreamParams) {
         cancel,
         out,
         chunk_size,
+        e2ee,
     } = params;
 
     if let Err(code) = run_http_stream_inner(
@@ -345,6 +425,7 @@ async fn run_http_stream(params: HttpStreamParams) {
         &cancel,
         &out,
         chunk_size,
+        e2ee.as_deref(),
     )
     .await
     {
@@ -369,6 +450,7 @@ async fn run_http_stream_inner(
     cancel: &CancellationToken,
     out: &mpsc::UnboundedSender<Message>,
     chunk_size: usize,
+    e2ee: Option<&SessionKey>,
 ) -> Result<(), &'static str> {
     let base = upstream.base_url.trim_end_matches('/');
     let path = if start.path.starts_with('/') {
@@ -395,6 +477,12 @@ async fn run_http_stream_inner(
             continue;
         }
         if lower == "origin" || lower == "referer" {
+            continue;
+        }
+        if lower.starts_with("x-atmos-e2ee") {
+            continue;
+        }
+        if e2ee.is_some() && (lower == "content-length" || lower == "transfer-encoding") {
             continue;
         }
         let Ok(header_name) = HeaderName::from_bytes(name.as_bytes()) else {
@@ -504,7 +592,13 @@ async fn run_http_stream_inner(
             }
             let end = (offset + chunk_size).min(bytes.len());
             let seq = acks.take_slot(cancel).await.map_err(|_| "cancelled")?;
-            let encoded = B64.encode(&bytes[offset..end]);
+            let piece = &bytes[offset..end];
+            let payload = if let Some(key) = e2ee {
+                key.seal(&e2ee::aad(request_id, seq, HTTP_KIND_RESPONSE_CHUNK), piece)?
+            } else {
+                piece.to_vec()
+            };
+            let encoded = B64.encode(&payload);
             out.send(Message::Text(http_envelope(
                 HTTP_KIND_RESPONSE_CHUNK,
                 request_id,
@@ -563,6 +657,7 @@ pub(crate) async fn run_http_stream_for_test(params: HttpStreamTestParams) {
         cancel: params.cancel,
         out: params.out,
         chunk_size: params.chunk_size,
+        e2ee: params.e2ee,
     })
     .await;
 }
@@ -577,6 +672,7 @@ pub(crate) struct HttpStreamTestParams {
     pub cancel: CancellationToken,
     pub out: mpsc::UnboundedSender<Message>,
     pub chunk_size: usize,
+    pub e2ee: Option<Arc<SessionKey>>,
 }
 
 #[cfg(test)]
@@ -684,6 +780,7 @@ mod tests {
                     headers: vec![("content-type".into(), "application/octet-stream".into())],
                     body_b64: None,
                     streaming: true,
+                    e2ee: None,
                 },
                 upstream: GatewayUpstream {
                     base_url: format!("http://{addr}"),
@@ -694,6 +791,7 @@ mod tests {
                 cancel,
                 out: out_tx,
                 chunk_size: 32 * 1024,
+                e2ee: None,
             })
             .await;
         });
@@ -764,6 +862,7 @@ mod tests {
                     headers: vec![],
                     body_b64: None,
                     streaming: true,
+                    e2ee: None,
                 },
                 upstream: GatewayUpstream {
                     base_url: format!("http://{addr}"),
@@ -774,6 +873,7 @@ mod tests {
                 cancel: runner_cancel,
                 out: out_tx,
                 chunk_size: 32 * 1024,
+                e2ee: None,
             })
             .await;
         });
@@ -816,6 +916,7 @@ mod tests {
                 admit_tx,
                 acks: Arc::new(AckWindow::new(8)),
                 cancel: cancel.clone(),
+                e2ee: None,
             },
         );
 
@@ -868,6 +969,7 @@ mod tests {
                 admit_tx,
                 acks: Arc::new(AckWindow::new(8)),
                 cancel: cancel.clone(),
+                e2ee: None,
             },
         );
         on_http_envelope(
@@ -910,6 +1012,7 @@ mod tests {
                 admit_tx,
                 acks: Arc::new(AckWindow::new(8)),
                 cancel: cancel.clone(),
+                e2ee: None,
             },
         );
 
@@ -1044,6 +1147,7 @@ mod tests {
                 headers: vec![("content-type".into(), "application/octet-stream".into())],
                 body_b64: None,
                 streaming: true,
+                e2ee: None,
             },
             GatewayUpstream {
                 base_url: format!("http://{addr}"),
@@ -1121,6 +1225,7 @@ mod tests {
                 headers: vec![],
                 body_b64: None,
                 streaming: false,
+                e2ee: None,
             },
             GatewayUpstream {
                 base_url: format!("http://{addr}"),
@@ -1178,6 +1283,7 @@ mod tests {
                 headers: vec![("content-type".into(), "application/octet-stream".into())],
                 body_b64: Some(B64.encode(&payload)),
                 streaming: false,
+                e2ee: None,
             },
             GatewayUpstream {
                 base_url: format!("http://{addr}"),
@@ -1214,6 +1320,7 @@ mod tests {
                 headers: vec![],
                 body_b64: None,
                 streaming: false,
+                e2ee: None,
             },
             GatewayUpstream {
                 base_url: format!("http://{addr}"),
@@ -1265,6 +1372,7 @@ mod tests {
                 headers: vec![],
                 body_b64: None,
                 streaming: false,
+                e2ee: None,
             },
             GatewayUpstream {
                 base_url: format!("http://{addr}"),
@@ -1273,6 +1381,13 @@ mod tests {
             &out_tx,
         )
         .await;
+        let acks = sessions
+            .read()
+            .await
+            .get("req-drop")
+            .expect("session")
+            .acks
+            .clone();
         let mut saw_start = false;
         let error_code;
         loop {
@@ -1280,7 +1395,6 @@ mod tests {
             match value["kind"].as_str() {
                 Some(HTTP_KIND_RESPONSE_START) => saw_start = true,
                 Some(HTTP_KIND_RESPONSE_CHUNK) => {
-                    let acks = sessions.read().await.get("req-drop").unwrap().acks.clone();
                     acks.ack(value["seq"].as_u64().unwrap() as u32);
                 }
                 Some("error") => {
@@ -1295,5 +1409,304 @@ mod tests {
         }
         assert!(saw_start);
         assert_eq!(error_code.as_deref(), Some("upstream_body_error"));
+    }
+
+    #[tokio::test]
+    async fn e2ee_requires_streaming_flag() {
+        let sessions = new_session_map();
+        let (out_tx, mut out_rx) = mpsc::unbounded_channel();
+        on_http_envelope(
+            &sessions,
+            HTTP_KIND_REQUEST,
+            Some("req-e2ee-legacy"),
+            None,
+            Some(
+                r#"{"method":"PUT","path":"/echo","headers":[],"streaming":false,"e2ee":{"v":1,"alg":"x25519-chacha20poly1305","eph_pk":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}}"#,
+            ),
+            &out_tx,
+        )
+        .await;
+        let value = next_text_envelope(&mut out_rx).await;
+        assert_eq!(value["kind"], "error");
+        let body: Value = serde_json::from_str(value["body"].as_str().unwrap()).unwrap();
+        assert_eq!(body["status"], 400);
+        assert_eq!(body["code"], "e2ee_requires_streaming");
+    }
+
+    #[tokio::test]
+    async fn e2ee_http_echoes_rejects_bad_aad_and_disabled() {
+        let dir = std::env::temp_dir().join(format!("atmos-e2ee-http-{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&dir);
+        let path = dir.join("relay_e2ee.json");
+        let _ = std::fs::remove_file(&path);
+        let env = crate::relay::e2ee::E2eeTestEnv::lock_path(&path);
+
+        let static_key = e2ee::load_or_create_static_key().unwrap();
+        let eph_secret = x25519_dalek::StaticSecret::random_from_rng(rand_core::OsRng);
+        let eph_public = x25519_dalek::PublicKey::from(&eph_secret);
+        let session =
+            SessionKey::derive_from_eph(&eph_secret, &eph_public, &static_key.public_bytes())
+                .unwrap();
+        let eph_pk = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(eph_public.as_bytes());
+
+        let (addr, received, _) = start_echo_server().await;
+        let sessions = new_session_map();
+        let (out_tx, mut out_rx) = mpsc::unbounded_channel();
+        let payload = vec![0x5a; 80 * 1024];
+        launch_session(
+            &sessions,
+            "req-e2ee",
+            HttpRelayRequestStart {
+                method: "PUT".into(),
+                path: "/echo".into(),
+                headers: vec![("content-type".into(), "application/octet-stream".into())],
+                body_b64: None,
+                streaming: true,
+                e2ee: Some(HttpE2eePrelude {
+                    v: 1,
+                    alg: e2ee::ALG.into(),
+                    eph_pk: eph_pk.clone(),
+                }),
+            },
+            GatewayUpstream {
+                base_url: format!("http://{addr}"),
+                local_token: None,
+            },
+            &out_tx,
+        )
+        .await;
+
+        let mut seq = 0_u32;
+        let mut offset = 0usize;
+        while offset < payload.len() {
+            let end = (offset + HTTP_STREAM_CHUNK_SIZE).min(payload.len());
+            let sealed = session
+                .seal(
+                    &e2ee::aad("req-e2ee", seq, HTTP_KIND_REQUEST_CHUNK),
+                    &payload[offset..end],
+                )
+                .unwrap();
+            on_http_envelope(
+                &sessions,
+                HTTP_KIND_REQUEST_CHUNK,
+                Some("req-e2ee"),
+                Some(seq),
+                Some(&B64.encode(&sealed)),
+                &out_tx,
+            )
+            .await;
+            seq += 1;
+            offset = end;
+        }
+        on_http_envelope(
+            &sessions,
+            HTTP_KIND_REQUEST_END,
+            Some("req-e2ee"),
+            None,
+            None,
+            &out_tx,
+        )
+        .await;
+
+        let acks = sessions
+            .read()
+            .await
+            .get("req-e2ee")
+            .expect("session")
+            .acks
+            .clone();
+        let mut echoed = Vec::new();
+        let mut status = 0_u16;
+        loop {
+            let value = next_text_envelope(&mut out_rx).await;
+            match value["kind"].as_str() {
+                Some(HTTP_KIND_RESPONSE_START) => {
+                    let body: Value =
+                        serde_json::from_str(value["body"].as_str().unwrap()).unwrap();
+                    status = body["status"].as_u64().unwrap() as u16;
+                }
+                Some(HTTP_KIND_RESPONSE_CHUNK) => {
+                    let chunk_seq = value["seq"].as_u64().unwrap() as u32;
+                    let record = B64.decode(value["body"].as_str().unwrap()).unwrap();
+                    let plain = session
+                        .open(
+                            &e2ee::aad("req-e2ee", chunk_seq, HTTP_KIND_RESPONSE_CHUNK),
+                            &record,
+                        )
+                        .unwrap();
+                    echoed.extend_from_slice(&plain);
+                    acks.ack(chunk_seq);
+                }
+                Some(HTTP_KIND_RESPONSE_END) => break,
+                Some("error") => panic!("unexpected error {value}"),
+                _ => {}
+            }
+        }
+        assert_eq!(status, 200);
+        assert_eq!(echoed, payload);
+        assert_eq!(received.load(AtomicOrdering::SeqCst), payload.len());
+
+        let sessions_bad = new_session_map();
+        let (out_bad, mut rx_bad) = mpsc::unbounded_channel();
+        launch_session(
+            &sessions_bad,
+            "req-e2ee-bad",
+            HttpRelayRequestStart {
+                method: "PUT".into(),
+                path: "/echo".into(),
+                headers: vec![],
+                body_b64: None,
+                streaming: true,
+                e2ee: Some(HttpE2eePrelude {
+                    v: 1,
+                    alg: e2ee::ALG.into(),
+                    eph_pk,
+                }),
+            },
+            GatewayUpstream {
+                base_url: format!("http://{addr}"),
+                local_token: None,
+            },
+            &out_bad,
+        )
+        .await;
+        let sealed = session
+            .seal(
+                &e2ee::aad("req-e2ee-bad", 99, HTTP_KIND_REQUEST_CHUNK),
+                b"x",
+            )
+            .unwrap();
+        on_http_envelope(
+            &sessions_bad,
+            HTTP_KIND_REQUEST_CHUNK,
+            Some("req-e2ee-bad"),
+            Some(0),
+            Some(&B64.encode(&sealed)),
+            &out_bad,
+        )
+        .await;
+        let value = next_text_envelope(&mut rx_bad).await;
+        assert_eq!(value["kind"], "error");
+        let body: Value = serde_json::from_str(value["body"].as_str().unwrap()).unwrap();
+        assert_eq!(body["code"], "e2ee_open_failed");
+
+        env.disable();
+        let sessions_off = new_session_map();
+        let (out_off, mut rx_off) = mpsc::unbounded_channel();
+        launch_session(
+            &sessions_off,
+            "req-e2ee-off",
+            HttpRelayRequestStart {
+                method: "GET".into(),
+                path: "/empty".into(),
+                headers: vec![],
+                body_b64: None,
+                streaming: true,
+                e2ee: Some(HttpE2eePrelude {
+                    v: 1,
+                    alg: e2ee::ALG.into(),
+                    eph_pk: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".into(),
+                }),
+            },
+            GatewayUpstream {
+                base_url: format!("http://{addr}"),
+                local_token: None,
+            },
+            &out_off,
+        )
+        .await;
+        let value = next_text_envelope(&mut rx_off).await;
+        assert_eq!(value["kind"], "error");
+        let body: Value = serde_json::from_str(value["body"].as_str().unwrap()).unwrap();
+        assert_eq!(body["status"], 403);
+        assert_eq!(body["code"], "e2ee_disabled");
+
+        drop(env);
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_dir(&dir);
+    }
+
+    #[tokio::test]
+    async fn e2ee_cancel_aborts_upstream() {
+        let dir = std::env::temp_dir().join(format!("atmos-e2ee-cancel-{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&dir);
+        let path = dir.join("relay_e2ee.json");
+        let _ = std::fs::remove_file(&path);
+        let env = crate::relay::e2ee::E2eeTestEnv::lock_path(&path);
+        let static_key = e2ee::load_or_create_static_key().unwrap();
+        let eph_secret = x25519_dalek::StaticSecret::random_from_rng(rand_core::OsRng);
+        let eph_public = x25519_dalek::PublicKey::from(&eph_secret);
+        let session =
+            SessionKey::derive_from_eph(&eph_secret, &eph_public, &static_key.public_bytes())
+                .unwrap();
+        let eph_pk = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(eph_public.as_bytes());
+
+        let (addr, _, cancelled) = start_echo_server().await;
+        let sessions = new_session_map();
+        let (out_tx, mut out_rx) = mpsc::unbounded_channel();
+        launch_session(
+            &sessions,
+            "req-e2ee-cancel",
+            HttpRelayRequestStart {
+                method: "GET".into(),
+                path: "/slow".into(),
+                headers: vec![],
+                body_b64: None,
+                streaming: true,
+                e2ee: Some(HttpE2eePrelude {
+                    v: 1,
+                    alg: e2ee::ALG.into(),
+                    eph_pk,
+                }),
+            },
+            GatewayUpstream {
+                base_url: format!("http://{addr}"),
+                local_token: None,
+            },
+            &out_tx,
+        )
+        .await;
+        let acks = sessions
+            .read()
+            .await
+            .get("req-e2ee-cancel")
+            .expect("session")
+            .acks
+            .clone();
+        loop {
+            let value = next_text_envelope(&mut out_rx).await;
+            if value["kind"].as_str() == Some(HTTP_KIND_RESPONSE_CHUNK) {
+                let seq = value["seq"].as_u64().unwrap() as u32;
+                let record = B64.decode(value["body"].as_str().unwrap()).unwrap();
+                assert!(session
+                    .open(
+                        &e2ee::aad("req-e2ee-cancel", seq, HTTP_KIND_RESPONSE_CHUNK),
+                        &record,
+                    )
+                    .is_ok());
+                acks.ack(seq);
+                break;
+            }
+        }
+        on_http_envelope(
+            &sessions,
+            HTTP_KIND_CANCEL,
+            Some("req-e2ee-cancel"),
+            None,
+            None,
+            &out_tx,
+        )
+        .await;
+        tokio::time::timeout(Duration::from_secs(3), async {
+            while !cancelled.load(AtomicOrdering::SeqCst) {
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .expect("e2ee cancel must abort the in-flight upstream body");
+        assert!(sessions.read().await.get("req-e2ee-cancel").is_none());
+        drop(env);
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_dir(&dir);
     }
 }

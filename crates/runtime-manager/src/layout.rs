@@ -63,6 +63,11 @@ pub fn relay_identity_path() -> Result<PathBuf, String> {
     Ok(credentials_dir()?.join("relay_identity.json"))
 }
 
+/// Computer static X25519 secret for Relay HTTP E2EE (`mode 0600`).
+pub fn relay_e2ee_path() -> Result<PathBuf, String> {
+    Ok(credentials_dir()?.join("relay_e2ee.json"))
+}
+
 // --- state ---
 
 pub fn runtime_manifest_path() -> Result<PathBuf, String> {
@@ -225,6 +230,9 @@ mod tests {
         let _guard = HOME_ENV_LOCK.lock().unwrap();
         let home = atmos_home_dir().unwrap();
         assert!(computer_client_settings_path()
+            .unwrap()
+            .starts_with(home.join("credentials")));
+        assert!(relay_e2ee_path()
             .unwrap()
             .starts_with(home.join("credentials")));
         assert!(runtime_manifest_path()

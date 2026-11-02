@@ -1,6 +1,11 @@
 /** APP-016: Relay edge — REST + WebSocket + HTTP gateway to ServerHub. */
 
-import { collectForwardHeaders, matchGatewayPath, validateGatewayAccess } from "./http-gateway";
+import {
+  collectForwardHeaders,
+  matchGatewayPath,
+  parseGatewayE2ee,
+  validateGatewayAccess,
+} from "./http-gateway";
 import { encodeGatewayPrelude, pipeGatewayRequestBody } from "./http-stream";
 import { getServerHub } from "./hub-stub";
 import { buildClientSessionUrls } from "./client-session";
@@ -692,10 +697,10 @@ async function handleApi(request: Request, env: Env, url: URL): Promise<Response
       const clientKind = body.client_kind?.trim() || "web";
 
       const c = await env.DB.prepare(
-        "SELECT revoked FROM computers WHERE server_id = ? AND user_id = ?",
+        "SELECT revoked, e2ee_static_pk FROM computers WHERE server_id = ? AND user_id = ?",
       )
         .bind(serverId, userId)
-        .first<{ revoked: number }>();
+        .first<{ revoked: number; e2ee_static_pk: string | null }>();
 
       if (!c || c.revoked) {
         return json({ error: "computer_revoked" }, 404);
@@ -745,12 +750,20 @@ async function handleApi(request: Request, env: Env, url: URL): Promise<Response
         serverId,
       });
 
+      const staticPk = c.e2ee_static_pk?.trim() ?? "";
       return json({
         client_token: clientToken,
         expires_at: expiresAt,
         ws_url: sessionUrls.wsUrl,
         terminal_ws_url: sessionUrls.terminalWsUrl,
         gateway_url: sessionUrls.gatewayUrl,
+        e2ee: staticPk
+          ? {
+              enabled: true,
+              alg: "x25519-chacha20poly1305",
+              static_pk: staticPk,
+            }
+          : { enabled: false },
       });
     }
   } catch (e) {
@@ -842,10 +855,15 @@ async function handleHttpGatewayProxy(
 
   const upstreamPath = route.upstreamPath + url.search;
   const stub = getServerHub(env, route.serverId);
+  const e2ee = parseGatewayE2ee(request);
+  if (e2ee === "invalid") {
+    return json({ error: "invalid_e2ee" }, 400);
+  }
   const prelude = encodeGatewayPrelude({
     method: request.method,
     path: upstreamPath,
     headers: collectForwardHeaders(request),
+    ...(e2ee ? { e2ee } : {}),
   });
 
   const { readable, writable } = new TransformStream<Uint8Array>();

@@ -32,16 +32,16 @@ Invariants:
 
 Every Computer-facing WebSocket frame is a JSON envelope:
 
-| Field         | Type      | Meaning                                                         |
-| ------------- | --------- | --------------------------------------------------------------- |
-| `v`           | `uint`    | Protocol version. Currently `1`.                                |
-| `stream`      | `string`  | Logical substream (see below).                                  |
-| `kind`        | `string`  | Frame type within that stream.                                  |
-| `from` / `to` | `string`  | `server` or `client:<sid>`.                                     |
-| `request_id`  | `string?` | Correlation id. HTTP gateway keys in-flight work on this value. |
-| `seq`         | `uint?`   | Chunk sequence for HTTP streaming (`0…`).                       |
-| `body`        | `string?` | Opaque payload. HTTP chunks store standard-base64 bytes here.   |
-| `client_type` | `string?` | `web` / `desktop` / `mobile` on client app frames.              |
+| Field         | Type      | Meaning                                                                                                                                                              |
+| ------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `v`           | `uint`    | Protocol version. Currently `1`.                                                                                                                                     |
+| `stream`      | `string`  | Logical substream (see below).                                                                                                                                       |
+| `kind`        | `string`  | Frame type within that stream.                                                                                                                                       |
+| `from` / `to` | `string`  | `server` or `client:<sid>`.                                                                                                                                          |
+| `request_id`  | `string?` | Correlation id. HTTP gateway keys in-flight work on this value.                                                                                                      |
+| `seq`         | `uint?`   | Chunk sequence for HTTP streaming (`0…`).                                                                                                                            |
+| `body`        | `string?` | Opaque payload. HTTP chunks store standard-base64 bytes here. When HTTP E2EE is on, those bytes are a sealed record (nonce \|\| ciphertext \|\| tag), not plaintext. |
+| `client_type` | `string?` | `web` / `desktop` / `mobile` on client app frames.                                                                                                                   |
 
 Relay does not interpret application actions inside `body`.
 
@@ -52,7 +52,7 @@ Relay does not interpret application actions inside `body`.
 | `app`      | Client WS ↔ Computer                   | `frame`, `close`                                                                                                                                | Main application WebSocket.           |
 | `terminal` | Terminal client WS ↔ Computer          | `frame`, `close`                                                                                                                                | Terminal I/O multiplex.               |
 | `http`     | HTTP gateway ↔ Computer                | `request`, `request_chunk`, `request_end`, `response_start`, `response_chunk`, `response_end`, `ack`, `cancel`, `error`, plus legacy `response` | Proxied HTTPS to loopback `apps/api`. |
-| `system`   | Relay → Computer (GitHub, and similar) | `external_event`, `external_event_ack`                                                                                                          | Provider ingress, not end-user HTTP.  |
+| `system`   | Computer → Relay, and Relay → Computer | `e2ee_caps`, `external_event`, `external_event_ack`                                                                                             | Caps advertise, provider ingress.     |
 
 `close` on `app` / `terminal` tears down the matching virtual session on the Computer. HTTP uses `cancel` instead of `close`.
 
@@ -131,6 +131,53 @@ chunks or acks keep moving.
 Worker → ServerHub uses a 4-byte big-endian prelude length, then JSON metadata,
 then raw request bytes. That hop is not the Computer envelope.
 
+## HTTP E2EE (optional, negotiated)
+
+Approved shape: Computer static X25519 public key + client ephemeral (1A),
+**only HTTP chunk `body` sealed** (2A), encrypt when both ends support **and**
+enable it (3A). Do not force encryption on a rolling deploy.
+
+**Trust (M1).** The Computer keeps a static X25519 secret at
+`~/.atmos/credentials/relay_e2ee.json` (mode `0600`). After the outbound
+`/ws/server` socket comes up it sends `stream: "system"` `kind: "e2ee_caps"`
+with `{ v, alg, enabled, static_pk }`. ServerHub stores **only** `static_pk` on
+`computers.e2ee_static_pk`. Clients receive that public key from the existing
+`POST /v1/computers/:id/client_sessions` response (`e2ee.enabled` + `static_pk`).
+Hub/device credential already gates that route. A QR / link-embedded pubkey is a
+later trust-on-first-use path and is **not** required to encrypt this hop.
+
+**Agreement and AEAD.** ECDH = client ephemeral × Computer static. HKDF-SHA256
+with IKM = shared secret, salt = `eph_pk || static_pk`, info =
+`atmos-relay-http-e2ee-v1`, 32-byte key. AEAD is ChaCha20-Poly1305. Each HTTP
+chunk is sealed independently. Record = 12-byte nonce || ciphertext || 16-byte
+tag. AAD is `{request_id}|{seq}|{kind}` with `kind` `request_chunk` or
+`response_chunk`.
+
+**What stays plaintext.** Envelope routing fields (`v`, `stream`, `kind`,
+`from`, `to`, `request_id`, `seq`) and HTTP metadata (`method`, `path`,
+`status`, `headers`, `ack`, `cancel`, `request` / `response_start` /
+`request_end` / `response_end`) stay readable so Relay can route, apply the
+unacked window, and cancel. ServerHub never holds the session key. The client
+seals before `fetch` to `/v1/computers/:id/proxy/*` (headers `X-Atmos-E2EE`,
+`X-Atmos-E2EE-Alg`, `X-Atmos-E2EE-Request-Id`, `X-Atmos-E2EE-Eph-Pk`). The edge
+copies those into the prelude, strips them from forwarded loopback headers, and
+pumps length-prefixed records as `request_chunk` bodies. The Computer opens,
+talks to loopback in plaintext, then seals `response_chunk` records. The Worker
+length-prefixes those onto the HTTPS response and sets `X-Atmos-E2EE: 1`.
+
+**Negotiation.** Encrypt only when the Computer advertised a key **and** the
+client offered the hop headers. Omit either side and the hop stays legacy
+plaintext. Computer env `ATMOS_RELAY_E2EE=0` (or `false` / `off` / `no`)
+advertises `enabled: false`, clears D1 `static_pk`, and rejects incoming e2ee
+(`e2ee_disabled`). A client that offered e2ee **fails closed** on a 2xx
+plaintext body (`e2ee_missing_on_response`). Worker 4xx/5xx JSON
+(`server_offline`, `invalid_e2ee`, …) stays readable. Keying is orthogonal to
+`register_token` / `server_secret` / `client_token`. The static secret is never
+placed in public frontend builds.
+
+**This slice.** HTTP gateway hop only. `app` / `terminal` `kind: "frame"` bodies
+are still opaque-to-Relay JSON and are **not** AEAD-wrapped here.
+
 ## Optional ServerHub placement hint
 
 Set `RELAY_HUB_LOCATION_HINT` on the Worker (`wnam`, `enam`, `sam`, `weur`,
@@ -160,5 +207,5 @@ mirrors Hub/D1 is out of scope.
 
 ## Follow-up (not this protocol)
 
-Full business-tunnel encryption on top of envelopes (APP-016 M5) is a separate
-slice. Streaming and cancel do not implement that layer.
+QR / link-embedded Computer pubkey as an alternate trust path. AEAD on `app` /
+`terminal` frames. Org permissions, audit, and quotas.

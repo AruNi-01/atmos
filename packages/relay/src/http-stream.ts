@@ -14,6 +14,9 @@ export const HTTP_STREAM_CHUNK_SIZE = 32 * 1024;
 export const HTTP_STREAM_WINDOW = 8;
 export const HTTP_STREAM_IDLE_TIMEOUT_MS = 120_000;
 export const HTTP_GATEWAY_PRELUDE_MAX = 256 * 1024;
+/** Sealed record = 12-byte nonce + ciphertext + 16-byte tag. */
+export const HTTP_E2EE_MAX_RECORD = 64 * 1024;
+export const HTTP_E2EE_MIN_RECORD = 12 + 16;
 
 export const HTTP_KIND = {
   request: "request",
@@ -28,12 +31,24 @@ export const HTTP_KIND = {
   error: "error",
 } as const;
 
+export type GatewayE2ee = {
+  v: number;
+  alg: string;
+  request_id: string;
+  eph_pk: string;
+};
+
 export type GatewayMeta = {
   method: string;
   path: string;
   headers: [string, string][];
   /** When true, request bytes follow as `request_chunk` / `request_end`. */
   streaming?: boolean;
+  /**
+   * Client-sealed HTTP hop. Hub passes length-prefixed records through as
+   * `request_chunk` bodies without opening them.
+   */
+  e2ee?: GatewayE2ee;
 };
 
 export type HttpResponseStart = {
@@ -320,6 +335,9 @@ export type HubHttpProxyOpts = {
   windowSize?: number;
   idleTimeoutMs?: number;
   onSettled?: () => void;
+  /** Request bytes are already length-prefixed sealed records (one chunk each). */
+  presealed?: boolean;
+  e2ee?: GatewayE2ee;
 };
 
 export type HubHttpProxyHandle = {
@@ -332,6 +350,7 @@ export function startHubHttpProxy(opts: HubHttpProxyOpts): HubHttpProxyHandle {
   const chunkSize = opts.chunkSize ?? HTTP_STREAM_CHUNK_SIZE;
   const idleTimeoutMs = opts.idleTimeoutMs ?? HTTP_STREAM_IDLE_TIMEOUT_MS;
   const requestWindow = new AckWindow(opts.windowSize ?? HTTP_STREAM_WINDOW);
+  const presealed = Boolean(opts.presealed || opts.e2ee);
   const abort = new AbortController();
   const { readable, writable } = new TransformStream<Uint8Array>();
   const writer = writable.getWriter();
@@ -437,40 +456,57 @@ export function startHubHttpProxy(opts: HubHttpProxyOpts): HubHttpProxyHandle {
         path: opts.path,
         headers: opts.headers,
         streaming: true,
+        ...(opts.e2ee ? { e2ee: opts.e2ee } : {}),
       } satisfies GatewayMeta),
     });
     if (opts.requestBody) {
-      const reader = opts.requestBody.getReader();
-      let leftover = new Uint8Array(0);
-      const emit = async (piece: Uint8Array) => {
-        const seq = await requestWindow.takeSlot(abort.signal);
-        send(HTTP_KIND.requestChunk, { seq, body: u8ToB64(piece) });
-        bumpIdle();
-      };
-      for (;;) {
-        if (abort.signal.aborted) {
-          throw abortError();
+      if (presealed) {
+        const records = new ByteReader(opts.requestBody.getReader());
+        for (;;) {
+          if (abort.signal.aborted) {
+            throw abortError();
+          }
+          const record = await readSealedRecord(records);
+          if (!record) {
+            break;
+          }
+          const seq = await requestWindow.takeSlot(abort.signal);
+          send(HTTP_KIND.requestChunk, { seq, body: u8ToB64(record) });
+          bumpIdle();
         }
-        const { done, value } = await reader.read();
-        if (value && value.byteLength > 0) {
-          if (leftover.length === 0 && value.byteLength === chunkSize) {
-            await emit(value);
-          } else {
-            const merged = new Uint8Array(leftover.length + value.length);
-            merged.set(leftover);
-            merged.set(value, leftover.length);
-            leftover = merged;
-            while (leftover.length >= chunkSize) {
-              await emit(leftover.slice(0, chunkSize));
-              leftover = leftover.slice(chunkSize);
+      } else {
+        const reader = opts.requestBody.getReader();
+        let leftover = new Uint8Array(0);
+        const emit = async (piece: Uint8Array) => {
+          const seq = await requestWindow.takeSlot(abort.signal);
+          send(HTTP_KIND.requestChunk, { seq, body: u8ToB64(piece) });
+          bumpIdle();
+        };
+        for (;;) {
+          if (abort.signal.aborted) {
+            throw abortError();
+          }
+          const { done, value } = await reader.read();
+          if (value && value.byteLength > 0) {
+            if (leftover.length === 0 && value.byteLength === chunkSize) {
+              await emit(value);
+            } else {
+              const merged = new Uint8Array(leftover.length + value.length);
+              merged.set(leftover);
+              merged.set(value, leftover.length);
+              leftover = merged;
+              while (leftover.length >= chunkSize) {
+                await emit(leftover.slice(0, chunkSize));
+                leftover = leftover.slice(chunkSize);
+              }
             }
           }
-        }
-        if (done) {
-          if (leftover.length > 0) {
-            await emit(leftover);
+          if (done) {
+            if (leftover.length > 0) {
+              await emit(leftover);
+            }
+            break;
           }
-          break;
         }
       }
     }
@@ -550,6 +586,15 @@ export function startHubHttpProxy(opts: HubHttpProxyOpts): HubHttpProxyHandle {
       for (const [key, value] of start.headers ?? []) {
         headers.append(key, value);
       }
+      if (presealed) {
+        headers.delete("content-length");
+        headers.delete("transfer-encoding");
+        headers.set("X-Atmos-E2EE", "1");
+        headers.set("X-Atmos-E2EE-Request-Id", opts.requestId);
+        if (opts.e2ee?.alg) {
+          headers.set("X-Atmos-E2EE-Alg", opts.e2ee.alg);
+        }
+      }
       if (!responseStarted) {
         responseStarted = true;
         const body = httpStatusNullBody(start.status) ? null : readable;
@@ -567,7 +612,8 @@ export function startHubHttpProxy(opts: HubHttpProxyOpts): HubHttpProxyHandle {
     if (kind === HTTP_KIND.responseChunk) {
       if (envelope.body) {
         try {
-          await writer.write(b64ToU8(envelope.body));
+          const raw = b64ToU8(envelope.body);
+          await writer.write(presealed ? encodeLengthPrefixed(raw) : raw);
         } catch (error) {
           fail(error instanceof Error ? error : new Error("client_write_failed"));
           return;
@@ -593,6 +639,33 @@ export function startHubHttpProxy(opts: HubHttpProxyOpts): HubHttpProxyHandle {
   };
 
   return { response, requestWindow, onEnvelope };
+}
+
+export function encodeLengthPrefixed(record: Uint8Array): Uint8Array {
+  const out = new Uint8Array(4 + record.byteLength);
+  new DataView(out.buffer).setUint32(0, record.byteLength);
+  out.set(record, 4);
+  return out;
+}
+
+export function isValidE2eeRequestId(value: string): boolean {
+  return value.length >= 8 && value.length <= 128 && /^[A-Za-z0-9._-]+$/.test(value);
+}
+
+async function readSealedRecord(reader: ByteReader): Promise<Uint8Array | null> {
+  const lenBytes = await reader.readExact(4);
+  if (!lenBytes) {
+    return null;
+  }
+  const n = new DataView(lenBytes.buffer, lenBytes.byteOffset, lenBytes.byteLength).getUint32(0);
+  if (n < HTTP_E2EE_MIN_RECORD || n > HTTP_E2EE_MAX_RECORD) {
+    throw new Error("invalid_e2ee_record");
+  }
+  const record = await reader.readExact(n);
+  if (!record) {
+    throw new Error("truncated_e2ee_record");
+  }
+  return record;
 }
 
 function fulfillLegacyResponse(

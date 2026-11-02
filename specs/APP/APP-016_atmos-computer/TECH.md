@@ -639,7 +639,7 @@ HTTP gateway no longer ships whole request/response bodies as a single envelope 
 - Protocol write-up: [`docs/architecture/relay.md`](../../../docs/architecture/relay.md).
 - Optional first-create placement: Worker env `RELAY_HUB_LOCATION_HINT`.
 - **Rollout:** the edge Worker and Computer daemon must ship together. A new ServerHub that emits `streaming: true` chunks against an old daemon can forward empty-body requests.
-- **Not in this delta:** APP-016 M5 envelope encryption. Streaming does not implement a half crypto layer; M5 remains a follow-up.
+- HTTP E2EE for this hop landed in the next delta on the same branch (Computer static X25519, body-only AEAD, negotiated).
 
 Commit: `a9667bf525b6e7d0a820aa19bf313d9cc3e94385` plus review follow-up on this branch.
 
@@ -649,3 +649,23 @@ Verification:
 
 - `bun test packages/relay/test/http-stream.test.ts packages/relay/test/hub-stub.test.ts packages/relay/test/http-gateway-stream.test.ts`
 - `cargo test -p api streams_several_megabytes_with_backpressure cancel_stops_in_flight_upstream_response ingest_cancel_kind_stops_session bounded_queue_acks_only_after_capacity invalid_chunk_sends_error_envelope`
+
+---
+
+## Implementation Delta - 2026-11-02 (HTTP E2EE)
+
+Toggleable HTTP-gateway E2EE on the streaming hop. Design: Computer static X25519 (1A), body-only AEAD (2A), encrypt only when both ends support and enable (3A).
+
+- Trust: Computer static secret at `~/.atmos/credentials/relay_e2ee.json` (mode 0600). Advertise `stream:system kind:e2ee_caps`. D1 `computers.e2ee_static_pk` is public only. Clients receive it from existing `client_session` JSON. QR / link-embedded pubkey is a docs placeholder, not a blocker.
+- Cipher: X25519 + ChaCha20-Poly1305. HKDF-SHA256, info `atmos-relay-http-e2ee-v1`, salt `eph_pk || static_pk`. AAD `{request_id}|{seq}|{kind}`. Routing fields stay plaintext so window + cancel still work. Relay does not hold the session key; the client seals before `/proxy/*`.
+- Default off unless both advertise/offer. `ATMOS_RELAY_E2EE=0` disables. Legacy plaintext remains. Fail closed on 2xx plaintext when the client offered e2ee. Orthogonal to `register_token` / `server_secret` / `client_token`.
+- **This slice:** HTTP gateway hop only. `app` / `terminal` frames are not sealed. Org permissions / audit / quotas are not this slice.
+- Protocol: [`docs/architecture/relay.md`](../../../docs/architecture/relay.md).
+
+Files: `packages/relay-client/src/e2ee.ts`, `packages/relay/{src,migrations,test}`, `apps/api/src/relay/{e2ee.rs,http_gateway.rs,ingest.rs}`, `crates/runtime-manager/src/layout.rs`, web/mobile gateway `fetch` wrappers.
+
+Verification:
+
+- `bun test packages/relay-client/src/e2ee.test.ts packages/relay-client/src/client.test.ts`
+- `bun test packages/relay/test/http-true-link.test.ts packages/relay/test/http-gateway-stream.test.ts packages/relay/test/computer-list-and-sessions.test.ts`
+- `cargo test -p api e2ee rfc7748 persist_roundtrip e2ee_http_echoes e2ee_requires_streaming e2ee_cancel_aborts`

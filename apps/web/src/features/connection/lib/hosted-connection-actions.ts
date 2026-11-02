@@ -59,6 +59,7 @@ export async function activateHostedRemoteConnection(
     relayWebSocketUrl: session.ws_url,
     relayGatewayHttpBase: session.gateway_url,
     relayClientToken: session.client_token,
+    relayE2ee: session.e2ee ?? null,
   });
   store.setConnectionMode("relay");
   writeHostedConnectionPreference("relay");

@@ -308,6 +308,18 @@ pub async fn run(
     let terminal_sessions: Arc<TerminalRelaySessions> = Arc::new(RwLock::new(HashMap::new()));
     let http_sessions = http_gateway::new_session_map();
 
+    if let Some(caps_body) = crate::relay::e2ee::advertise_caps_body() {
+        let caps = serde_json::json!({
+            "v": 1_u32,
+            "stream": "system",
+            "kind": "e2ee_caps",
+            "from": "server",
+            "body": caps_body,
+        })
+        .to_string();
+        let _ = out_tx.send(Message::Text(caps));
+    }
+
     let outcome = loop {
         let next = tokio::select! {
             _ = shutdown.cancelled() => {
