@@ -257,27 +257,56 @@ describe("hub HTTP stream proxy", () => {
     ).toBe(true);
   });
 
-  test("uses a null body for 204 responses", async () => {
+  test("uses a null body for 204, 205, and 304 responses", async () => {
+    for (const status of [204, 205, 304]) {
+      const handle = startHubHttpProxy({
+        send: () => undefined,
+        requestId: `req-${status}`,
+        method: "GET",
+        path: "/empty",
+        headers: [],
+        requestBody: null,
+        idleTimeoutMs: 20_000,
+      });
+      await handle.onEnvelope(
+        httpEnvelope({
+          kind: HTTP_KIND.responseStart,
+          requestId: `req-${status}`,
+          body: JSON.stringify({ status, headers: [] }),
+        }),
+      );
+      const response = await handle.response;
+      expect(httpStatusNullBody(status)).toBe(true);
+      expect(response.status).toBe(status);
+      expect(response.body).toBeNull();
+    }
+  });
+
+  test("fulfills a legacy whole-body response kind", async () => {
+    const payload = bytesOf(2048, 9);
     const handle = startHubHttpProxy({
       send: () => undefined,
-      requestId: "req-204",
+      requestId: "req-legacy",
       method: "GET",
-      path: "/empty",
+      path: "/",
       headers: [],
       requestBody: null,
       idleTimeoutMs: 20_000,
     });
     await handle.onEnvelope(
       httpEnvelope({
-        kind: HTTP_KIND.responseStart,
-        requestId: "req-204",
-        body: JSON.stringify({ status: 204, headers: [] }),
+        kind: HTTP_KIND.response,
+        requestId: "req-legacy",
+        body: JSON.stringify({
+          status: 200,
+          headers: [["content-type", "application/octet-stream"]],
+          body_b64: u8ToB64(payload),
+        }),
       }),
     );
     const response = await handle.response;
-    expect(httpStatusNullBody(204)).toBe(true);
-    expect(response.status).toBe(204);
-    expect(response.body).toBeNull();
+    expect(response.status).toBe(200);
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(payload);
   });
 
   test("aborts the response body when error arrives after response_start", async () => {

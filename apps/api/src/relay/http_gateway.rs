@@ -240,6 +240,16 @@ async fn start_session(
         }
     };
 
+    launch_session(sessions, request_id, start, upstream, out).await;
+}
+
+async fn launch_session(
+    sessions: &HttpGatewaySessions,
+    request_id: &str,
+    start: HttpRelayRequestStart,
+    upstream: GatewayUpstream,
+    out: &mpsc::UnboundedSender<Message>,
+) {
     let (body_tx, body_rx) = mpsc::channel(HTTP_STREAM_WINDOW as usize);
     let (admit_tx, admit_rx) = mpsc::unbounded_channel();
     let acks = Arc::new(AckWindow::new(HTTP_STREAM_WINDOW));
@@ -572,8 +582,9 @@ pub(crate) struct HttpStreamTestParams {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::body::Body;
+    use axum::body::{Body, Bytes};
     use axum::extract::DefaultBodyLimit;
+    use axum::http::StatusCode;
     use axum::response::IntoResponse;
     use axum::routing::{get, put};
     use axum::Router;
@@ -621,6 +632,25 @@ mod tests {
                         });
                         Body::from_stream(stream).into_response()
                     }
+                }),
+            )
+            .route("/empty", get(|| async { StatusCode::NO_CONTENT }))
+            .route("/reset", get(|| async { StatusCode::RESET_CONTENT }))
+            .route("/not-modified", get(|| async { StatusCode::NOT_MODIFIED }))
+            .route(
+                "/drop-after-start",
+                get(|| async {
+                    let (tx, rx) = mpsc::channel::<Result<Bytes, std::io::Error>>(2);
+                    tokio::spawn(async move {
+                        tokio::time::sleep(Duration::from_millis(30)).await;
+                        let _ = tx.send(Ok(Bytes::from_static(b"partial"))).await;
+                        tokio::time::sleep(Duration::from_millis(10)).await;
+                        let _ = tx.send(Err(std::io::Error::other("boom"))).await;
+                    });
+                    let stream = futures_util::stream::unfold(rx, |mut rx| async move {
+                        rx.recv().await.map(|item| (item, rx))
+                    });
+                    Body::from_stream(stream).into_response()
                 }),
             )
             .layer(DefaultBodyLimit::max(32 * 1024 * 1024));
@@ -933,5 +963,337 @@ mod tests {
         let second_env = parse_env(&second_ack);
         assert_eq!(second_env["kind"], "ack");
         assert_eq!(second_env["seq"], 1);
+    }
+
+    async fn next_text_envelope(out_rx: &mut mpsc::UnboundedReceiver<Message>) -> Value {
+        loop {
+            let msg = tokio::time::timeout(Duration::from_secs(8), out_rx.recv())
+                .await
+                .expect("envelope timeout")
+                .expect("envelope closed");
+            let Message::Text(text) = msg else {
+                continue;
+            };
+            return parse_env(&text);
+        }
+    }
+
+    async fn collect_until_end(
+        out_rx: &mut mpsc::UnboundedReceiver<Message>,
+        acks: &AckWindow,
+        delay_ack: bool,
+    ) -> (u16, Vec<u8>, Vec<String>, u32, u64, u32) {
+        let mut echoed = Vec::new();
+        let mut kinds = Vec::new();
+        let mut status = 0_u16;
+        let mut max_unacked = 0_u32;
+        let mut request_acks = 0_u32;
+        loop {
+            let value = next_text_envelope(out_rx).await;
+            let kind = value["kind"].as_str().unwrap_or("").to_string();
+            kinds.push(kind.clone());
+            match kind.as_str() {
+                HTTP_KIND_ACK => request_acks += 1,
+                HTTP_KIND_RESPONSE_START => {
+                    let body: Value =
+                        serde_json::from_str(value["body"].as_str().unwrap()).unwrap();
+                    status = body["status"].as_u64().unwrap() as u16;
+                }
+                HTTP_KIND_RESPONSE_CHUNK => {
+                    let seq = value["seq"].as_u64().unwrap() as u32;
+                    let chunk = B64
+                        .decode(value["body"].as_str().unwrap())
+                        .expect("chunk b64");
+                    assert!(
+                        chunk.len() <= HTTP_STREAM_CHUNK_SIZE,
+                        "chunk must not carry the whole payload"
+                    );
+                    echoed.extend_from_slice(&chunk);
+                    max_unacked = max_unacked.max(acks.unacked());
+                    if delay_ack {
+                        tokio::time::sleep(Duration::from_millis(5)).await;
+                    }
+                    acks.ack(seq);
+                }
+                k if k == HTTP_KIND_RESPONSE_END || k == "error" => break,
+                _ => {}
+            }
+        }
+        (
+            status,
+            echoed,
+            kinds,
+            max_unacked,
+            acks.blocked(),
+            request_acks,
+        )
+    }
+
+    #[tokio::test]
+    async fn true_link_ingest_echoes_several_megabytes() {
+        let (addr, received, _) = start_echo_server().await;
+        let sessions = new_session_map();
+        let (out_tx, mut out_rx) = mpsc::unbounded_channel();
+        let payload = vec![0x5a; 4 * 1024 * 1024];
+        launch_session(
+            &sessions,
+            "req-true-link",
+            HttpRelayRequestStart {
+                method: "PUT".into(),
+                path: "/echo".into(),
+                headers: vec![("content-type".into(), "application/octet-stream".into())],
+                body_b64: None,
+                streaming: true,
+            },
+            GatewayUpstream {
+                base_url: format!("http://{addr}"),
+                local_token: None,
+            },
+            &out_tx,
+        )
+        .await;
+
+        let acks = sessions
+            .read()
+            .await
+            .get("req-true-link")
+            .expect("session")
+            .acks
+            .clone();
+
+        let mut offset = 0;
+        let mut seq = 0_u32;
+        while offset < payload.len() {
+            let end = (offset + HTTP_STREAM_CHUNK_SIZE).min(payload.len());
+            on_http_envelope(
+                &sessions,
+                HTTP_KIND_REQUEST_CHUNK,
+                Some("req-true-link"),
+                Some(seq),
+                Some(&B64.encode(&payload[offset..end])),
+                &out_tx,
+            )
+            .await;
+            offset = end;
+            seq += 1;
+        }
+        on_http_envelope(
+            &sessions,
+            HTTP_KIND_REQUEST_END,
+            Some("req-true-link"),
+            None,
+            None,
+            &out_tx,
+        )
+        .await;
+
+        let (status, echoed, kinds, max_unacked, blocked, request_acks) =
+            collect_until_end(&mut out_rx, &acks, true).await;
+
+        assert_eq!(status, 200);
+        assert_eq!(received.load(AtomicOrdering::SeqCst), payload.len());
+        assert_eq!(echoed, payload);
+        assert!(kinds.iter().any(|kind| kind == HTTP_KIND_RESPONSE_CHUNK));
+        assert!(!kinds.iter().any(|kind| kind == "response"));
+        assert!(request_acks >= 1, "daemon must ack admitted request chunks");
+        assert!(
+            max_unacked <= HTTP_STREAM_WINDOW,
+            "response window {max_unacked} exceeded {}",
+            HTTP_STREAM_WINDOW
+        );
+        assert!(
+            blocked >= 1,
+            "delayed response acks must stall the unacked window"
+        );
+    }
+
+    #[tokio::test]
+    async fn true_link_cancel_kind_aborts_upstream() {
+        let (addr, _, cancelled) = start_echo_server().await;
+        let sessions = new_session_map();
+        let (out_tx, mut out_rx) = mpsc::unbounded_channel();
+        launch_session(
+            &sessions,
+            "req-true-cancel",
+            HttpRelayRequestStart {
+                method: "GET".into(),
+                path: "/slow".into(),
+                headers: vec![],
+                body_b64: None,
+                streaming: false,
+            },
+            GatewayUpstream {
+                base_url: format!("http://{addr}"),
+                local_token: None,
+            },
+            &out_tx,
+        )
+        .await;
+        let acks = sessions
+            .read()
+            .await
+            .get("req-true-cancel")
+            .expect("session")
+            .acks
+            .clone();
+
+        loop {
+            let value = next_text_envelope(&mut out_rx).await;
+            if value["kind"].as_str() == Some(HTTP_KIND_RESPONSE_CHUNK) {
+                acks.ack(value["seq"].as_u64().unwrap() as u32);
+                break;
+            }
+        }
+        on_http_envelope(
+            &sessions,
+            HTTP_KIND_CANCEL,
+            Some("req-true-cancel"),
+            None,
+            None,
+            &out_tx,
+        )
+        .await;
+        tokio::time::timeout(Duration::from_secs(3), async {
+            while !cancelled.load(AtomicOrdering::SeqCst) {
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .expect("cancel kind must abort the in-flight upstream body");
+        assert!(sessions.read().await.get("req-true-cancel").is_none());
+    }
+
+    #[tokio::test]
+    async fn true_link_legacy_body_b64_echoes() {
+        let (addr, received, _) = start_echo_server().await;
+        let sessions = new_session_map();
+        let (out_tx, mut out_rx) = mpsc::unbounded_channel();
+        let payload = vec![0x41; 64 * 1024];
+        launch_session(
+            &sessions,
+            "req-legacy",
+            HttpRelayRequestStart {
+                method: "PUT".into(),
+                path: "/echo".into(),
+                headers: vec![("content-type".into(), "application/octet-stream".into())],
+                body_b64: Some(B64.encode(&payload)),
+                streaming: false,
+            },
+            GatewayUpstream {
+                base_url: format!("http://{addr}"),
+                local_token: None,
+            },
+            &out_tx,
+        )
+        .await;
+        let acks = sessions
+            .read()
+            .await
+            .get("req-legacy")
+            .expect("session")
+            .acks
+            .clone();
+        let (status, echoed, kinds, _, _, _) = collect_until_end(&mut out_rx, &acks, false).await;
+        assert_eq!(status, 200);
+        assert_eq!(received.load(AtomicOrdering::SeqCst), payload.len());
+        assert_eq!(echoed, payload);
+        assert!(kinds.iter().any(|kind| kind == HTTP_KIND_RESPONSE_START));
+        assert!(kinds.iter().any(|kind| kind == HTTP_KIND_RESPONSE_END));
+    }
+
+    async fn assert_null_body_status(path: &str, expected: u16) {
+        let (addr, _, _) = start_echo_server().await;
+        let sessions = new_session_map();
+        let (out_tx, mut out_rx) = mpsc::unbounded_channel();
+        launch_session(
+            &sessions,
+            "req-null-body",
+            HttpRelayRequestStart {
+                method: "GET".into(),
+                path: path.into(),
+                headers: vec![],
+                body_b64: None,
+                streaming: false,
+            },
+            GatewayUpstream {
+                base_url: format!("http://{addr}"),
+                local_token: None,
+            },
+            &out_tx,
+        )
+        .await;
+        let acks = sessions
+            .read()
+            .await
+            .get("req-null-body")
+            .expect("session")
+            .acks
+            .clone();
+        let (status, echoed, kinds, _, _, _) = collect_until_end(&mut out_rx, &acks, false).await;
+        assert_eq!(status, expected);
+        assert!(echoed.is_empty());
+        assert!(!kinds.iter().any(|kind| kind == HTTP_KIND_RESPONSE_CHUNK));
+        assert!(kinds.iter().any(|kind| kind == HTTP_KIND_RESPONSE_END));
+    }
+
+    #[tokio::test]
+    async fn true_link_204_has_no_response_chunks() {
+        assert_null_body_status("/empty", 204).await;
+    }
+
+    #[tokio::test]
+    async fn true_link_205_has_no_response_chunks() {
+        assert_null_body_status("/reset", 205).await;
+    }
+
+    #[tokio::test]
+    async fn true_link_304_has_no_response_chunks() {
+        assert_null_body_status("/not-modified", 304).await;
+    }
+
+    #[tokio::test]
+    async fn true_link_upstream_error_after_start_sends_error() {
+        let (addr, _, _) = start_echo_server().await;
+        let sessions = new_session_map();
+        let (out_tx, mut out_rx) = mpsc::unbounded_channel();
+        launch_session(
+            &sessions,
+            "req-drop",
+            HttpRelayRequestStart {
+                method: "GET".into(),
+                path: "/drop-after-start".into(),
+                headers: vec![],
+                body_b64: None,
+                streaming: false,
+            },
+            GatewayUpstream {
+                base_url: format!("http://{addr}"),
+                local_token: None,
+            },
+            &out_tx,
+        )
+        .await;
+        let mut saw_start = false;
+        let error_code;
+        loop {
+            let value = next_text_envelope(&mut out_rx).await;
+            match value["kind"].as_str() {
+                Some(HTTP_KIND_RESPONSE_START) => saw_start = true,
+                Some(HTTP_KIND_RESPONSE_CHUNK) => {
+                    let acks = sessions.read().await.get("req-drop").unwrap().acks.clone();
+                    acks.ack(value["seq"].as_u64().unwrap() as u32);
+                }
+                Some("error") => {
+                    let body: Value =
+                        serde_json::from_str(value["body"].as_str().unwrap()).unwrap();
+                    error_code = body["code"].as_str().map(str::to_string);
+                    break;
+                }
+                Some(HTTP_KIND_RESPONSE_END) => panic!("stream ended without error envelope"),
+                _ => {}
+            }
+        }
+        assert!(saw_start);
+        assert_eq!(error_code.as_deref(), Some("upstream_body_error"));
     }
 }
