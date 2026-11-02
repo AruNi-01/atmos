@@ -23,12 +23,22 @@ on:
 permissions:
   contents: read
 
+# PRs: cancel superseded runs on the same PR.
+# main push / workflow_dispatch: share github.ref so in-progress runs finish and
+# newer runs queue. Do not put run_id in this group — that would skip the queue.
+# GitHub still drops *pending* runs in the group when a newer one is queued.
+concurrency:
+  group: docs-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          filter: blob:none
       - uses: ./.github/actions/setup-bun
       - name: Lint docs
         run: bun --filter docs lint
@@ -38,6 +48,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          filter: blob:none
       - uses: ./.github/actions/setup-bun
       # docs 使用 fumadocs，需要先生成类型再做 typecheck
       - name: Typecheck docs
@@ -49,6 +61,8 @@ jobs:
     needs: [lint, typecheck]
     steps:
       - uses: actions/checkout@v5
+        with:
+          filter: blob:none
       - uses: ./.github/actions/setup-bun
       - name: Build docs
         run: bun --filter docs build
