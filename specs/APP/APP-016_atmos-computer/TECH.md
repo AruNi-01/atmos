@@ -686,7 +686,7 @@ Same 1A/2A/3A hop as HTTP, extended to `app` and `terminal` `kind:frame` bodies.
 
 Files: `packages/relay-client/src/{e2ee.ts,e2ee-ws.ts}`, `packages/relay/src/frame-e2ee.ts`, `apps/api/src/relay/frame_e2ee.rs`, web/mobile WS wrappers.
 
-Commit: (this change)
+Commit: `96bca78ba3642819a0994ed21e2a08c23269e6f2`
 
 Verification:
 
