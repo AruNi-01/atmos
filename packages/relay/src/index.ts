@@ -871,7 +871,15 @@ async function handleHttpGatewayProxy(
     duplex: "half",
   };
 
-  return stub.fetch(new Request("https://hub.internal/gateway", init));
+  try {
+    return await stub.fetch(new Request("https://hub.internal/gateway", init));
+  } finally {
+    try {
+      await writable.abort();
+    } catch {
+      /* hub already consumed or closed the body */
+    }
+  }
 }
 
 async function handlePtDesignRoom(request: Request, env: Env, roomId: string): Promise<Response> {

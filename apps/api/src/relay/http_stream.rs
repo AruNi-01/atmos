@@ -62,10 +62,11 @@ impl AckWindow {
 
     pub fn ack(&self, seq: u32) {
         let mut inner = self.inner.lock().expect("ack window mutex");
-        if (seq as i64) > inner.acked_seq {
+        if seq < inner.next_seq && (seq as i64) > inner.acked_seq {
             inner.acked_seq = seq as i64;
+            drop(inner);
+            self.notify.notify_waiters();
         }
-        self.notify.notify_waiters();
     }
 
     pub async fn take_slot(&self, cancel: &CancellationToken) -> Result<u32, Cancelled> {
@@ -163,11 +164,30 @@ mod tests {
 
     #[tokio::test]
     async fn take_slot_stops_on_cancel() {
-        let window = AckWindow::new(1);
+        let window = Arc::new(AckWindow::new(1));
         let cancel = CancellationToken::new();
         window.take_slot(&cancel).await.unwrap();
-        let wait = window.take_slot(&cancel);
+        let waiter = {
+            let window = Arc::clone(&window);
+            let cancel = cancel.clone();
+            tokio::spawn(async move { window.take_slot(&cancel).await })
+        };
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        assert!(!waiter.is_finished());
         cancel.cancel();
-        assert!(wait.await.is_err());
+        assert!(waiter.await.unwrap().is_err());
+    }
+
+    #[tokio::test]
+    async fn ack_ignores_sequences_not_yet_sent() {
+        let window = AckWindow::new(2);
+        let cancel = CancellationToken::new();
+        assert_eq!(window.take_slot(&cancel).await.ok(), Some(0));
+        window.ack(99);
+        assert_eq!(window.unacked(), 1);
+        assert_eq!(window.take_slot(&cancel).await.ok(), Some(1));
+        assert_eq!(window.unacked(), 2);
+        window.ack(0);
+        assert_eq!(window.unacked(), 1);
     }
 }

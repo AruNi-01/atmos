@@ -59,7 +59,7 @@ export class AckWindow {
   }
 
   ack(seq: number): void {
-    if (!Number.isFinite(seq) || seq < 0) {
+    if (!Number.isInteger(seq) || seq < 0 || seq >= this.nextSeq) {
       return;
     }
     if (seq > this.ackedSeq) {
@@ -242,6 +242,34 @@ export async function decodeGatewayStream(
   return { meta: parsed, rest: reader.intoStream() };
 }
 
+async function writeWhileOpen(
+  writer: WritableStreamDefaultWriter<Uint8Array>,
+  chunk: Uint8Array,
+  signal?: AbortSignal,
+): Promise<void> {
+  if (signal?.aborted) {
+    throw abortError();
+  }
+  if (!signal) {
+    await writer.write(chunk);
+    return;
+  }
+  await new Promise<void>((resolve, reject) => {
+    const onAbort = () => reject(abortError());
+    signal.addEventListener("abort", onAbort, { once: true });
+    writer.write(chunk).then(
+      () => {
+        signal.removeEventListener("abort", onAbort);
+        resolve();
+      },
+      (error) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(error);
+      },
+    );
+  });
+}
+
 export async function pipeGatewayRequestBody(
   dest: WritableStream<Uint8Array>,
   prelude: Uint8Array,
@@ -250,10 +278,7 @@ export async function pipeGatewayRequestBody(
 ): Promise<void> {
   const writer = dest.getWriter();
   try {
-    if (signal?.aborted) {
-      throw abortError();
-    }
-    await writer.write(prelude);
+    await writeWhileOpen(writer, prelude, signal);
     if (!requestBody) {
       await writer.close();
       return;
@@ -268,18 +293,19 @@ export async function pipeGatewayRequestBody(
         break;
       }
       if (value && value.byteLength > 0) {
-        await writer.write(value);
+        await writeWhileOpen(writer, value, signal);
       }
     }
     await writer.close();
   } catch (error) {
-    try {
-      await writer.abort(error);
-    } catch {
-      /* already closed */
-    }
+    void writer.abort(error).catch(() => undefined);
     throw error;
   }
+}
+
+/** RFC 9110: these statuses must not carry a body. */
+export function httpStatusNullBody(status: number): boolean {
+  return status === 204 || status === 205 || status === 304;
 }
 
 export type HubHttpProxyOpts = {
@@ -313,15 +339,6 @@ export function startHubHttpProxy(opts: HubHttpProxyOpts): HubHttpProxyHandle {
   let settled = false;
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
 
-  const linkAbort = () => {
-    if (opts.signal?.aborted) {
-      abort.abort();
-      return;
-    }
-    opts.signal?.addEventListener("abort", () => abort.abort(), { once: true });
-  };
-  linkAbort();
-
   const settle = () => {
     if (settled) {
       return;
@@ -351,6 +368,14 @@ export function startHubHttpProxy(opts: HubHttpProxyOpts): HubHttpProxyHandle {
     rejectResponse = reject;
   });
 
+  const abortWriter = (error: Error) => {
+    try {
+      void writer.abort(error).catch(() => undefined);
+    } catch {
+      /* ignore */
+    }
+  };
+
   const fail = (error: Error) => {
     if (settled) {
       return;
@@ -361,11 +386,7 @@ export function startHubHttpProxy(opts: HubHttpProxyOpts): HubHttpProxyHandle {
       /* peer already gone */
     }
     abort.abort();
-    try {
-      void writer.abort(error);
-    } catch {
-      /* ignore */
-    }
+    abortWriter(error);
     if (!responseStarted) {
       rejectResponse(error);
     }
@@ -384,12 +405,29 @@ export function startHubHttpProxy(opts: HubHttpProxyOpts): HubHttpProxyHandle {
   abort.signal.addEventListener(
     "abort",
     () => {
+      const reason = abort.signal.reason;
+      if (reason === "server_offline") {
+        fail(new Error("server_offline"));
+        return;
+      }
       fail(abortError());
     },
     { once: true },
   );
 
+  const linkAbort = () => {
+    if (opts.signal?.aborted) {
+      abort.abort(opts.signal.reason);
+      return;
+    }
+    opts.signal?.addEventListener("abort", () => abort.abort(opts.signal?.reason), { once: true });
+  };
+  linkAbort();
+
   const pumpRequest = async () => {
+    if (settled || abort.signal.aborted) {
+      return;
+    }
     send(HTTP_KIND.request, {
       body: JSON.stringify({
         method: opts.method,
@@ -441,7 +479,9 @@ export function startHubHttpProxy(opts: HubHttpProxyOpts): HubHttpProxyHandle {
     fail(error instanceof Error ? error : new Error(String(error)));
   });
 
-  bumpIdle();
+  if (!settled) {
+    bumpIdle();
+  }
 
   const onEnvelope = async (envelope: RelayEnvelope) => {
     if (settled) {
@@ -469,6 +509,7 @@ export function startHubHttpProxy(opts: HubHttpProxyOpts): HubHttpProxyHandle {
       }
       const status = typeof parsed.status === "number" ? parsed.status : 502;
       const code = parsed.code || "gateway_error";
+      const error = new Error(code);
       if (!responseStarted) {
         responseStarted = true;
         resolveResponse(
@@ -477,8 +518,11 @@ export function startHubHttpProxy(opts: HubHttpProxyOpts): HubHttpProxyHandle {
             headers: { "Content-Type": "application/json" },
           }),
         );
+      } else {
+        abortWriter(error);
       }
       settle();
+      abort.abort(error);
       return;
     }
     if (kind === HTTP_KIND.response) {
@@ -501,11 +545,19 @@ export function startHubHttpProxy(opts: HubHttpProxyOpts): HubHttpProxyHandle {
       }
       const headers = new Headers();
       for (const [key, value] of start.headers ?? []) {
-        headers.set(key, value);
+        headers.append(key, value);
       }
       if (!responseStarted) {
         responseStarted = true;
-        resolveResponse(new Response(readable, { status: start.status, headers }));
+        const body = httpStatusNullBody(start.status) ? null : readable;
+        if (body === null) {
+          try {
+            await writer.close();
+          } catch {
+            /* unused stream */
+          }
+        }
+        resolveResponse(new Response(body, { status: start.status, headers }));
       }
       return;
     }
@@ -556,10 +608,10 @@ function fulfillLegacyResponse(
     }
     const headers = new Headers();
     for (const [key, value] of parsed.headers ?? []) {
-      headers.set(key, value);
+      headers.append(key, value);
     }
     let body: Uint8Array | null = null;
-    if (parsed.body_b64) {
+    if (parsed.body_b64 && !httpStatusNullBody(parsed.status)) {
       body = b64ToU8(parsed.body_b64);
     }
     resolveResponse(new Response(body, { status: parsed.status, headers }));

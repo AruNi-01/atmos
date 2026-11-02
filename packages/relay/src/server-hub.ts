@@ -39,7 +39,7 @@ export type PeerMeta =
 
 type PendingHttp = {
   onEnvelope: (envelope: RelayEnvelope) => Promise<void>;
-  abort: () => void;
+  abort: (reason?: unknown) => void;
 };
 
 /** Hibernation tags — pick by role / sid in `ctx.getWebSockets`. */
@@ -164,7 +164,7 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
       }
     }
     for (const [id, pending] of this.pendingHttp) {
-      pending.abort();
+      pending.abort("server_offline");
       this.pendingHttp.delete(id);
     }
   }
@@ -288,7 +288,7 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
 
     this.pendingHttp.set(requestId, {
       onEnvelope: handle.onEnvelope,
-      abort: () => abort.abort(),
+      abort: (reason?: unknown) => abort.abort(reason),
     });
 
     try {
@@ -296,6 +296,12 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
     } catch (e) {
       this.pendingHttp.delete(requestId);
       const msg = e instanceof Error ? e.message : String(e);
+      if (msg === "server_offline") {
+        return new Response(JSON.stringify({ error: "server_offline" }), {
+          status: 503,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
       if (msg === "AbortError" || msg === "Aborted") {
         return new Response(JSON.stringify({ error: "client_disconnected" }), {
           status: 499,

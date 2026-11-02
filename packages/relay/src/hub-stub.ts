@@ -32,7 +32,13 @@ export function parseHubLocationHint(raw: string | undefined | null): HubLocatio
 /** One hub instance per Computer id. The placement hint is used only on first create. */
 export function getServerHub(env: ServerHubBinding, serverId: string) {
   const id = env.SERVER_HUB.idFromName(serverId);
-  const hint = parseHubLocationHint(env.RELAY_HUB_LOCATION_HINT);
+  const raw = env.RELAY_HUB_LOCATION_HINT;
+  const hint = parseHubLocationHint(raw);
+  if (raw?.trim() && !hint) {
+    console.warn(
+      "RELAY_HUB_LOCATION_HINT ignored: unknown region token (use wnam, enam, sam, weur, eeur, apac, oc, afr, me)",
+    );
+  }
   if (hint) {
     return env.SERVER_HUB.get(id, { locationHint: hint });
   }

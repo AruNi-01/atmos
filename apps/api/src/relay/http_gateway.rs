@@ -59,7 +59,7 @@ pub enum RequestBodyEvent {
 }
 
 pub struct HttpInflight {
-    pub body_tx: mpsc::UnboundedSender<RequestBodyEvent>,
+    pub body_tx: mpsc::Sender<RequestBodyEvent>,
     pub acks: SharedAckWindow,
     pub cancel: CancellationToken,
 }
@@ -107,8 +107,17 @@ pub async fn on_http_envelope(
         return;
     }
 
-    let locked = sessions.read().await;
-    let Some(session) = locked.get(request_id) else {
+    let inflight = {
+        let locked = sessions.read().await;
+        locked.get(request_id).map(|session| {
+            (
+                session.body_tx.clone(),
+                Arc::clone(&session.acks),
+                session.cancel.clone(),
+            )
+        })
+    };
+    let Some((body_tx, acks, cancel)) = inflight else {
         return;
     };
     match kind {
@@ -117,11 +126,15 @@ pub async fn on_http_envelope(
                 return;
             };
             match B64.decode(b64) {
-                Ok(data) => {
-                    let _ = session.body_tx.send(RequestBodyEvent::Chunk { data });
-                    let ack = http_envelope(HTTP_KIND_ACK, request_id, seq, None);
-                    let _ = out.send(Message::Text(ack));
-                }
+                Ok(data) => match body_tx.send(RequestBodyEvent::Chunk { data }).await {
+                    Ok(()) => {
+                        let ack = http_envelope(HTTP_KIND_ACK, request_id, seq, None);
+                        let _ = out.send(Message::Text(ack));
+                    }
+                    Err(_) => {
+                        cancel.cancel();
+                    }
+                },
                 Err(error) => {
                     warn!(
                         target: "atmos_relay",
@@ -129,16 +142,21 @@ pub async fn on_http_envelope(
                         request_id = %request_id,
                         "http gateway chunk base64 decode failed"
                     );
-                    session.cancel.cancel();
+                    let _ = out.send(Message::Text(http_error_envelope(
+                        request_id,
+                        400,
+                        "invalid_chunk",
+                    )));
+                    cancel.cancel();
                 }
             }
         }
         k if k == HTTP_KIND_REQUEST_END => {
-            let _ = session.body_tx.send(RequestBodyEvent::End);
+            let _ = body_tx.send(RequestBodyEvent::End).await;
         }
         k if k == HTTP_KIND_ACK => {
             if let Some(seq) = seq {
-                session.acks.ack(seq);
+                acks.ack(seq);
             }
         }
         _ => {}
@@ -168,6 +186,15 @@ async fn start_session(
         }
     };
 
+    if Method::from_bytes(start.method.as_bytes()).is_err() {
+        let _ = out.send(Message::Text(http_error_envelope(
+            request_id,
+            400,
+            "invalid_method",
+        )));
+        return;
+    }
+
     let upstream = match gateway_upstream() {
         Ok(v) => v,
         Err(code) => {
@@ -176,14 +203,14 @@ async fn start_session(
         }
     };
 
-    let (body_tx, body_rx) = mpsc::unbounded_channel();
+    let (body_tx, body_rx) = mpsc::channel(HTTP_STREAM_WINDOW as usize);
     let acks = Arc::new(AckWindow::new(HTTP_STREAM_WINDOW));
     let cancel = CancellationToken::new();
     if !start.streaming {
         if let Some(b64) = start.body_b64.as_ref().filter(|s| !s.is_empty()) {
             match B64.decode(b64) {
                 Ok(data) => {
-                    let _ = body_tx.send(RequestBodyEvent::Chunk { data });
+                    let _ = body_tx.try_send(RequestBodyEvent::Chunk { data });
                 }
                 Err(error) => {
                     warn!(
@@ -200,7 +227,7 @@ async fn start_session(
                 }
             }
         }
-        let _ = body_tx.send(RequestBodyEvent::End);
+        let _ = body_tx.try_send(RequestBodyEvent::End);
     }
 
     sessions.write().await.insert(
@@ -235,7 +262,7 @@ struct HttpStreamParams {
     request_id: String,
     start: HttpRelayRequestStart,
     upstream: GatewayUpstream,
-    body_events: mpsc::UnboundedReceiver<RequestBodyEvent>,
+    body_events: mpsc::Receiver<RequestBodyEvent>,
     acks: SharedAckWindow,
     cancel: CancellationToken,
     out: mpsc::UnboundedSender<Message>,
@@ -267,7 +294,12 @@ async fn run_http_stream(params: HttpStreamParams) {
     .await
     {
         if !cancel.is_cancelled() {
-            let _ = out.send(Message::Text(http_error_envelope(&request_id, 502, code)));
+            let status = if code == "invalid_method" { 400 } else { 502 };
+            let _ = out.send(Message::Text(http_error_envelope(
+                &request_id,
+                status,
+                code,
+            )));
         }
     }
 }
@@ -277,7 +309,7 @@ async fn run_http_stream_inner(
     request_id: &str,
     start: HttpRelayRequestStart,
     upstream: GatewayUpstream,
-    mut body_events: mpsc::UnboundedReceiver<RequestBodyEvent>,
+    mut body_events: mpsc::Receiver<RequestBodyEvent>,
     acks: SharedAckWindow,
     cancel: &CancellationToken,
     out: &mpsc::UnboundedSender<Message>,
@@ -485,7 +517,7 @@ pub(crate) struct HttpStreamTestParams {
     pub request_id: String,
     pub start: HttpRelayRequestStart,
     pub upstream: GatewayUpstream,
-    pub body_events: mpsc::UnboundedReceiver<RequestBodyEvent>,
+    pub body_events: mpsc::Receiver<RequestBodyEvent>,
     pub acks: SharedAckWindow,
     pub cancel: CancellationToken,
     pub out: mpsc::UnboundedSender<Message>,
@@ -562,7 +594,7 @@ mod tests {
         let (addr, received, _) = start_echo_server().await;
         let payload = vec![0x5a; 4 * 1024 * 1024];
         let (out_tx, mut out_rx) = mpsc::unbounded_channel();
-        let (body_tx, body_rx) = mpsc::unbounded_channel();
+        let (body_tx, body_rx) = mpsc::channel(256);
         let acks = Arc::new(AckWindow::new(2));
         let cancel = CancellationToken::new();
         let request_id = "req-large".to_string();
@@ -598,10 +630,11 @@ mod tests {
                 .send(RequestBodyEvent::Chunk {
                     data: payload[offset..end].to_vec(),
                 })
+                .await
                 .unwrap();
             offset = end;
         }
-        body_tx.send(RequestBodyEvent::End).unwrap();
+        body_tx.send(RequestBodyEvent::End).await.unwrap();
 
         let mut echoed = Vec::new();
         loop {
@@ -640,7 +673,7 @@ mod tests {
     async fn cancel_stops_in_flight_upstream_response() {
         let (addr, _, cancelled) = start_echo_server().await;
         let (out_tx, mut out_rx) = mpsc::unbounded_channel();
-        let (body_tx, body_rx) = mpsc::unbounded_channel();
+        let (body_tx, body_rx) = mpsc::channel(8);
         let acks = Arc::new(AckWindow::new(8));
         let cancel = CancellationToken::new();
         let request_id = "req-cancel".to_string();
@@ -669,7 +702,7 @@ mod tests {
             })
             .await;
         });
-        body_tx.send(RequestBodyEvent::End).unwrap();
+        body_tx.send(RequestBodyEvent::End).await.unwrap();
 
         let mut saw_chunk = false;
         while let Ok(Some(msg)) = tokio::time::timeout(Duration::from_secs(5), out_rx.recv()).await
@@ -701,7 +734,7 @@ mod tests {
         let sessions = new_session_map();
         let (out_tx, _out_rx) = mpsc::unbounded_channel();
         let cancel = CancellationToken::new();
-        let (body_tx, mut body_rx) = mpsc::unbounded_channel();
+        let (body_tx, mut body_rx) = mpsc::channel(8);
         sessions.write().await.insert(
             "req-1".into(),
             HttpInflight {
@@ -724,5 +757,123 @@ mod tests {
         assert!(cancel.is_cancelled());
         assert!(sessions.read().await.get("req-1").is_none());
         assert!(body_rx.recv().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn invalid_method_returns_400() {
+        let sessions = new_session_map();
+        let (out_tx, mut out_rx) = mpsc::unbounded_channel();
+        on_http_envelope(
+            &sessions,
+            HTTP_KIND_REQUEST,
+            Some("req-bad-method"),
+            None,
+            Some(r#"{"method":"NOT A METHOD","path":"/x","headers":[],"streaming":true}"#),
+            &out_tx,
+        )
+        .await;
+        let Message::Text(text) = out_rx.try_recv().expect("error envelope") else {
+            panic!("expected text");
+        };
+        let value = parse_env(&text);
+        assert_eq!(value["kind"], "error");
+        let body: Value = serde_json::from_str(value["body"].as_str().unwrap()).unwrap();
+        assert_eq!(body["status"], 400);
+        assert_eq!(body["code"], "invalid_method");
+    }
+
+    #[tokio::test]
+    async fn invalid_chunk_sends_error_envelope() {
+        let sessions = new_session_map();
+        let (out_tx, mut out_rx) = mpsc::unbounded_channel();
+        let cancel = CancellationToken::new();
+        let (body_tx, _body_rx) = mpsc::channel(8);
+        sessions.write().await.insert(
+            "req-bad-chunk".into(),
+            HttpInflight {
+                body_tx,
+                acks: Arc::new(AckWindow::new(8)),
+                cancel: cancel.clone(),
+            },
+        );
+        on_http_envelope(
+            &sessions,
+            HTTP_KIND_REQUEST_CHUNK,
+            Some("req-bad-chunk"),
+            Some(0),
+            Some("!!!not-b64!!!"),
+            &out_tx,
+        )
+        .await;
+        let Message::Text(text) = out_rx.try_recv().expect("error envelope") else {
+            panic!("expected text");
+        };
+        let value = parse_env(&text);
+        assert_eq!(value["kind"], "error");
+        let body: Value = serde_json::from_str(value["body"].as_str().unwrap()).unwrap();
+        assert_eq!(body["status"], 400);
+        assert_eq!(body["code"], "invalid_chunk");
+        assert!(cancel.is_cancelled());
+    }
+
+    #[tokio::test]
+    async fn bounded_queue_acks_only_after_capacity() {
+        let sessions = new_session_map();
+        let (out_tx, mut out_rx) = mpsc::unbounded_channel();
+        let cancel = CancellationToken::new();
+        let (body_tx, mut body_rx) = mpsc::channel(1);
+        sessions.write().await.insert(
+            "req-bound".into(),
+            HttpInflight {
+                body_tx,
+                acks: Arc::new(AckWindow::new(8)),
+                cancel: cancel.clone(),
+            },
+        );
+
+        on_http_envelope(
+            &sessions,
+            HTTP_KIND_REQUEST_CHUNK,
+            Some("req-bound"),
+            Some(0),
+            Some("YQ=="),
+            &out_tx,
+        )
+        .await;
+        let Message::Text(first) = out_rx.try_recv().expect("first ack") else {
+            panic!("expected text");
+        };
+        let first_env = parse_env(&first);
+        assert_eq!(first_env["kind"], "ack");
+        assert_eq!(first_env["seq"], 0);
+
+        let sessions2 = Arc::clone(&sessions);
+        let out2 = out_tx.clone();
+        let second = tokio::spawn(async move {
+            on_http_envelope(
+                &sessions2,
+                HTTP_KIND_REQUEST_CHUNK,
+                Some("req-bound"),
+                Some(1),
+                Some("Yg=="),
+                &out2,
+            )
+            .await;
+        });
+        tokio::time::sleep(Duration::from_millis(30)).await;
+        assert!(!second.is_finished());
+        assert!(out_rx.try_recv().is_err());
+
+        match body_rx.recv().await.unwrap() {
+            RequestBodyEvent::Chunk { data } => assert_eq!(data, b"a"),
+            RequestBodyEvent::End => panic!("expected chunk"),
+        }
+        second.await.unwrap();
+        let Message::Text(second_ack) = out_rx.try_recv().expect("second ack") else {
+            panic!("expected text");
+        };
+        let second_env = parse_env(&second_ack);
+        assert_eq!(second_env["kind"], "ack");
+        assert_eq!(second_env["seq"], 1);
     }
 }

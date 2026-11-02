@@ -8,6 +8,8 @@ import {
   HTTP_KIND,
   HTTP_STREAM_CHUNK_SIZE,
   httpEnvelope,
+  httpStatusNullBody,
+  pipeGatewayRequestBody,
   startHubHttpProxy,
   u8ToB64,
 } from "../src/http-stream";
@@ -49,11 +51,20 @@ describe("AckWindow", () => {
     expect(window.blocked).toBe(1);
 
     window.ack(0);
-    await Promise.resolve();
-    expect(released).toBe(false);
-    window.ack(1);
     await expect(third).resolves.toBe(2);
     expect(released).toBe(true);
+    expect(window.unacked()).toBe(2);
+  });
+
+  test("ignores acks for sequences that were never sent", async () => {
+    const window = new AckWindow(2);
+    await window.takeSlot();
+    window.ack(99);
+    window.ack(0.5);
+    expect(window.unacked()).toBe(1);
+    await window.takeSlot();
+    expect(window.unacked()).toBe(2);
+    window.ack(0);
     expect(window.unacked()).toBe(1);
   });
 
@@ -198,6 +209,133 @@ describe("hub HTTP stream proxy", () => {
     await new Promise((resolve) => setTimeout(resolve, 10));
     abort.abort();
     await expect(handle.response).rejects.toMatchObject({ name: "AbortError" });
-    expect(sent.some((envelope) => envelope.kind === HTTP_KIND.cancel)).toBe(true);
+    expect(
+      sent.some(
+        (envelope) => envelope.kind === HTTP_KIND.cancel && envelope.request_id === "req-cancel",
+      ),
+    ).toBe(true);
+  });
+
+  test("emits cancel when the abort signal is already aborted", async () => {
+    const abort = new AbortController();
+    abort.abort();
+    const sent: RelayEnvelope[] = [];
+    const handle = startHubHttpProxy({
+      send: (envelope) => {
+        sent.push(envelope);
+      },
+      requestId: "req-preabort",
+      method: "GET",
+      path: "/slow",
+      headers: [],
+      requestBody: null,
+      signal: abort.signal,
+      idleTimeoutMs: 20_000,
+    });
+    await expect(handle.response).rejects.toMatchObject({ name: "AbortError" });
+    expect(
+      sent.some(
+        (envelope) => envelope.kind === HTTP_KIND.cancel && envelope.request_id === "req-preabort",
+      ),
+    ).toBe(true);
+  });
+
+  test("uses a null body for 204 responses", async () => {
+    const handle = startHubHttpProxy({
+      send: () => undefined,
+      requestId: "req-204",
+      method: "GET",
+      path: "/empty",
+      headers: [],
+      requestBody: null,
+      idleTimeoutMs: 20_000,
+    });
+    await handle.onEnvelope(
+      httpEnvelope({
+        kind: HTTP_KIND.responseStart,
+        requestId: "req-204",
+        body: JSON.stringify({ status: 204, headers: [] }),
+      }),
+    );
+    const response = await handle.response;
+    expect(httpStatusNullBody(204)).toBe(true);
+    expect(response.status).toBe(204);
+    expect(response.body).toBeNull();
+  });
+
+  test("aborts the response body when error arrives after response_start", async () => {
+    const handle = startHubHttpProxy({
+      send: () => undefined,
+      requestId: "req-mid-error",
+      method: "GET",
+      path: "/partial",
+      headers: [],
+      requestBody: null,
+      idleTimeoutMs: 20_000,
+    });
+    await handle.onEnvelope(
+      httpEnvelope({
+        kind: HTTP_KIND.responseStart,
+        requestId: "req-mid-error",
+        body: JSON.stringify({
+          status: 200,
+          headers: [["content-type", "application/octet-stream"]],
+        }),
+      }),
+    );
+    const response = await handle.response;
+    expect(response.status).toBe(200);
+    const body = response.arrayBuffer();
+    await handle.onEnvelope(
+      httpEnvelope({
+        kind: HTTP_KIND.error,
+        requestId: "req-mid-error",
+        body: JSON.stringify({ status: 502, code: "upstream_body_error" }),
+      }),
+    );
+    await expect(body).rejects.toBeTruthy();
+  });
+
+  test("preserves repeated response headers", async () => {
+    const handle = startHubHttpProxy({
+      send: () => undefined,
+      requestId: "req-cookies",
+      method: "GET",
+      path: "/",
+      headers: [],
+      requestBody: null,
+      idleTimeoutMs: 20_000,
+    });
+    await handle.onEnvelope(
+      httpEnvelope({
+        kind: HTTP_KIND.responseStart,
+        requestId: "req-cookies",
+        body: JSON.stringify({
+          status: 204,
+          headers: [
+            ["set-cookie", "a=1"],
+            ["set-cookie", "b=2"],
+          ],
+        }),
+      }),
+    );
+    const response = await handle.response;
+    expect(response.headers.getSetCookie()).toEqual(["a=1", "b=2"]);
+  });
+});
+
+describe("pipeGatewayRequestBody", () => {
+  test("rejects when the abort signal is already aborted", async () => {
+    const abort = new AbortController();
+    abort.abort();
+    const writable = new WritableStream<Uint8Array>();
+    await expect(
+      pipeGatewayRequestBody(
+        writable,
+        encodeGatewayPrelude({ method: "PUT", path: "/x", headers: [] }),
+        null,
+        abort.signal,
+      ),
+    ).rejects.toMatchObject({ name: "AbortError" });
   });
 });

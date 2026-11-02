@@ -47,12 +47,12 @@ Relay does not interpret application actions inside `body`.
 
 ## Stream kinds
 
-| `stream`   | Who speaks it                          | `kind` values                                                                                                           | Purpose                               |
-| ---------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
-| `app`      | Client WS ↔ Computer                   | `frame`, `close`                                                                                                        | Main application WebSocket.           |
-| `terminal` | Terminal client WS ↔ Computer          | `frame`, `close`                                                                                                        | Terminal I/O multiplex.               |
-| `http`     | HTTP gateway ↔ Computer                | `request`, `request_chunk`, `request_end`, `response_start`, `response_chunk`, `response_end`, `ack`, `cancel`, `error` | Proxied HTTPS to loopback `apps/api`. |
-| `system`   | Relay → Computer (GitHub, and similar) | `external_event`, `external_event_ack`                                                                                  | Provider ingress, not end-user HTTP.  |
+| `stream`   | Who speaks it                          | `kind` values                                                                                                                                   | Purpose                               |
+| ---------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| `app`      | Client WS ↔ Computer                   | `frame`, `close`                                                                                                                                | Main application WebSocket.           |
+| `terminal` | Terminal client WS ↔ Computer          | `frame`, `close`                                                                                                                                | Terminal I/O multiplex.               |
+| `http`     | HTTP gateway ↔ Computer                | `request`, `request_chunk`, `request_end`, `response_start`, `response_chunk`, `response_end`, `ack`, `cancel`, `error`, plus legacy `response` | Proxied HTTPS to loopback `apps/api`. |
+| `system`   | Relay → Computer (GitHub, and similar) | `external_event`, `external_event_ack`                                                                                                          | Provider ingress, not end-user HTTP.  |
 
 `close` on `app` / `terminal` tears down the matching virtual session on the Computer. HTTP uses `cancel` instead of `close`.
 
@@ -120,6 +120,9 @@ a single-shot body and does not wait for chunks.
 Response uses `response_start` (`status` + `headers`), `response_chunk` + `seq`,
 then `response_end`. `ack` uses the same `request_id` and the chunk `seq`.
 `cancel` has no body. `error` body is `{"status":502,"code":"upstream_unreachable"}`.
+A single-shot legacy reply uses `kind: "response"` with JSON
+(`status`, `headers`, optional `body_b64`) instead of the start/chunk/end
+sequence. ServerHub still accepts it.
 
 Idle timeout is 120 seconds without a frame in either direction. There is no
 short overall cap: a multi-megabyte artifact on a weak link may run as long as
@@ -132,8 +135,10 @@ then raw request bytes. That hop is not the Computer envelope.
 
 Set `RELAY_HUB_LOCATION_HINT` on the Worker (`wnam`, `enam`, `sam`, `weur`,
 `eeur`, `apac`, `oc`, `afr`, `me`) to bias **first create** of a ServerHub toward
-a region. Existing hubs ignore the hint. Use it only when cross-region RTT to
-the Computer is a measured problem; it does not migrate a hub that already exists.
+a region. Existing hubs ignore the hint. A non-empty unknown token is ignored
+(Worker logs a warning) and placement stays at the platform default. Use it only
+when cross-region RTT to the Computer is a measured problem; it does not migrate
+a hub that already exists.
 
 ## Self-host (minimal)
 

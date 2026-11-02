@@ -638,4 +638,14 @@ HTTP gateway no longer ships whole request/response bodies as a single envelope 
 - Computer daemon (`apps/api` `relay/http_gateway.rs`) aborts the loopback HTTP call when it receives `cancel` or the outbound relay socket shuts down.
 - Protocol write-up: [`docs/architecture/relay.md`](../../../docs/architecture/relay.md).
 - Optional first-create placement: Worker env `RELAY_HUB_LOCATION_HINT`.
+- **Rollout:** the edge Worker and Computer daemon must ship together. A new ServerHub that emits `streaming: true` chunks against an old daemon can forward empty-body requests.
 - **Not in this delta:** APP-016 M5 envelope encryption. Streaming does not implement a half crypto layer; M5 remains a follow-up.
+
+Commit: `a9667bf525b6e7d0a820aa19bf313d9cc3e94385` plus review follow-up on this branch.
+
+Files: `packages/relay/src/{http-stream.ts,hub-stub.ts,server-hub.ts,index.ts,envelope.ts}`, `apps/api/src/relay/{http_gateway.rs,http_stream.rs,ingest.rs}`, `docs/architecture/relay.md`.
+
+Verification:
+
+- `bun test packages/relay/test/http-stream.test.ts packages/relay/test/hub-stub.test.ts packages/relay/test/http-gateway-stream.test.ts`
+- `cargo test -p api streams_several_megabytes_with_backpressure cancel_stops_in_flight_upstream_response ingest_cancel_kind_stops_session bounded_queue_acks_only_after_capacity invalid_chunk_sends_error_envelope`
