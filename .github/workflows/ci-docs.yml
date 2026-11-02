@@ -24,9 +24,10 @@ permissions:
   contents: read
 
 # PRs: cancel superseded runs on the same PR.
-# main push / workflow_dispatch: share github.ref so in-progress runs finish and
-# newer runs queue. Do not put run_id in this group — that would skip the queue.
-# GitHub still drops *pending* runs in the group when a newer one is queued.
+# main push: share github.ref so in-progress runs finish and newer runs queue.
+# This workflow has no workflow_dispatch. Do not put run_id in this group —
+# that would skip the queue. GitHub still drops *pending* runs in the group
+# when a newer one is queued.
 concurrency:
   group: docs-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
