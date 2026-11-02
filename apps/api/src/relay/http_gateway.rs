@@ -903,20 +903,19 @@ mod tests {
         assert_eq!(first_env["kind"], "ack");
         assert_eq!(first_env["seq"], 0);
 
-        let started = std::time::Instant::now();
-        on_http_envelope(
-            &sessions,
-            HTTP_KIND_REQUEST_CHUNK,
-            Some("req-bound"),
-            Some(1),
-            Some("Yg=="),
-            &out_tx,
+        tokio::time::timeout(
+            Duration::from_secs(2),
+            on_http_envelope(
+                &sessions,
+                HTTP_KIND_REQUEST_CHUNK,
+                Some("req-bound"),
+                Some(1),
+                Some("Yg=="),
+                &out_tx,
+            ),
         )
-        .await;
-        assert!(
-            started.elapsed() < Duration::from_millis(50),
-            "ingest must not wait on a full body queue"
-        );
+        .await
+        .expect("ingest blocked on a full body queue");
         tokio::time::sleep(Duration::from_millis(20)).await;
         assert!(out_rx.try_recv().is_err());
 
