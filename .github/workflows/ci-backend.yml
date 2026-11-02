@@ -22,10 +22,23 @@ on:
 permissions:
   contents: read
 
+# PRs: cancel superseded runs on the same PR.
+# main push / workflow_dispatch: share github.ref so in-progress runs finish and
+# newer runs queue (same as ci-e2e.yml). Do not put run_id in this group — that
+# would skip the queue. GitHub still drops *pending* runs in the group when a
+# newer one is queued; that is accepted for dispatch on a busy ref.
+concurrency:
+  group: backend-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
 
+# fmt / clippy / test are independent required checks and run in parallel so
+# the PR critical path is max(job) instead of clippy → test → release build.
+# Branch protection still needs each job green; a failure in one does not
+# skip the others.
 jobs:
   fmt:
     name: Format Check
@@ -60,6 +73,10 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: ". -> target"
+          # GitHub scopes caches per-ref; PR copies of the same key were
+          # pushing the repo over the 10GB Actions cache cap. PRs still
+          # restore from main.
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Run Clippy
         run: cargo clippy --workspace --exclude atmos-desktop --all-targets --all-features -- -D warnings
@@ -67,7 +84,6 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
-    needs: [fmt, clippy]
     steps:
       - uses: actions/checkout@v5
         with:
@@ -80,26 +96,42 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: ". -> target"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Run tests
         run: cargo test --workspace --exclude atmos-desktop
 
+  # Job name stays "Build (Release)" so a required check of that name still
+  # reports. On pull_request the job is a fast success (no cargo build); on
+  # main push and workflow_dispatch it waits for fmt/clippy/test then builds.
   build:
     name: Build (Release)
     runs-on: ubuntu-latest
-    needs: [test]
+    needs: [fmt, clippy, test]
     steps:
+      - name: Skip release build on pull requests
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "PR skips cargo build --release (recent PRs spent ~5–6m here)."
+          echo "Check name stays Build (Release) and reports success after fmt/clippy/test."
+          echo "main push and workflow_dispatch still run the release build."
+
       - uses: actions/checkout@v5
+        if: github.event_name != 'pull_request'
         with:
           filter: blob:none
 
       - name: Install Rust (stable)
+        if: github.event_name != 'pull_request'
         uses: dtolnay/rust-toolchain@stable
 
       - name: Cache Rust dependencies
+        if: github.event_name != 'pull_request'
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: ". -> target"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Build API (release)
+        if: github.event_name != 'pull_request'
         run: cargo build --release --bin api

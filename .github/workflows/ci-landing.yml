@@ -23,12 +23,23 @@ on:
 permissions:
   contents: read
 
+# PRs: cancel superseded runs on the same PR.
+# main push: share github.ref so in-progress runs finish and newer runs queue.
+# This workflow has no workflow_dispatch. Do not put run_id in this group —
+# that would skip the queue. GitHub still drops *pending* runs in the group
+# when a newer one is queued.
+concurrency:
+  group: landing-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          filter: blob:none
       - uses: ./.github/actions/setup-bun
       - name: Lint landing
         run: bun --filter landing lint
@@ -38,6 +49,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          filter: blob:none
       - uses: ./.github/actions/setup-bun
       - name: Typecheck landing
         run: bun --filter landing typecheck
@@ -48,6 +61,8 @@ jobs:
     needs: [lint, typecheck]
     steps:
       - uses: actions/checkout@v5
+        with:
+          filter: blob:none
       - uses: ./.github/actions/setup-bun
       - name: Build landing
         run: bun --filter landing build
