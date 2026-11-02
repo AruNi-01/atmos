@@ -392,13 +392,25 @@ async fn open_terminal(
     let sid_for_task = sid.to_string();
     let session_id_for_task = session_id.clone();
     let frame_e2ee = std::sync::Arc::clone(frame_e2ee);
+    let mut held = frame_e2ee::live_session(&frame_e2ee, sid);
     let output_task = tokio::spawn(async move {
         while let Some(data) = output_rx.recv().await {
             if data.is_empty() {
                 continue;
             }
-            let response = relay_terminal_output(&session_id_for_task, &data);
-            send_terminal_response_to_sid(&relay_out_clone, &sid_for_task, &response, &frame_e2ee);
+            let Ok(body) =
+                serde_json::to_string(&relay_terminal_output(&session_id_for_task, &data))
+            else {
+                continue;
+            };
+            frame_e2ee::emit_sticky(
+                &relay_out_clone,
+                &frame_e2ee,
+                &mut held,
+                &sid_for_task,
+                "terminal",
+                body,
+            );
         }
     });
 

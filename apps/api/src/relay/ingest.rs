@@ -542,11 +542,13 @@ pub async fn run(
                 let state = state.clone();
                 let out_tx = out_tx.clone();
                 let frame_e2ee = Arc::clone(&frame_e2ee);
+                let mut held = crate::relay::frame_e2ee::live_session(&frame_e2ee, &sid);
                 tokio::spawn(async move {
                     if let Some(reply) = state.ws_service.handle_message(&conn_id, &body).await {
-                        crate::relay::frame_e2ee::emit_frame(
+                        crate::relay::frame_e2ee::emit_sticky(
                             &out_tx,
                             &frame_e2ee,
+                            &mut held,
                             &sid,
                             "app",
                             reply,
@@ -629,11 +631,13 @@ async fn ensure_session(
     let relay_out_clone = relay_out.clone();
     let sid_for_task = sid.clone();
     let frame_e2ee = Arc::clone(frame_e2ee);
+    let mut held = crate::relay::frame_e2ee::live_session(&frame_e2ee, &sid);
     tokio::spawn(async move {
         while let Some(msg) = rx.recv().await {
-            crate::relay::frame_e2ee::emit_frame(
+            crate::relay::frame_e2ee::emit_sticky(
                 &relay_out_clone,
                 &frame_e2ee,
+                &mut held,
                 &sid_for_task,
                 "app",
                 msg,

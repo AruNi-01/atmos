@@ -21,13 +21,7 @@ pub struct FrameSession {
     next_s2c: Mutex<u32>,
 }
 
-#[derive(Clone)]
-pub(crate) enum FrameE2eeSlot {
-    Live(Arc<FrameSession>),
-    Closed,
-}
-
-pub type FrameE2eeSessions = Arc<RwLock<HashMap<String, FrameE2eeSlot>>>;
+pub type FrameE2eeSessions = Arc<RwLock<HashMap<String, Arc<FrameSession>>>>;
 
 #[derive(Debug, Deserialize)]
 struct E2eeOpenBody {
@@ -47,13 +41,13 @@ pub fn frame_aad(eph_pk: &str, stream: &str, seq: u32, kind: &str) -> Vec<u8> {
 
 fn write_map(
     map: &FrameE2eeSessions,
-) -> std::sync::RwLockWriteGuard<'_, HashMap<String, FrameE2eeSlot>> {
+) -> std::sync::RwLockWriteGuard<'_, HashMap<String, Arc<FrameSession>>> {
     map.write().unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 fn read_map(
     map: &FrameE2eeSessions,
-) -> std::sync::RwLockReadGuard<'_, HashMap<String, FrameE2eeSlot>> {
+) -> std::sync::RwLockReadGuard<'_, HashMap<String, Arc<FrameSession>>> {
     map.read().unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
@@ -73,16 +67,20 @@ pub fn open_from_e2ee_open(body: &str) -> Result<Arc<FrameSession>, &'static str
 
 pub fn insert_session(map: &FrameE2eeSessions, sid: String, session: Arc<FrameSession>) {
     let mut locked = write_map(map);
-    if let Some(FrameE2eeSlot::Live(existing)) = locked.get(&sid) {
+    if let Some(existing) = locked.get(&sid) {
         if existing.eph_pk == session.eph_pk {
             return;
         }
     }
-    locked.insert(sid, FrameE2eeSlot::Live(session));
+    locked.insert(sid, session);
 }
 
 pub fn remove_session(map: &FrameE2eeSessions, sid: &str) {
-    write_map(map).insert(sid.to_string(), FrameE2eeSlot::Closed);
+    write_map(map).remove(sid);
+}
+
+pub fn live_session(map: &FrameE2eeSessions, sid: &str) -> Option<Arc<FrameSession>> {
+    read_map(map).get(sid).cloned()
 }
 
 pub fn open_c2s(
@@ -91,11 +89,8 @@ pub fn open_c2s(
     stream: &str,
     body: &str,
 ) -> Result<String, &'static str> {
-    let slot = read_map(map).get(sid).cloned();
-    let session = match slot {
-        Some(FrameE2eeSlot::Live(session)) => session,
-        Some(FrameE2eeSlot::Closed) => return Err("e2ee_session_closed"),
-        None => return Ok(body.to_string()),
+    let Some(session) = live_session(map, sid) else {
+        return Ok(body.to_string());
     };
     let record = B64.decode(body.trim()).map_err(|_| "e2ee_invalid_frame")?;
     let seq = session.expected_c2s.load(Ordering::SeqCst);
@@ -107,6 +102,69 @@ pub fn open_c2s(
     String::from_utf8(plain).map_err(|_| "e2ee_invalid_frame")
 }
 
+pub fn emit_sealed(
+    out: &mpsc::UnboundedSender<Message>,
+    session: &FrameSession,
+    sid: &str,
+    stream: &str,
+    body: String,
+) {
+    let mut locked = session
+        .next_s2c
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let seq = *locked;
+    *locked = seq.wrapping_add(1);
+    let aad = frame_aad(&session.eph_pk, stream, seq, KIND_S2C);
+    let record = match session.key.seal(&aad, body.as_bytes()) {
+        Ok(record) => record,
+        Err(_) => return,
+    };
+    let body = B64.encode(&record);
+    let outbound = serde_json::json!({
+        "v": 1_u32,
+        "stream": stream,
+        "kind": "frame",
+        "from": "server",
+        "to": format!("client:{sid}"),
+        "body": body,
+    })
+    .to_string();
+    let _ = out.send(Message::Text(outbound));
+}
+
+fn emit_plain(out: &mpsc::UnboundedSender<Message>, sid: &str, stream: &str, body: String) {
+    let outbound = serde_json::json!({
+        "v": 1_u32,
+        "stream": stream,
+        "kind": "frame",
+        "from": "server",
+        "to": format!("client:{sid}"),
+        "body": body,
+    })
+    .to_string();
+    let _ = out.send(Message::Text(outbound));
+}
+
+/// Long-lived tasks keep the last live session so a close that drops the map
+/// entry cannot fall back to plaintext. The map itself does not grow.
+pub fn emit_sticky(
+    out: &mpsc::UnboundedSender<Message>,
+    map: &FrameE2eeSessions,
+    held: &mut Option<Arc<FrameSession>>,
+    sid: &str,
+    stream: &str,
+    body: String,
+) {
+    if let Some(live) = live_session(map, sid) {
+        *held = Some(live);
+    }
+    match held.as_deref() {
+        Some(session) => emit_sealed(out, session, sid, stream, body),
+        None => emit_plain(out, sid, stream, body),
+    }
+}
+
 pub fn emit_frame(
     out: &mpsc::UnboundedSender<Message>,
     map: &FrameE2eeSessions,
@@ -114,45 +172,9 @@ pub fn emit_frame(
     stream: &str,
     body: String,
 ) {
-    let slot = read_map(map).get(sid).cloned();
-    match slot {
-        Some(FrameE2eeSlot::Closed) => (),
-        Some(FrameE2eeSlot::Live(session)) => {
-            let mut locked = session
-                .next_s2c
-                .lock()
-                .unwrap_or_else(|poisoned| poisoned.into_inner());
-            let seq = *locked;
-            *locked = seq.wrapping_add(1);
-            let aad = frame_aad(&session.eph_pk, stream, seq, KIND_S2C);
-            let record = match session.key.seal(&aad, body.as_bytes()) {
-                Ok(record) => record,
-                Err(_) => return,
-            };
-            let body = B64.encode(&record);
-            let outbound = serde_json::json!({
-                "v": 1_u32,
-                "stream": stream,
-                "kind": "frame",
-                "from": "server",
-                "to": format!("client:{sid}"),
-                "body": body,
-            })
-            .to_string();
-            let _ = out.send(Message::Text(outbound));
-        }
-        None => {
-            let outbound = serde_json::json!({
-                "v": 1_u32,
-                "stream": stream,
-                "kind": "frame",
-                "from": "server",
-                "to": format!("client:{sid}"),
-                "body": body,
-            })
-            .to_string();
-            let _ = out.send(Message::Text(outbound));
-        }
+    match live_session(map, sid) {
+        Some(session) => emit_sealed(out, &session, sid, stream, body),
+        None => emit_plain(out, sid, stream, body),
     }
 }
 
@@ -242,7 +264,7 @@ mod tests {
     }
 
     #[test]
-    fn emit_frame_drops_after_session_close() {
+    fn emit_sticky_seals_after_map_remove() {
         let dir =
             std::env::temp_dir().join(format!("atmos-e2ee-frame-close-{}", std::process::id()));
         let _ = std::fs::create_dir_all(&dir);
@@ -264,19 +286,22 @@ mod tests {
             .unwrap(),
         );
         let (tx, mut rx) = mpsc::unbounded_channel();
-        emit_frame(&tx, &map, "sid-close", "app", "secret".into());
+        let mut held = live_session(&map, "sid-close");
+        emit_sticky(&tx, &map, &mut held, "sid-close", "app", "secret".into());
         let Message::Text(sealed) = rx.try_recv().unwrap() else {
             panic!("expected text");
         };
         let env: serde_json::Value = serde_json::from_str(&sealed).unwrap();
         assert_ne!(env["body"], "secret");
         remove_session(&map, "sid-close");
-        emit_frame(&tx, &map, "sid-close", "app", "leaked".into());
-        assert!(rx.try_recv().is_err());
-        assert_eq!(
-            open_c2s(&map, "sid-close", "app", "x").unwrap_err(),
-            "e2ee_session_closed"
-        );
+        assert!(live_session(&map, "sid-close").is_none());
+        emit_sticky(&tx, &map, &mut held, "sid-close", "app", "late".into());
+        let Message::Text(late) = rx.try_recv().unwrap() else {
+            panic!("expected sticky sealed frame");
+        };
+        let late_env: serde_json::Value = serde_json::from_str(&late).unwrap();
+        assert_ne!(late_env["body"], "late");
+        assert_eq!(read_map(&map).len(), 0);
         drop(_env);
         let _ = std::fs::remove_file(&path);
         let _ = std::fs::remove_dir(&dir);
