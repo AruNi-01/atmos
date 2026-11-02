@@ -216,6 +216,23 @@ describe("hub HTTP stream proxy", () => {
     ).toBe(true);
   });
 
+  test("idle timeout rejects with gateway_timeout not AbortError", async () => {
+    const sent: RelayEnvelope[] = [];
+    const handle = startHubHttpProxy({
+      send: (envelope) => {
+        sent.push(envelope);
+      },
+      requestId: "req-idle",
+      method: "GET",
+      path: "/slow",
+      headers: [],
+      requestBody: null,
+      idleTimeoutMs: 30,
+    });
+    await expect(handle.response).rejects.toMatchObject({ message: "gateway_timeout" });
+    expect(sent.filter((envelope) => envelope.kind === HTTP_KIND.cancel)).toHaveLength(1);
+  });
+
   test("emits cancel when the abort signal is already aborted", async () => {
     const abort = new AbortController();
     abort.abort();

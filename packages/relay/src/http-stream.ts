@@ -380,6 +380,7 @@ export function startHubHttpProxy(opts: HubHttpProxyOpts): HubHttpProxyHandle {
     if (settled) {
       return;
     }
+    settle();
     try {
       send(HTTP_KIND.cancel);
     } catch {
@@ -390,7 +391,6 @@ export function startHubHttpProxy(opts: HubHttpProxyOpts): HubHttpProxyHandle {
     if (!responseStarted) {
       rejectResponse(error);
     }
-    settle();
   };
 
   const bumpIdle = () => {
@@ -405,6 +405,9 @@ export function startHubHttpProxy(opts: HubHttpProxyOpts): HubHttpProxyHandle {
   abort.signal.addEventListener(
     "abort",
     () => {
+      if (settled) {
+        return;
+      }
       const reason = abort.signal.reason;
       if (reason === "server_offline") {
         fail(new Error("server_offline"));

@@ -58,10 +58,51 @@ pub enum RequestBodyEvent {
     End,
 }
 
+enum AdmitMsg {
+    Chunk { data: Vec<u8>, seq: Option<u32> },
+    End,
+}
+
 pub struct HttpInflight {
-    pub body_tx: mpsc::Sender<RequestBodyEvent>,
+    admit_tx: mpsc::UnboundedSender<AdmitMsg>,
     pub acks: SharedAckWindow,
     pub cancel: CancellationToken,
+}
+
+fn spawn_body_admission(
+    mut admit_rx: mpsc::UnboundedReceiver<AdmitMsg>,
+    body_tx: mpsc::Sender<RequestBodyEvent>,
+    out: mpsc::UnboundedSender<Message>,
+    request_id: String,
+    cancel: CancellationToken,
+) {
+    tokio::spawn(async move {
+        let stop = cancel.clone();
+        loop {
+            tokio::select! {
+                _ = stop.cancelled() => break,
+                msg = admit_rx.recv() => {
+                    let Some(msg) = msg else {
+                        break;
+                    };
+                    match msg {
+                        AdmitMsg::Chunk { data, seq } => {
+                            if body_tx.send(RequestBodyEvent::Chunk { data }).await.is_err() {
+                                cancel.cancel();
+                                break;
+                            }
+                            let ack = http_envelope(HTTP_KIND_ACK, &request_id, seq, None);
+                            let _ = out.send(Message::Text(ack));
+                        }
+                        AdmitMsg::End => {
+                            let _ = body_tx.send(RequestBodyEvent::End).await;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    });
 }
 
 pub type HttpGatewaySessions = Arc<RwLock<HashMap<String, HttpInflight>>>;
@@ -111,13 +152,13 @@ pub async fn on_http_envelope(
         let locked = sessions.read().await;
         locked.get(request_id).map(|session| {
             (
-                session.body_tx.clone(),
+                session.admit_tx.clone(),
                 Arc::clone(&session.acks),
                 session.cancel.clone(),
             )
         })
     };
-    let Some((body_tx, acks, cancel)) = inflight else {
+    let Some((admit_tx, acks, cancel)) = inflight else {
         return;
     };
     match kind {
@@ -126,15 +167,11 @@ pub async fn on_http_envelope(
                 return;
             };
             match B64.decode(b64) {
-                Ok(data) => match body_tx.send(RequestBodyEvent::Chunk { data }).await {
-                    Ok(()) => {
-                        let ack = http_envelope(HTTP_KIND_ACK, request_id, seq, None);
-                        let _ = out.send(Message::Text(ack));
-                    }
-                    Err(_) => {
+                Ok(data) => {
+                    if admit_tx.send(AdmitMsg::Chunk { data, seq }).is_err() {
                         cancel.cancel();
                     }
-                },
+                }
                 Err(error) => {
                     warn!(
                         target: "atmos_relay",
@@ -152,7 +189,7 @@ pub async fn on_http_envelope(
             }
         }
         k if k == HTTP_KIND_REQUEST_END => {
-            let _ = body_tx.send(RequestBodyEvent::End).await;
+            let _ = admit_tx.send(AdmitMsg::End);
         }
         k if k == HTTP_KIND_ACK => {
             if let Some(seq) = seq {
@@ -204,8 +241,16 @@ async fn start_session(
     };
 
     let (body_tx, body_rx) = mpsc::channel(HTTP_STREAM_WINDOW as usize);
+    let (admit_tx, admit_rx) = mpsc::unbounded_channel();
     let acks = Arc::new(AckWindow::new(HTTP_STREAM_WINDOW));
     let cancel = CancellationToken::new();
+    spawn_body_admission(
+        admit_rx,
+        body_tx.clone(),
+        out.clone(),
+        request_id.to_string(),
+        cancel.clone(),
+    );
     if !start.streaming {
         if let Some(b64) = start.body_b64.as_ref().filter(|s| !s.is_empty()) {
             match B64.decode(b64) {
@@ -233,7 +278,7 @@ async fn start_session(
     sessions.write().await.insert(
         request_id.to_string(),
         HttpInflight {
-            body_tx,
+            admit_tx,
             acks: Arc::clone(&acks),
             cancel: cancel.clone(),
         },
@@ -734,11 +779,11 @@ mod tests {
         let sessions = new_session_map();
         let (out_tx, _out_rx) = mpsc::unbounded_channel();
         let cancel = CancellationToken::new();
-        let (body_tx, mut body_rx) = mpsc::channel(8);
+        let (admit_tx, _admit_rx) = mpsc::unbounded_channel();
         sessions.write().await.insert(
             "req-1".into(),
             HttpInflight {
-                body_tx,
+                admit_tx,
                 acks: Arc::new(AckWindow::new(8)),
                 cancel: cancel.clone(),
             },
@@ -756,7 +801,6 @@ mod tests {
 
         assert!(cancel.is_cancelled());
         assert!(sessions.read().await.get("req-1").is_none());
-        assert!(body_rx.recv().await.is_none());
     }
 
     #[tokio::test]
@@ -787,11 +831,11 @@ mod tests {
         let sessions = new_session_map();
         let (out_tx, mut out_rx) = mpsc::unbounded_channel();
         let cancel = CancellationToken::new();
-        let (body_tx, _body_rx) = mpsc::channel(8);
+        let (admit_tx, _admit_rx) = mpsc::unbounded_channel();
         sessions.write().await.insert(
             "req-bad-chunk".into(),
             HttpInflight {
-                body_tx,
+                admit_tx,
                 acks: Arc::new(AckWindow::new(8)),
                 cancel: cancel.clone(),
             },
@@ -822,10 +866,18 @@ mod tests {
         let (out_tx, mut out_rx) = mpsc::unbounded_channel();
         let cancel = CancellationToken::new();
         let (body_tx, mut body_rx) = mpsc::channel(1);
+        let (admit_tx, admit_rx) = mpsc::unbounded_channel();
+        spawn_body_admission(
+            admit_rx,
+            body_tx,
+            out_tx.clone(),
+            "req-bound".into(),
+            cancel.clone(),
+        );
         sessions.write().await.insert(
             "req-bound".into(),
             HttpInflight {
-                body_tx,
+                admit_tx,
                 acks: Arc::new(AckWindow::new(8)),
                 cancel: cancel.clone(),
             },
@@ -840,36 +892,43 @@ mod tests {
             &out_tx,
         )
         .await;
-        let Message::Text(first) = out_rx.try_recv().expect("first ack") else {
+        let Message::Text(first) = tokio::time::timeout(Duration::from_secs(1), out_rx.recv())
+            .await
+            .expect("first ack timeout")
+            .expect("first ack closed")
+        else {
             panic!("expected text");
         };
         let first_env = parse_env(&first);
         assert_eq!(first_env["kind"], "ack");
         assert_eq!(first_env["seq"], 0);
 
-        let sessions2 = Arc::clone(&sessions);
-        let out2 = out_tx.clone();
-        let second = tokio::spawn(async move {
-            on_http_envelope(
-                &sessions2,
-                HTTP_KIND_REQUEST_CHUNK,
-                Some("req-bound"),
-                Some(1),
-                Some("Yg=="),
-                &out2,
-            )
-            .await;
-        });
-        tokio::time::sleep(Duration::from_millis(30)).await;
-        assert!(!second.is_finished());
+        let started = std::time::Instant::now();
+        on_http_envelope(
+            &sessions,
+            HTTP_KIND_REQUEST_CHUNK,
+            Some("req-bound"),
+            Some(1),
+            Some("Yg=="),
+            &out_tx,
+        )
+        .await;
+        assert!(
+            started.elapsed() < Duration::from_millis(50),
+            "ingest must not wait on a full body queue"
+        );
+        tokio::time::sleep(Duration::from_millis(20)).await;
         assert!(out_rx.try_recv().is_err());
 
         match body_rx.recv().await.unwrap() {
             RequestBodyEvent::Chunk { data } => assert_eq!(data, b"a"),
             RequestBodyEvent::End => panic!("expected chunk"),
         }
-        second.await.unwrap();
-        let Message::Text(second_ack) = out_rx.try_recv().expect("second ack") else {
+        let Message::Text(second_ack) = tokio::time::timeout(Duration::from_secs(1), out_rx.recv())
+            .await
+            .expect("second ack timeout")
+            .expect("second ack closed")
+        else {
             panic!("expected text");
         };
         let second_env = parse_env(&second_ack);
