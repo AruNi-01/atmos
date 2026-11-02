@@ -17,22 +17,22 @@ runs:
     # is faster and avoids stale node_modules). oven-sh/setup-bun still only
     # caches the Bun binary (no-cache: false by default).
     #
-    # Primary key inputs:
+    # Primary key inputs (no branch name):
     # - runner.os / runner.arch
     # - installed Bun version (steps.setup-bun.outputs.bun-version)
-    # - github.head_ref || github.ref_name (PR head branch, else push/dispatch ref)
     # - hashFiles('bun.lock') — root lockfile used by frozen-lockfile install
     #
-    # Restore-keys: same branch (older lockfile), then main (seed PRs from the
-    # default branch), then any cache for this OS/arch/Bun.
+    # GitHub already scopes caches per-ref. Putting the branch in the key made
+    # every PR save an extra ~850MB copy of the same lockfile and pushed the
+    # repo over the 10GB Actions cache cap. Restore still falls back across
+    # keys on this OS/arch/Bun; save runs only on main after an exact miss.
     - name: Restore bun install cache
-      uses: actions/cache@v4
+      id: bun-cache
+      uses: actions/cache/restore@v4
       with:
         path: ~/.bun/install/cache
-        key: bun-install-${{ runner.os }}-${{ runner.arch }}-bun${{ steps.setup-bun.outputs.bun-version }}-${{ github.head_ref || github.ref_name }}-${{ hashFiles('bun.lock') }}
+        key: bun-install-${{ runner.os }}-${{ runner.arch }}-bun${{ steps.setup-bun.outputs.bun-version }}-${{ hashFiles('bun.lock') }}
         restore-keys: |
-          bun-install-${{ runner.os }}-${{ runner.arch }}-bun${{ steps.setup-bun.outputs.bun-version }}-${{ github.head_ref || github.ref_name }}-
-          bun-install-${{ runner.os }}-${{ runner.arch }}-bun${{ steps.setup-bun.outputs.bun-version }}-main-
           bun-install-${{ runner.os }}-${{ runner.arch }}-bun${{ steps.setup-bun.outputs.bun-version }}-
 
     - name: Install dependencies
@@ -49,3 +49,10 @@ runs:
           sleep 15
         done
         exit 1
+
+    - name: Save bun install cache
+      if: ${{ github.ref == 'refs/heads/main' && steps.bun-cache.outputs.cache-hit != 'true' }}
+      uses: actions/cache/save@v4
+      with:
+        path: ~/.bun/install/cache
+        key: bun-install-${{ runner.os }}-${{ runner.arch }}-bun${{ steps.setup-bun.outputs.bun-version }}-${{ hashFiles('bun.lock') }}
