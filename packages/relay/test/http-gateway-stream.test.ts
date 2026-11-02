@@ -62,6 +62,11 @@ describe("HTTP gateway worker proxy stream", () => {
       { waitUntil() {} } as never,
     );
     expect(response.status).toBe(200);
+    const exposeActual = response.headers.get("Access-Control-Expose-Headers") ?? "";
+    expect(exposeActual).toContain("X-Atmos-E2EE");
+    expect(exposeActual).toContain("X-Atmos-E2EE-Alg");
+    expect(exposeActual).toContain("X-Atmos-E2EE-Request-Id");
+    expect(exposeActual).toContain("X-Atmos-E2EE-Eph-Pk");
     expect(captured).not.toBeNull();
     const decoded = await decodeGatewayStream(
       new ReadableStream({
@@ -250,7 +255,7 @@ describe("HTTP gateway worker proxy stream", () => {
     await expect(response.json()).resolves.toEqual({ error: "e2ee_unavailable" });
   });
 
-  test("CORS preflight allows X-Atmos-E2EE hop headers", async () => {
+  test("CORS preflight allows and exposes X-Atmos-E2EE hop headers", async () => {
     const { default: worker } = await import("../src/index");
     const response = await worker.fetch(
       new Request("https://relay.atmos.land/v1/computers/srv-1/proxy/x", {

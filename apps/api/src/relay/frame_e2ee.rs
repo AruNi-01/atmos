@@ -21,7 +21,13 @@ pub struct FrameSession {
     next_s2c: Mutex<u32>,
 }
 
-pub type FrameE2eeSessions = Arc<RwLock<HashMap<String, Arc<FrameSession>>>>;
+#[derive(Clone)]
+pub(crate) enum FrameE2eeSlot {
+    Live(Arc<FrameSession>),
+    Closed,
+}
+
+pub type FrameE2eeSessions = Arc<RwLock<HashMap<String, FrameE2eeSlot>>>;
 
 #[derive(Debug, Deserialize)]
 struct E2eeOpenBody {
@@ -41,13 +47,13 @@ pub fn frame_aad(eph_pk: &str, stream: &str, seq: u32, kind: &str) -> Vec<u8> {
 
 fn write_map(
     map: &FrameE2eeSessions,
-) -> std::sync::RwLockWriteGuard<'_, HashMap<String, Arc<FrameSession>>> {
+) -> std::sync::RwLockWriteGuard<'_, HashMap<String, FrameE2eeSlot>> {
     map.write().unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 fn read_map(
     map: &FrameE2eeSessions,
-) -> std::sync::RwLockReadGuard<'_, HashMap<String, Arc<FrameSession>>> {
+) -> std::sync::RwLockReadGuard<'_, HashMap<String, FrameE2eeSlot>> {
     map.read().unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
@@ -67,16 +73,16 @@ pub fn open_from_e2ee_open(body: &str) -> Result<Arc<FrameSession>, &'static str
 
 pub fn insert_session(map: &FrameE2eeSessions, sid: String, session: Arc<FrameSession>) {
     let mut locked = write_map(map);
-    if let Some(existing) = locked.get(&sid) {
+    if let Some(FrameE2eeSlot::Live(existing)) = locked.get(&sid) {
         if existing.eph_pk == session.eph_pk {
             return;
         }
     }
-    locked.insert(sid, session);
+    locked.insert(sid, FrameE2eeSlot::Live(session));
 }
 
 pub fn remove_session(map: &FrameE2eeSessions, sid: &str) {
-    write_map(map).remove(sid);
+    write_map(map).insert(sid.to_string(), FrameE2eeSlot::Closed);
 }
 
 pub fn open_c2s(
@@ -85,9 +91,11 @@ pub fn open_c2s(
     stream: &str,
     body: &str,
 ) -> Result<String, &'static str> {
-    let session = read_map(map).get(sid).cloned();
-    let Some(session) = session else {
-        return Ok(body.to_string());
+    let slot = read_map(map).get(sid).cloned();
+    let session = match slot {
+        Some(FrameE2eeSlot::Live(session)) => session,
+        Some(FrameE2eeSlot::Closed) => return Err("e2ee_session_closed"),
+        None => return Ok(body.to_string()),
     };
     let record = B64.decode(body.trim()).map_err(|_| "e2ee_invalid_frame")?;
     let seq = session.expected_c2s.load(Ordering::SeqCst);
@@ -106,42 +114,46 @@ pub fn emit_frame(
     stream: &str,
     body: String,
 ) {
-    let session = read_map(map).get(sid).cloned();
-    if let Some(session) = session {
-        let mut locked = session
-            .next_s2c
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        let seq = *locked;
-        *locked = seq.wrapping_add(1);
-        let aad = frame_aad(&session.eph_pk, stream, seq, KIND_S2C);
-        let record = match session.key.seal(&aad, body.as_bytes()) {
-            Ok(record) => record,
-            Err(_) => return,
-        };
-        let body = B64.encode(&record);
-        let outbound = serde_json::json!({
-            "v": 1_u32,
-            "stream": stream,
-            "kind": "frame",
-            "from": "server",
-            "to": format!("client:{sid}"),
-            "body": body,
-        })
-        .to_string();
-        let _ = out.send(Message::Text(outbound));
-        return;
+    let slot = read_map(map).get(sid).cloned();
+    match slot {
+        Some(FrameE2eeSlot::Closed) => (),
+        Some(FrameE2eeSlot::Live(session)) => {
+            let mut locked = session
+                .next_s2c
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+            let seq = *locked;
+            *locked = seq.wrapping_add(1);
+            let aad = frame_aad(&session.eph_pk, stream, seq, KIND_S2C);
+            let record = match session.key.seal(&aad, body.as_bytes()) {
+                Ok(record) => record,
+                Err(_) => return,
+            };
+            let body = B64.encode(&record);
+            let outbound = serde_json::json!({
+                "v": 1_u32,
+                "stream": stream,
+                "kind": "frame",
+                "from": "server",
+                "to": format!("client:{sid}"),
+                "body": body,
+            })
+            .to_string();
+            let _ = out.send(Message::Text(outbound));
+        }
+        None => {
+            let outbound = serde_json::json!({
+                "v": 1_u32,
+                "stream": stream,
+                "kind": "frame",
+                "from": "server",
+                "to": format!("client:{sid}"),
+                "body": body,
+            })
+            .to_string();
+            let _ = out.send(Message::Text(outbound));
+        }
     }
-    let outbound = serde_json::json!({
-        "v": 1_u32,
-        "stream": stream,
-        "kind": "frame",
-        "from": "server",
-        "to": format!("client:{sid}"),
-        "body": body,
-    })
-    .to_string();
-    let _ = out.send(Message::Text(outbound));
 }
 
 #[cfg(test)]
@@ -214,5 +226,59 @@ mod tests {
             .unwrap(),
             r#"{"type":"terminal_input"}"#
         );
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        emit_frame(
+            &tx,
+            &map,
+            "sid-plain",
+            "terminal",
+            r#"{"type":"ok"}"#.into(),
+        );
+        let Message::Text(raw) = rx.try_recv().unwrap() else {
+            panic!("expected text");
+        };
+        let env: serde_json::Value = serde_json::from_str(&raw).unwrap();
+        assert_eq!(env["body"], r#"{"type":"ok"}"#);
+    }
+
+    #[test]
+    fn emit_frame_drops_after_session_close() {
+        let dir =
+            std::env::temp_dir().join(format!("atmos-e2ee-frame-close-{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&dir);
+        let path = dir.join("relay_e2ee.json");
+        let _ = std::fs::remove_file(&path);
+        let _env = E2eeTestEnv::lock_path(&path);
+        let _ = e2ee::load_or_create_static_key().unwrap();
+        let eph_secret = x25519_dalek::StaticSecret::random_from_rng(rand_core::OsRng);
+        let eph_public = x25519_dalek::PublicKey::from(&eph_secret);
+        let eph_pk = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(eph_public.as_bytes());
+        let map = new_session_map();
+        insert_session(
+            &map,
+            "sid-close".into(),
+            open_from_e2ee_open(&format!(
+                r#"{{"v":1,"alg":"{}","eph_pk":"{eph_pk}"}}"#,
+                e2ee::ALG
+            ))
+            .unwrap(),
+        );
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        emit_frame(&tx, &map, "sid-close", "app", "secret".into());
+        let Message::Text(sealed) = rx.try_recv().unwrap() else {
+            panic!("expected text");
+        };
+        let env: serde_json::Value = serde_json::from_str(&sealed).unwrap();
+        assert_ne!(env["body"], "secret");
+        remove_session(&map, "sid-close");
+        emit_frame(&tx, &map, "sid-close", "app", "leaked".into());
+        assert!(rx.try_recv().is_err());
+        assert_eq!(
+            open_c2s(&map, "sid-close", "app", "x").unwrap_err(),
+            "e2ee_session_closed"
+        );
+        drop(_env);
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_dir(&dir);
     }
 }

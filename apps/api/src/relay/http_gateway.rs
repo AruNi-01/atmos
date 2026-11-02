@@ -188,6 +188,15 @@ pub async fn on_http_envelope(
             match B64.decode(b64) {
                 Ok(data) => {
                     let opened = if let Some(key) = e2ee.as_ref() {
+                        if saw_request_end.load(Ordering::SeqCst) {
+                            let _ = out.send(Message::Text(http_error_envelope(
+                                request_id,
+                                400,
+                                "e2ee_after_request_end",
+                            )));
+                            cancel.cancel();
+                            return;
+                        }
                         let Some(seq) = seq else {
                             let _ = out.send(Message::Text(http_error_envelope(
                                 request_id,
@@ -214,7 +223,16 @@ pub async fn on_http_envelope(
                                     .store(expected.wrapping_add(1), Ordering::SeqCst);
                                 plain
                             }
-                            Err(_) => {
+                            Err("e2ee_record_truncated") => {
+                                let _ = out.send(Message::Text(http_error_envelope(
+                                    request_id,
+                                    400,
+                                    "e2ee_record_truncated",
+                                )));
+                                cancel.cancel();
+                                return;
+                            }
+                            Err(first) => {
                                 match key
                                     .open(&e2ee::aad(request_id, seq, HTTP_KIND_REQUEST_END), &data)
                                 {
@@ -235,12 +253,11 @@ pub async fn on_http_envelope(
                                         warn!(
                                             target: "atmos_relay",
                                             request_id = %request_id,
+                                            code = first,
                                             "http gateway e2ee open failed"
                                         );
                                         let _ = out.send(Message::Text(http_error_envelope(
-                                            request_id,
-                                            400,
-                                            "e2ee_open_failed",
+                                            request_id, 400, first,
                                         )));
                                         cancel.cancel();
                                         return;
@@ -1747,6 +1764,108 @@ mod tests {
             }
         };
         assert_eq!(trunc_code, "truncated_e2ee_record");
+
+        let sessions_short = new_session_map();
+        let (out_short, mut rx_short) = mpsc::unbounded_channel();
+        launch_session(
+            &sessions_short,
+            "req-e2ee-short",
+            HttpRelayRequestStart {
+                method: "PUT".into(),
+                path: "/echo".into(),
+                headers: vec![],
+                body_b64: None,
+                streaming: true,
+                e2ee: Some(HttpE2eePrelude {
+                    v: 1,
+                    alg: e2ee::ALG.into(),
+                    eph_pk: eph_pk.clone(),
+                }),
+            },
+            GatewayUpstream {
+                base_url: format!("http://{addr}"),
+                local_token: None,
+            },
+            &out_short,
+        )
+        .await;
+        on_http_envelope(
+            &sessions_short,
+            HTTP_KIND_REQUEST_CHUNK,
+            Some("req-e2ee-short"),
+            Some(0),
+            Some(&B64.encode([1, 2, 3, 4, 5])),
+            &out_short,
+        )
+        .await;
+        let short_code = loop {
+            let env = next_text_envelope(&mut rx_short).await;
+            if env["kind"] == "error" {
+                let body: Value = serde_json::from_str(env["body"].as_str().unwrap()).unwrap();
+                break body["code"].as_str().unwrap().to_string();
+            }
+        };
+        assert_eq!(short_code, "e2ee_record_truncated");
+
+        let sessions_after = new_session_map();
+        let (out_after, mut rx_after) = mpsc::unbounded_channel();
+        launch_session(
+            &sessions_after,
+            "req-e2ee-after",
+            HttpRelayRequestStart {
+                method: "PUT".into(),
+                path: "/echo".into(),
+                headers: vec![],
+                body_b64: None,
+                streaming: true,
+                e2ee: Some(HttpE2eePrelude {
+                    v: 1,
+                    alg: e2ee::ALG.into(),
+                    eph_pk: eph_pk.clone(),
+                }),
+            },
+            GatewayUpstream {
+                base_url: format!("http://{addr}"),
+                local_token: None,
+            },
+            &out_after,
+        )
+        .await;
+        let terminator = session
+            .seal(&e2ee::aad("req-e2ee-after", 0, HTTP_KIND_REQUEST_END), b"")
+            .unwrap();
+        on_http_envelope(
+            &sessions_after,
+            HTTP_KIND_REQUEST_CHUNK,
+            Some("req-e2ee-after"),
+            Some(0),
+            Some(&B64.encode(&terminator)),
+            &out_after,
+        )
+        .await;
+        let extra = session
+            .seal(
+                &e2ee::aad("req-e2ee-after", 1, HTTP_KIND_REQUEST_CHUNK),
+                b"late",
+            )
+            .unwrap();
+        on_http_envelope(
+            &sessions_after,
+            HTTP_KIND_REQUEST_CHUNK,
+            Some("req-e2ee-after"),
+            Some(1),
+            Some(&B64.encode(&extra)),
+            &out_after,
+        )
+        .await;
+        let after_code = loop {
+            let env = next_text_envelope(&mut rx_after).await;
+            if env["kind"] == "error" {
+                let body: Value = serde_json::from_str(env["body"].as_str().unwrap()).unwrap();
+                break body["code"].as_str().unwrap().to_string();
+            }
+        };
+        assert_eq!(after_code, "e2ee_after_request_end");
 
         let sessions_bad = new_session_map();
         let (out_bad, mut rx_bad) = mpsc::unbounded_channel();
