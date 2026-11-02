@@ -1,4 +1,6 @@
 import { Directory, File, Paths } from "expo-file-system";
+import type { ClientSessionResponse } from "@atmos/relay-client";
+import { computerFetch } from "@/api/computer-fetch";
 import type { ComposerPhoto } from "./photo-attachment";
 
 function safeName(name: string): string {
@@ -39,6 +41,7 @@ export async function uploadChatPhotos(input: {
   chatId: string;
   localPath: string;
   photos: ComposerPhoto[];
+  e2ee?: ClientSessionResponse["e2ee"];
 }): Promise<string[]> {
   if (input.photos.length === 0) return [];
   const form = new FormData();
@@ -47,7 +50,8 @@ export async function uploadChatPhotos(input: {
   for (const photo of input.photos) {
     form.append("files", await chatUploadFile(photo));
   }
-  const response = await fetch(
+  const response = await computerFetch(
+    { e2ee: input.e2ee },
     `${input.gatewayUrl.replace(/\/$/, "")}/api/agent/upload-attachments`,
     {
       method: "POST",

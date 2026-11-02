@@ -1,6 +1,13 @@
-/** APP-016: Worker — relay REST + WebSocket + HTTP gateway to ServerHub DO. */
+/** APP-016: Relay edge — REST + WebSocket + HTTP gateway to ServerHub. */
 
-import { collectForwardHeaders, matchGatewayPath, validateGatewayAccess } from "./http-gateway";
+import {
+  collectForwardHeaders,
+  matchGatewayPath,
+  parseGatewayE2ee,
+  validateGatewayAccess,
+} from "./http-gateway";
+import { encodeGatewayPrelude, pipeGatewayRequestBody } from "./http-stream";
+import { getServerHub } from "./hub-stub";
 import { buildClientSessionUrls } from "./client-session";
 import {
   createGithubSetupSession,
@@ -23,6 +30,11 @@ export interface Env {
   RELAY_SECRET_KEY?: string;
   /** Hub → Relay device projection (APP-056). */
   RELAY_HUB_SYNC_SECRET?: string;
+  /**
+   * Optional ServerHub first-create placement hint (wnam, enam, sam, weur,
+   * eeur, apac, oc, afr, me). Ignored after the hub instance already exists.
+   */
+  RELAY_HUB_LOCATION_HINT?: string;
   GITHUB_APP_ID?: string;
   GITHUB_APP_SLUG?: string;
   GITHUB_APP_PRIVATE_KEY?: string;
@@ -104,7 +116,7 @@ const worker = {
 
     const gateway = matchGatewayPath(path);
     if (gateway) {
-      return withCors(await handleHttpGatewayProxy(request, env, url, gateway));
+      return withCors(await handleHttpGatewayProxy(request, env, url, gateway, _ctx));
     }
 
     if (path === "/v1/github/webhook" && request.method === "POST") {
@@ -146,7 +158,11 @@ function withCors(res: Response): Response {
   h.set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
   h.set(
     "Access-Control-Allow-Headers",
-    `Content-Type, Authorization, X-Request-Id, ${RELAY_SECRET_HEADER}, X-GitHub-Event, X-GitHub-Delivery, X-Hub-Signature-256`,
+    `Content-Type, Authorization, X-Request-Id, ${RELAY_SECRET_HEADER}, X-GitHub-Event, X-GitHub-Delivery, X-Hub-Signature-256, X-Atmos-E2EE, X-Atmos-E2EE-Alg, X-Atmos-E2EE-Request-Id, X-Atmos-E2EE-Eph-Pk`,
+  );
+  h.set(
+    "Access-Control-Expose-Headers",
+    "X-Atmos-E2EE, X-Atmos-E2EE-Alg, X-Atmos-E2EE-Request-Id, X-Atmos-E2EE-Eph-Pk",
   );
   return new Response(res.body, { status: res.status, headers: h });
 }
@@ -685,10 +701,10 @@ async function handleApi(request: Request, env: Env, url: URL): Promise<Response
       const clientKind = body.client_kind?.trim() || "web";
 
       const c = await env.DB.prepare(
-        "SELECT revoked FROM computers WHERE server_id = ? AND user_id = ?",
+        "SELECT revoked, e2ee_static_pk FROM computers WHERE server_id = ? AND user_id = ?",
       )
         .bind(serverId, userId)
-        .first<{ revoked: number }>();
+        .first<{ revoked: number; e2ee_static_pk: string | null }>();
 
       if (!c || c.revoked) {
         return json({ error: "computer_revoked" }, 404);
@@ -738,12 +754,20 @@ async function handleApi(request: Request, env: Env, url: URL): Promise<Response
         serverId,
       });
 
+      const staticPk = c.e2ee_static_pk?.trim() ?? "";
       return json({
         client_token: clientToken,
         expires_at: expiresAt,
         ws_url: sessionUrls.wsUrl,
         terminal_ws_url: sessionUrls.terminalWsUrl,
         gateway_url: sessionUrls.gatewayUrl,
+        e2ee: staticPk
+          ? {
+              enabled: true,
+              alg: "x25519-chacha20poly1305",
+              static_pk: staticPk,
+            }
+          : { enabled: false },
       });
     }
   } catch (e) {
@@ -816,6 +840,7 @@ async function handleHttpGatewayProxy(
   env: Env,
   url: URL,
   route: { serverId: string; upstreamPath: string },
+  ctx: ExecutionContext,
 ): Promise<Response> {
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 204 });
@@ -833,36 +858,63 @@ async function handleHttpGatewayProxy(
   }
 
   const upstreamPath = route.upstreamPath + url.search;
-  const id = env.SERVER_HUB.idFromName(route.serverId);
-  const stub = env.SERVER_HUB.get(id);
-
-  let bodyB64: string | null = null;
-  if (request.method !== "GET" && request.method !== "HEAD" && request.body) {
-    const bytes = new Uint8Array(await request.arrayBuffer());
-    let binary = "";
-    for (const b of bytes) {
-      binary += String.fromCharCode(b);
-    }
-    bodyB64 = btoa(binary);
+  const stub = getServerHub(env, route.serverId);
+  const e2ee = parseGatewayE2ee(request);
+  if (e2ee === "invalid") {
+    return json({ error: "invalid_e2ee" }, 400);
   }
-
-  const descriptor = {
+  let forwardedE2ee = e2ee;
+  if (e2ee) {
+    const computer = await env.DB.prepare(
+      "SELECT e2ee_static_pk FROM computers WHERE server_id = ? LIMIT 1",
+    )
+      .bind(route.serverId)
+      .first<{ e2ee_static_pk: string | null }>();
+    const staticPk = computer?.e2ee_static_pk?.trim() ?? "";
+    if (staticPk.length < 42) {
+      return json({ error: "e2ee_unavailable" }, 409);
+    }
+    forwardedE2ee = e2ee;
+  }
+  const prelude = encodeGatewayPrelude({
     method: request.method,
     path: upstreamPath,
     headers: collectForwardHeaders(request),
-    body_b64: bodyB64,
-  };
-
-  const forward = new Request("https://do.internal/gateway", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Relay-Http-Gateway": "1",
-    },
-    body: JSON.stringify(descriptor),
+    ...(forwardedE2ee ? { e2ee: forwardedE2ee } : {}),
   });
 
-  return stub.fetch(forward);
+  const { readable, writable } = new TransformStream<Uint8Array>();
+  const pipe = pipeGatewayRequestBody(
+    writable,
+    prelude,
+    request.method === "GET" || request.method === "HEAD" ? null : (request.body ?? null),
+    request.signal,
+  );
+  if (typeof ctx.waitUntil === "function") {
+    ctx.waitUntil(pipe.catch(() => undefined));
+  } else {
+    void pipe.catch(() => undefined);
+  }
+
+  const init: RequestInit & { duplex?: "half" } = {
+    method: "POST",
+    headers: {
+      "X-Relay-Http-Gateway": "1",
+    },
+    body: readable,
+    signal: request.signal,
+    duplex: "half",
+  };
+
+  try {
+    return await stub.fetch(new Request("https://hub.internal/gateway", init));
+  } finally {
+    try {
+      await writable.abort();
+    } catch {
+      /* hub already consumed or closed the body */
+    }
+  }
 }
 
 async function handlePtDesignRoom(request: Request, env: Env, roomId: string): Promise<Response> {
@@ -911,13 +963,12 @@ async function handleServerWebSocket(request: Request, env: Env, url: URL): Prom
     return json({ error: "bad_server_credentials" }, 403);
   }
 
-  // `last_seen_at` is bumped inside the DO (after acceptWebSocket) — see
+  // `last_seen_at` is bumped inside ServerHub (after acceptWebSocket) — see
   // `ServerHub.markServerSeen`. Doing the write here too would race with
   // the close-handler from a prior server WS being replaced and could end
   // up wiping presence right after we restored it.
 
-  const id = env.SERVER_HUB.idFromName(serverId);
-  const stub = env.SERVER_HUB.get(id);
+  const stub = getServerHub(env, serverId);
   const forward = new Request(
     `${url.origin}/internal?role=server&server_id=${encodeURIComponent(serverId)}`,
     request,
@@ -957,22 +1008,37 @@ async function handleClientWebSocket(
     return json({ error: "bad_client_token" }, 403);
   }
 
-  const comp = await env.DB.prepare("SELECT revoked FROM computers WHERE server_id = ? LIMIT 1")
+  const comp = await env.DB.prepare(
+    "SELECT revoked, e2ee_static_pk FROM computers WHERE server_id = ? LIMIT 1",
+  )
     .bind(serverId)
-    .first<{ revoked: number }>();
+    .first<{ revoked: number; e2ee_static_pk: string | null }>();
 
   if (!comp || comp.revoked) {
     return json({ error: "computer_revoked" }, 403);
   }
 
   const sid = crypto.randomUUID();
-  const id = env.SERVER_HUB.idFromName(serverId);
-  const stub = env.SERVER_HUB.get(id);
+  const stub = getServerHub(env, serverId);
   const inner = new URL(request.url);
   inner.searchParams.set("role", "client");
   inner.searchParams.set("sid", sid);
   inner.searchParams.set("stream", stream);
   inner.searchParams.set("client_type", clientType);
+  const wantsE2ee = outerUrl.searchParams.get("e2ee")?.trim() === "1";
+  if (wantsE2ee) {
+    const staticPk = comp.e2ee_static_pk?.trim() ?? "";
+    if (staticPk.length < 42) {
+      return json({ error: "e2ee_unavailable" }, 409);
+    }
+    inner.searchParams.set("e2ee", "1");
+    inner.searchParams.set("e2ee_alg", outerUrl.searchParams.get("e2ee_alg") ?? "");
+    inner.searchParams.set("eph_pk", outerUrl.searchParams.get("eph_pk") ?? "");
+  } else {
+    inner.searchParams.delete("e2ee");
+    inner.searchParams.delete("e2ee_alg");
+    inner.searchParams.delete("eph_pk");
+  }
   const forward = new Request(inner.toString(), request);
   return stub.fetch(forward);
 }

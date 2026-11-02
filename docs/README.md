@@ -152,19 +152,20 @@ Level 4: Component README.md
 
 ## 📝 When to Read What?
 
-| You Want To...             | Read This                                    |
-| -------------------------- | -------------------------------------------- |
-| Understand overall project | [Root README.md](../README.md)               |
-| Navigate as AI agent       | [Root AGENTS.md](../AGENTS.md)               |
-| Understand architecture    | `architecture.md`                            |
-| Set up development         | `development.md`                             |
-| Deploy the system          | `deployment.md`                              |
-| Release Atmos              | [`release.md`](./release.md)                 |
-| Run a desktop release      | [`desktop-release.md`](./desktop-release.md) |
-| Design APIs                | `api-design.md`                              |
-| Understand a decision      | `adr/*.md`                                   |
-| Work on specific component | Component's AGENTS.md                        |
-| Understand code structure  | Component's README.md                        |
+| You Want To...             | Read This                                        |
+| -------------------------- | ------------------------------------------------ |
+| Understand overall project | [Root README.md](../README.md)                   |
+| Navigate as AI agent       | [Root AGENTS.md](../AGENTS.md)                   |
+| Understand architecture    | `architecture.md`                                |
+| Understand Atmos Relay     | [`architecture/relay.md`](architecture/relay.md) |
+| Set up development         | `development.md`                                 |
+| Deploy the system          | `deployment.md`                                  |
+| Release Atmos              | [`release.md`](./release.md)                     |
+| Run a desktop release      | [`desktop-release.md`](./desktop-release.md)     |
+| Design APIs                | `api-design.md`                                  |
+| Understand a decision      | `adr/*.md`                                       |
+| Work on specific component | Component's AGENTS.md                            |
+| Understand code structure  | Component's README.md                            |
 
 ---
 

@@ -15,6 +15,18 @@ export type ComputerRow = {
   app_device_id?: string | null;
 };
 
+export type RelayE2eeOffer = {
+  enabled: true;
+  alg: "x25519-chacha20poly1305";
+  static_pk: string;
+};
+
+export type RelayE2eeSession = {
+  enabled: boolean;
+  alg?: "x25519-chacha20poly1305";
+  static_pk?: string;
+};
+
 export type ClientSessionResponse = {
   client_token: string;
   expires_at: number;
@@ -22,6 +34,12 @@ export type ClientSessionResponse = {
   gateway_url: string;
   /** Present from current Relay; derived from `ws_url` when older deployments omit it. */
   terminal_ws_url: string;
+  /**
+   * Computer static X25519 public key when both ends support hop E2EE
+   * (HTTP chunks + app/terminal frames). Omitted on older Relays and
+   * Computers that have not advertised (plaintext hop). Hub-mediated TOFU.
+   */
+  e2ee?: RelayE2eeOffer;
 };
 
 export type RegisterTokenResponse = {

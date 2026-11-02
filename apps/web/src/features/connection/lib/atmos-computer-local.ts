@@ -2,6 +2,7 @@
  * Loopback-only helpers for the machine running this browser's Atmos Server.
  */
 
+import { computerFetch } from "@/api/computer-fetch";
 import { systemApi } from "@/api/rest-api";
 import { desktopInvoke, isDesktopRuntime } from "@/shared/lib/desktop-bridge";
 import { getLoopbackHttpBase, isHostedAtmosOrigin } from "@/shared/lib/desktop-runtime";
@@ -113,7 +114,7 @@ async function localFetch<T>(path: string, init?: RequestInit): Promise<T> {
   }
   let res: Response;
   try {
-    res = await fetch(`${base}${path}`, { ...init, headers });
+    res = await computerFetch(`${base}${path}`, { ...init, headers });
   } catch (err) {
     const hint =
       " Make sure Atmos Server is running. After updating the app, restart it (e.g. just dev-api).";

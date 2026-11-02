@@ -20,8 +20,13 @@
 packages/relay/
 ├── src/
 │   ├── index.ts          # Worker routes (relay REST + WS upgrade)
-│   ├── server-hub.ts     # Durable Object per server_id
-│   ├── pt-design-room.ts # Durable Object per Prototype Design collab room
+│   ├── server-hub.ts     # ServerHub per server_id
+│   ├── http-stream.ts    # HTTP gateway chunked frames + unacked window
+│   ├── http-gateway.ts   # HTTP gateway auth + path helpers
+│   ├── frame-e2ee.ts     # App/terminal WS e2ee query parse + e2ee_open envelope
+│   ├── hub-stub.ts       # ServerHub stub + optional placement hint
+│   ├── envelope.ts       # Shared data-plane envelope type
+│   ├── pt-design-room.ts # Prototype Design collab room
 │   ├── github-app.ts     # GitHub App OAuth/JWT/install token helpers
 │   ├── github-webhook.ts # Webhook signature verification + normalization
 │   ├── event-routes.ts   # GitHub setup, route CRUD, and matching
@@ -36,14 +41,15 @@ packages/relay/
 
 ## Auth model (APP-056)
 
-| Credential                                          | Holder                                                        | Use                                                                                  |
-| --------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| **Relay secret** (`X-Atmos-Relay-Secret`, optional) | Private relay operator/user                                   | Extra relay gate when `RELAY_SECRET_KEY` is set on a self-hosted Worker              |
-| **Hub sync secret** (Bearer on `/v1/internal/*`)    | Hub Worker                                                    | Device upsert/revoke projection                                                      |
-| **Device credential** (Bearer)                      | Hub-minted; Desktop/Web/Mobile store                          | `user_id` identity: register tokens, list computers, client sessions, GitHub control |
-| `register_token`                                    | One-time to VPS/CLI                                           | `POST /v1/computers/register` only                                                   |
-| `server_secret`                                     | `~/.atmos/credentials/relay_identity.json` on Server          | Outbound `GET /ws/server`                                                            |
-| `client_token`                                      | Browser/Desktop memory + `~/.atmos/state/client-session.json` | Inbound `GET /ws/client` + HTTP gateway                                              |
+| Credential                                          | Holder                                                        | Use                                                                                                                                            |
+| --------------------------------------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Relay secret** (`X-Atmos-Relay-Secret`, optional) | Private relay operator/user                                   | Extra relay gate when `RELAY_SECRET_KEY` is set on a self-hosted Worker                                                                        |
+| **Hub sync secret** (Bearer on `/v1/internal/*`)    | Hub Worker                                                    | Device upsert/revoke projection                                                                                                                |
+| **Device credential** (Bearer)                      | Hub-minted; Desktop/Web/Mobile store                          | `user_id` identity: register tokens, list computers, client sessions, GitHub control                                                           |
+| `register_token`                                    | One-time to VPS/CLI                                           | `POST /v1/computers/register` only                                                                                                             |
+| `server_secret`                                     | `~/.atmos/credentials/relay_identity.json` on Server          | Outbound `GET /ws/server`                                                                                                                      |
+| `client_token`                                      | Browser/Desktop memory + `~/.atmos/state/client-session.json` | Inbound `GET /ws/client` + HTTP gateway                                                                                                        |
+| **Hop E2EE static pk** (public)                     | Computer advertises; D1 `computers.e2ee_static_pk`            | Optional HTTP + app/terminal hop. Secret stays on Computer (`relay_e2ee.json`). `client_session` delivers pk (Hub TOFU, not Relay-MITM-proof). |
 
 There is **no** end-user `POST /v1/tenants` / Access Token model.
 
@@ -70,7 +76,8 @@ Default relay URL: `https://relay.atmos.land` (`ATMOS_RELAY_URL` override). Self
 
 - Put Atmos business logic (projects, terminals, canvas) in the Worker — relay is routing + auth + presence only. PT Design rooms may only forward ciphertext; they must not decrypt scenes or store Design IR.
 - Run automations, inspect local automation instructions, or decide whether a local automation is safe to execute.
-- Log `server_secret`, `register_token`, raw device credentials, GitHub webhook secrets, private keys, OAuth codes, or installation tokens.
+- Log `server_secret`, `register_token`, raw device credentials, GitHub webhook secrets, private keys (including `relay_e2ee.json`), OAuth codes, or installation tokens.
+- Hold or derive the hop E2EE session key on the Worker / ServerHub. Pass sealed HTTP records and sealed `kind:frame` bodies through. Routing fields stay plaintext.
 
 ### ALWAYS
 
@@ -79,10 +86,12 @@ Default relay URL: `https://relay.atmos.land` (`ATMOS_RELAY_URL` override). Self
 - Run D1 migrations before deploy when schema changes.
 - For provider ingress, verify webhook/auth first, normalize only small event metadata, match route metadata, dedupe delivery records, and dispatch a `stream: "system"` envelope to the target ServerHub.
 - Use the Hub device credential for relay route/setup mutations. The Computer `server_secret` is only for the outbound server WebSocket.
+- Hop E2EE is optional and negotiated. Encrypt HTTP chunks and app/terminal `kind:frame` bodies only when the Computer advertised `enabled: true` **with a stored static pk** and the client offered the hop. An `e2ee_caps` with `enabled: false` clears D1 `static_pk` and is not an encrypt signal. Apply D1 migration `0010_e2ee_static_pk.sql` before deploy.
 
 ---
 
 ## Related
 
+- [Relay protocol](../../docs/architecture/relay.md)
 - [apps/api/AGENTS.md](../../apps/api/AGENTS.md)
 - [crates/runtime-manager/AGENTS.md](../../crates/runtime-manager/AGENTS.md)

@@ -37,6 +37,8 @@ database_id = "3f6112cc-7982-448e-89ba-0513ab4c64da"
 GITHUB_APP_ID = "3901449"
 GITHUB_APP_SLUG = "atmos-connector"
 GITHUB_APP_CLIENT_ID = "Iv23liVFOaYWnGsksdGz"
+# Optional first-create ServerHub placement (wnam, enam, sam, weur, eeur, apac, oc, afr, me).
+# RELAY_HUB_LOCATION_HINT = "apac"
 
 # Workers Logs + Traces → Dashboard → atmos-computer-relay → Observability
 # RC: 100% sampling; lower rates in production when traffic grows (see packages/relay/README.md).

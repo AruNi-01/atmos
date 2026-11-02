@@ -372,6 +372,7 @@ export function AgentChatThreadScreen({
         chatId,
         localPath: chatCwd,
         photos: pending,
+        e2ee: session.e2ee,
       });
     },
     [chatCwd, chatId],

@@ -8,6 +8,7 @@ import {
   type SetStateAction,
 } from "react";
 import { createTerminalOutputBatcher } from "@/features/terminal/terminal-output-batcher";
+import type { RelayE2eeOffer } from "@atmos/relay-client";
 import { TerminalWsClient, type TerminalWsState } from "@/api/terminal-ws-client";
 import type { MobileWsState } from "@/api/mobile-ws-client";
 import type { TerminalWebViewHandle } from "@/features/terminal/TerminalWebView";
@@ -24,6 +25,7 @@ type UseTerminalConnectionOptions = {
   activeEntry: MobileTerminalEntry | null;
   activeSessionId: string | null;
   appWsState: MobileWsState;
+  e2ee?: RelayE2eeOffer | null;
   projectName?: string | null;
   terminalWsUrl?: string;
   updateEntry: (workspaceId: string, entryId: string, patch: Partial<MobileTerminalEntry>) => void;
@@ -45,6 +47,7 @@ export function useTerminalConnection({
   activeEntry,
   activeSessionId,
   appWsState,
+  e2ee,
   projectName,
   terminalWsUrl,
   updateEntry,
@@ -201,7 +204,7 @@ export function useTerminalConnection({
       return undefined;
     }
 
-    const client = new TerminalWsClient(terminalWsUrl);
+    const client = new TerminalWsClient(terminalWsUrl, { e2ee });
     const outputBatcher = createTerminalOutputBatcher({
       flush: (chunks) => webViewRef.current?.writeBase64(chunks),
     });
@@ -337,6 +340,7 @@ export function useTerminalConnection({
     activeEntryId,
     activeSessionId,
     appWsState,
+    e2ee,
     terminalWsUrl,
     updateEntry,
     webViewRef,

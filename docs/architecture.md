@@ -42,6 +42,10 @@ atmos/
 
 See [ADR](adr/) folder for detailed architectural decision records.
 
+## Relay
+
+- [Atmos Relay protocol](architecture/relay.md) — envelopes, stream kinds, ServerHub hibernation, WebSocket PING keepalive, HTTP streaming / backpressure, and a minimal self-host path.
+
 ## Known architecture debt
 
 - [Client transport (Web-first WS/HTTP vs Desktop IPC)](architecture/known-debt-client-transport.md) — record for a future transport abstraction; not a current bug fix.

@@ -19,7 +19,8 @@ crates/runtime-manager/src/
 ├── lib.rs           # Re-exports
 ├── manifest.rs      # ~/.atmos/runtime_manifest.json
 ├── client_session.rs  # ~/.atmos/client-session.json (relay target; absent in local mode)
-├── identity.rs      # ~/.atmos/relay_identity.json
+├── identity.rs      # ~/.atmos/credentials/relay_identity.json
+├── layout.rs        # ~/.atmos tree, including credentials/relay_e2ee.json
 ├── register.rs      # POST relay /v1/computers/register
 └── supervisor.rs    # ensure / stop / status (feature supervisor)
 ```
@@ -43,6 +44,11 @@ crates/runtime-manager/src/
 
 - Written by `register_computer()` after successful relay registration.
 - Read by `apps/api` `relay/` module for outbound WSS to `packages/relay`.
+
+### `relay_e2ee.json`
+
+- Computer static X25519 for optional HTTP gateway E2EE (`credentials/relay_e2ee.json`, mode 0600).
+- Path helper: `relay_e2ee_path()`. Override with `ATMOS_RELAY_E2EE_PATH`. The secret never goes to Relay D1 or frontend builds.
 
 ### Supervisor
 

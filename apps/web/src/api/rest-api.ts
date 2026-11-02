@@ -1,4 +1,5 @@
 "use client";
+import { computerFetch } from "@/api/computer-fetch";
 import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-store";
 import {
   getLoopbackHttpBase,
@@ -158,7 +159,7 @@ interface ApiResponse<T> {
 
 async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
   const { apiBase, bearer } = await resolveHttpFetchTarget();
-  const response = await fetch(`${apiBase}${path}`, {
+  const response = await computerFetch(`${apiBase}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -191,7 +192,7 @@ async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
 
 async function fetchHooksApi<T>(path: string, options?: RequestInit): Promise<T> {
   const { apiBase, bearer } = await resolveHttpFetchTarget();
-  const response = await fetch(`${apiBase}${path}`, {
+  const response = await computerFetch(`${apiBase}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -948,7 +949,7 @@ export const agentApi = {
     if (bearer) {
       headers.set("Authorization", `Bearer ${bearer}`);
     }
-    const res = await fetch(`${apiBase}/api/agent/upload-attachments`, {
+    const res = await computerFetch(`${apiBase}/api/agent/upload-attachments`, {
       method: "POST",
       headers,
       body: formData,

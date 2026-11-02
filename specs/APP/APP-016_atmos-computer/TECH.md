@@ -626,3 +626,69 @@ Private Relay authentication was added as an optional outer gate for self-hosted
 - The Relay secret is not placed in WebSocket URLs.
 
 D1 note: the Worker binding still uses the configured `database_id`; the database display name in `wrangler.toml` is not a data migration and does not change the schema.
+
+---
+
+## Implementation Delta - 2026-11-02
+
+HTTP gateway no longer ships whole request/response bodies as a single envelope `body_b64` on the hot path.
+
+- Edge `/v1/computers/:id/proxy/*` streams the client body into ServerHub (length-prefixed JSON prelude + raw bytes).
+- ServerHub ↔ Computer `stream: "http"` uses chunked frames (`request` / `request_chunk` / `request_end` / `response_start` / `response_chunk` / `response_end`) plus `ack` (unacked window = 8 × 32 KiB) and `cancel` keyed by `request_id`.
+- Computer daemon (`apps/api` `relay/http_gateway.rs`) aborts the loopback HTTP call when it receives `cancel` or the outbound relay socket shuts down.
+- Protocol write-up: [`docs/architecture/relay.md`](../../../docs/architecture/relay.md).
+- Optional first-create placement: Worker env `RELAY_HUB_LOCATION_HINT`.
+- **Rollout:** the edge Worker and Computer daemon must ship together. A new ServerHub that emits `streaming: true` chunks against an old daemon can forward empty-body requests.
+- **Not in this delta:** APP-016 M5 envelope encryption. Streaming does not implement a half crypto layer; M5 remains a follow-up.
+
+Commit: `a9667bf525b6e7d0a820aa19bf313d9cc3e94385` plus review follow-up on this branch.
+
+Files: `packages/relay/src/{http-stream.ts,hub-stub.ts,server-hub.ts,index.ts,envelope.ts}`, `apps/api/src/relay/{http_gateway.rs,http_stream.rs,ingest.rs}`, `docs/architecture/relay.md`.
+
+Verification:
+
+- `bun test packages/relay/test/http-stream.test.ts packages/relay/test/hub-stub.test.ts packages/relay/test/http-gateway-stream.test.ts`
+- `cargo test -p api streams_several_megabytes_with_backpressure cancel_stops_in_flight_upstream_response ingest_cancel_kind_stops_session bounded_queue_acks_only_after_capacity invalid_chunk_sends_error_envelope`
+
+---
+
+## Implementation Delta - 2026-11-02 (HTTP E2EE)
+
+Toggleable HTTP-gateway E2EE on the streaming hop. Design: Computer static X25519, body-only AEAD, encrypt only when both ends support and enable.
+
+- Trust: Computer static secret at `~/.atmos/credentials/relay_e2ee.json` (mode 0600). Advertise `stream:system kind:e2ee_caps`. D1 `computers.e2ee_static_pk` is public only. Clients receive it from existing `client_session` JSON. This is Hub-authenticated TOFU, **not** protection against an active Relay substituting `static_pk`. QR / link-embedded pin remains a follow-up.
+- Cipher: X25519 + ChaCha20-Poly1305. HKDF-SHA256, info `atmos-relay-http-e2ee-v1`, salt `eph_pk || static_pk`. AAD `{request_id}|{seq}|{kind}`. Routing fields stay plaintext so window + cancel still work. Relay does not hold the session key; the client seals before `/proxy/*`.
+- Default off unless both advertise/offer. `ATMOS_RELAY_E2EE=0` disables. Legacy plaintext remains. Fail closed on 2xx plaintext when the client offered e2ee. Orthogonal to `register_token` / `server_secret` / `client_token`.
+- **This slice (superseded below):** HTTP gateway hop. Frame AEAD landed in the next delta on the same branch.
+- Protocol: [`docs/architecture/relay.md`](../../../docs/architecture/relay.md).
+
+Commit: `e1494625c49a79526a560539878ed721d2641626`
+
+Files: `packages/relay-client/src/e2ee.ts`, `packages/relay/{src,migrations,test}`, `apps/api/src/relay/{e2ee.rs,http_gateway.rs,ingest.rs}`, `crates/runtime-manager/src/layout.rs`, web/mobile gateway `fetch` wrappers.
+
+Verification:
+
+- `bun test packages/relay-client/src/e2ee.test.ts packages/relay-client/src/client.test.ts`
+- `bun test packages/relay/test/http-true-link.test.ts packages/relay/test/http-gateway-stream.test.ts packages/relay/test/computer-list-and-sessions.test.ts`
+- `cargo test -p api e2ee rfc7748 persist_roundtrip e2ee_http_echoes e2ee_requires_streaming e2ee_cancel_aborts`
+
+---
+
+## Implementation Delta - 2026-11-02 (app + terminal frame E2EE)
+
+Same 1A/2A/3A hop as HTTP, extended to `app` and `terminal` `kind:frame` bodies.
+
+- Client WS payloads are the envelope `body`. When both ends support and enable E2EE, that body is standard-base64 of nonce\|\|ciphertext\|\|tag. Routing fields stay plaintext. Legacy plaintext frames still work when E2EE is off or one side lacks caps.
+- Frame AAD `{eph_pk}|{stream}|{seq}|frame_c2s|frame_s2c`. Hub sends `kind:e2ee_open` and never holds the session key. Worker forwards WS `e2ee*` query params only if D1 has `static_pk`.
+- Terminal binary I/O remains inner JSON `data_b64`; the sealed unit is UTF-8 JSON text. Local `/ws/terminal/:id` is not this hop.
+- Trust unchanged: Hub-mediated TOFU via `client_session`. Not Relay-MITM-proof. QR/independent pin is still follow-up.
+- Org permissions / audit / quotas, Agent Bridge, Hub-less / anonymous proxy are not this slice.
+
+Files: `packages/relay-client/src/{e2ee.ts,e2ee-ws.ts}`, `packages/relay/src/frame-e2ee.ts`, `apps/api/src/relay/frame_e2ee.rs`, web/mobile WS wrappers.
+
+Commit: `96bca78ba3642819a0994ed21e2a08c23269e6f2`
+
+Verification:
+
+- `bun test packages/relay-client/src/e2ee.test.ts packages/relay-client/src/e2ee-ws.test.ts packages/relay/test/frame-e2ee.test.ts packages/relay/test/http-true-link.test.ts`
+- `cargo test -p api --bin api frame_roundtrip plaintext_passthrough`

@@ -1,10 +1,9 @@
-//! Outbound Cloudflare relay link (APP-016). Multiplexes browser sessions into one WSS.
+//! Outbound Atmos Relay link (APP-016). Multiplexes browser sessions into one WSS.
 //!
-//! Keepalive strategy: server-initiated **WebSocket protocol PING** every 25 s. Cloudflare
-//! auto-responds with PONG at the edge — the relay Durable Object is **not** woken up, so
-//! keepalive traffic incurs no Worker requests, no DO CPU time, no GB-s charges.
-//! See `docs/architecture/relay.md` (and `specs/APP/APP-016_atmos-computer/TECH.md`) for
-//! the broader cost model.
+//! Keepalive strategy: server-initiated **WebSocket protocol PING** every 25 s.
+//! The relay edge auto-responds with PONG without waking ServerHub, so keepalive
+//! traffic does not run hub CPU. See `docs/architecture/relay.md` (and
+//! `specs/APP/APP-016_atmos-computer/TECH.md`) for the broader cost model.
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -48,6 +47,8 @@ struct RelayEnvelope {
     #[allow(dead_code)]
     to: Option<String>,
     request_id: Option<String>,
+    #[serde(default)]
+    seq: Option<u32>,
     body: Option<String>,
 }
 
@@ -287,10 +288,9 @@ pub async fn run(
         let _ = sink.send(Message::Close(None)).await;
     });
 
-    // Ping task: send a protocol PING every PING_INTERVAL. Cloudflare answers
-    // PONG at the edge without waking the Durable Object (zero billing impact),
-    // and any NAT box between us and the edge sees fresh traffic so its
-    // conntrack entry never expires.
+    // Ping task: send a protocol PING every PING_INTERVAL. The relay edge
+    // answers PONG without waking ServerHub, and any NAT box between us and
+    // the edge sees fresh traffic so its conntrack entry never expires.
     let ping_tx = out_tx.clone();
     let ping_task = tokio::spawn(async move {
         let mut interval = tokio::time::interval(PING_INTERVAL);
@@ -306,6 +306,19 @@ pub async fn run(
 
     let sessions: Arc<RwLock<HashMap<String, Session>>> = Arc::new(RwLock::new(HashMap::new()));
     let terminal_sessions: Arc<TerminalRelaySessions> = Arc::new(RwLock::new(HashMap::new()));
+    let http_sessions = http_gateway::new_session_map();
+    let frame_e2ee = crate::relay::frame_e2ee::new_session_map();
+
+    let caps_body = crate::relay::e2ee::advertise_caps_body();
+    let caps = serde_json::json!({
+        "v": 1_u32,
+        "stream": "system",
+        "kind": "e2ee_caps",
+        "from": "server",
+        "body": caps_body,
+    })
+    .to_string();
+    let _ = out_tx.send(Message::Text(caps));
 
     let outcome = loop {
         let next = tokio::select! {
@@ -332,40 +345,16 @@ pub async fn run(
                     continue;
                 }
 
-                if env.stream.as_deref() == Some("http") && env.kind == "request" {
-                    let Some(request_id) = env.request_id.clone() else {
-                        continue;
-                    };
-                    let body = env.body.unwrap_or_default();
-                    let relay_out = out_tx.clone();
-                    tokio::spawn(async move {
-                        let response_body = match http_gateway::handle_http_envelope(&body).await {
-                            Some(body) => body,
-                            None => {
-                                warn!(
-                                    target: "atmos_relay",
-                                    request_id = %request_id,
-                                    "http gateway handler returned no response"
-                                );
-                                http_gateway::encode_error_response(500, "gateway_internal_error")
-                            }
-                        };
-                        let outbound = serde_json::json!({
-                            "v": 1_u32,
-                            "stream": "http",
-                            "kind": "response",
-                            "request_id": request_id,
-                            "body": response_body,
-                        })
-                        .to_string();
-                        if let Err(error) = relay_out.send(Message::Text(outbound)) {
-                            warn!(
-                                target: "atmos_relay",
-                                error = %error,
-                                "http relay response could not be queued; delivery may have failed"
-                            );
-                        }
-                    });
+                if env.stream.as_deref() == Some("http") {
+                    http_gateway::on_http_envelope(
+                        &http_sessions,
+                        &env.kind,
+                        env.request_id.as_deref(),
+                        env.seq,
+                        env.body.as_deref(),
+                        &out_tx,
+                    )
+                    .await;
                     continue;
                 }
 
@@ -416,6 +405,7 @@ pub async fn run(
                 ) {
                     match close {
                         RelaySessionClose::Terminal { sid } => {
+                            crate::relay::frame_e2ee::remove_session(&frame_e2ee, &sid);
                             terminal::handle_terminal_client_close(
                                 &state,
                                 &terminal_sessions,
@@ -424,11 +414,51 @@ pub async fn run(
                             .await;
                         }
                         RelaySessionClose::App { sid } => {
+                            crate::relay::frame_e2ee::remove_session(&frame_e2ee, &sid);
                             apply_app_session_close(&sessions, &sid, |conn_id| {
                                 let ws_service = Arc::clone(&state.ws_service);
                                 async move { ws_service.unregister(&conn_id).await }
                             })
                             .await;
+                        }
+                    }
+                    continue;
+                }
+
+                if env.kind == "e2ee_open" {
+                    let Some(from) = env.from.as_deref() else {
+                        continue;
+                    };
+                    let Some(sid) = from.strip_prefix("client:") else {
+                        continue;
+                    };
+                    match crate::relay::frame_e2ee::open_from_e2ee_open(
+                        env.body.as_deref().unwrap_or("{}"),
+                    ) {
+                        Ok(session) => {
+                            crate::relay::frame_e2ee::insert_session(
+                                &frame_e2ee,
+                                sid.to_string(),
+                                session,
+                            );
+                        }
+                        Err(code) => {
+                            warn!(
+                                target: "atmos_relay",
+                                code,
+                                "relay frame e2ee_open failed"
+                            );
+                            crate::relay::frame_e2ee::emit_frame(
+                                &out_tx,
+                                &frame_e2ee,
+                                sid,
+                                env.stream.as_deref().unwrap_or("app"),
+                                serde_json::json!({
+                                    "type": "relay_ctrl",
+                                    "code": code,
+                                })
+                                .to_string(),
+                            );
                         }
                     }
                     continue;
@@ -444,16 +474,44 @@ pub async fn run(
                     continue;
                 };
                 let sid = rest.to_string();
+                let stream = env.stream.as_deref().unwrap_or("app");
+                let raw_body = env.body.unwrap_or_default();
+                let body = match crate::relay::frame_e2ee::open_c2s(
+                    &frame_e2ee,
+                    &sid,
+                    stream,
+                    &raw_body,
+                ) {
+                    Ok(opened) => opened,
+                    Err(code) => {
+                        warn!(
+                            target: "atmos_relay",
+                            code,
+                            "relay frame e2ee open failed"
+                        );
+                        crate::relay::frame_e2ee::emit_frame(
+                            &out_tx,
+                            &frame_e2ee,
+                            &sid,
+                            stream,
+                            serde_json::json!({
+                                "type": "relay_ctrl",
+                                "code": code,
+                            })
+                            .to_string(),
+                        );
+                        continue;
+                    }
+                };
 
-                let body = env.body.unwrap_or_default();
-
-                if env.stream.as_deref() == Some("terminal") {
+                if stream == "terminal" {
                     terminal::handle_terminal_frame(
                         &state,
                         &terminal_sessions,
                         &sid,
                         &body,
                         &out_tx,
+                        &frame_e2ee,
                     )
                     .await;
                     continue;
@@ -470,6 +528,7 @@ pub async fn run(
                     sid.clone(),
                     client_type,
                     &out_tx,
+                    &frame_e2ee,
                 )
                 .await
                 {
@@ -482,24 +541,24 @@ pub async fn run(
 
                 let state = state.clone();
                 let out_tx = out_tx.clone();
+                let frame_e2ee = Arc::clone(&frame_e2ee);
+                let mut held = crate::relay::frame_e2ee::live_session(&frame_e2ee, &sid);
                 tokio::spawn(async move {
                     if let Some(reply) = state.ws_service.handle_message(&conn_id, &body).await {
-                        let outbound = serde_json::json!( {
-                            "v": 1_u32,
-                            "stream": "app",
-                            "kind": "frame",
-                            "from": "server",
-                            "to": format!("client:{sid}"),
-                            "body": reply,
-                        })
-                        .to_string();
-                        let _ = out_tx.send(Message::Text(outbound));
+                        crate::relay::frame_e2ee::emit_sticky(
+                            &out_tx,
+                            &frame_e2ee,
+                            &mut held,
+                            &sid,
+                            "app",
+                            reply,
+                        );
                     }
                 });
             }
             Some(Ok(Message::Ping(payload))) => {
-                // Echo back so CF/peers know we're alive. Pong is also cheap on
-                // the edge and never wakes the Durable Object.
+                // Echo back so the edge / peers know we're alive. Pong is
+                // handled at the socket layer and does not wake ServerHub.
                 let _ = out_tx.send(Message::Pong(payload));
             }
             Some(Ok(Message::Pong(_))) => {
@@ -530,6 +589,7 @@ pub async fn run(
 
     ping_task.abort();
     writer.abort();
+    http_gateway::cancel_all(&http_sessions).await;
     drop(out_tx);
 
     let mut locked = sessions.write().await;
@@ -557,6 +617,7 @@ async fn ensure_session(
     sid: String,
     client_type: ClientType,
     relay_out: &mpsc::UnboundedSender<Message>,
+    frame_e2ee: &crate::relay::frame_e2ee::FrameE2eeSessions,
 ) -> Result<String, String> {
     let mut locked = sessions.write().await;
 
@@ -569,20 +630,18 @@ async fn ensure_session(
 
     let relay_out_clone = relay_out.clone();
     let sid_for_task = sid.clone();
+    let frame_e2ee = Arc::clone(frame_e2ee);
+    let mut held = crate::relay::frame_e2ee::live_session(&frame_e2ee, &sid);
     tokio::spawn(async move {
         while let Some(msg) = rx.recv().await {
-            let frame = serde_json::json!( {
-                "v": 1_u32,
-                "stream": "app",
-                "kind": "frame",
-                "from": "server",
-                "to": format!("client:{sid_for_task}"),
-                "body": msg,
-            })
-            .to_string();
-            if relay_out_clone.send(Message::Text(frame)).is_err() {
-                break;
-            }
+            crate::relay::frame_e2ee::emit_sticky(
+                &relay_out_clone,
+                &frame_e2ee,
+                &mut held,
+                &sid_for_task,
+                "app",
+                msg,
+            );
         }
     });
 

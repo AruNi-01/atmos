@@ -30,10 +30,12 @@ export function MobileWsProvider({ children }: PropsWithChildren) {
   const previousSessionKeyRef = useRef<string | null | undefined>(undefined);
 
   const queryClient = useQueryClient();
+  const wsUrl = session?.ws_url;
+  const e2ee = session?.e2ee;
   const client = useMemo(() => {
-    if (!session?.ws_url) return null;
-    return new MobileWsClient(session.ws_url);
-  }, [session?.ws_url]);
+    if (!wsUrl) return null;
+    return new MobileWsClient(wsUrl, { e2ee });
+  }, [e2ee, wsUrl]);
 
   useEffect(() => {
     const nextSessionKey = session?.ws_url ?? null;

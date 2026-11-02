@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ContestedCommandOwner, ContestedOwnersMap } from "@atmos/shared/terminal";
+import { computerFetch } from "@/api/computer-fetch";
 import { useSessionStore } from "@/stores/session-store";
 
 const CACHE_TTL_MS = 60_000;
@@ -44,7 +45,8 @@ async function fetchAgentOwner(
       // Mobile computers are reached through the relay HTTP gateway (not a
       // local API). Keep this REST probe with a hard timeout so a stalled
       // request cannot permanently pin `inFlight`.
-      const response = await fetch(
+      const response = await computerFetch(
+        useSessionStore.getState().activeClientSession,
         `${base}/hooks/cli-identity?command=${encodeURIComponent("agent")}`,
         {
           headers: {

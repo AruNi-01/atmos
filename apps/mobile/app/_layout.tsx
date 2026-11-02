@@ -1,3 +1,4 @@
+import "@/lib/polyfill-crypto";
 import "@/global.css";
 import {
   DarkTheme,

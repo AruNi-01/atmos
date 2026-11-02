@@ -98,6 +98,28 @@ describe("query-identity-lifecycle scope bumps", () => {
     expect(getComputerQueryScope().relaySessionRevision).toBe(before + 1);
   });
 
+  test("identical e2ee offer by value is a no-op", async () => {
+    const offer = {
+      enabled: true as const,
+      alg: "x25519-chacha20poly1305" as const,
+      static_pk: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    };
+    await applyRelaySessionTransport({
+      relayWebSocketUrl: "wss://relay.example/ws",
+      relayGatewayHttpBase: "https://relay.example/gw",
+      relayClientToken: "client-tok",
+      relayE2ee: { ...offer },
+    });
+    const revision = useAtmosComputerStore.getState().relaySessionRevision;
+    await applyRelaySessionTransport({
+      relayWebSocketUrl: "wss://relay.example/ws",
+      relayGatewayHttpBase: "https://relay.example/gw",
+      relayClientToken: "client-tok",
+      relayE2ee: { ...offer },
+    });
+    expect(useAtmosComputerStore.getState().relaySessionRevision).toBe(revision);
+  });
+
   test("identical relay session transport is a no-op", async () => {
     await applyRelaySessionTransport({
       relayWebSocketUrl: "wss://relay.example/ws",
@@ -113,6 +135,27 @@ describe("query-identity-lifecycle scope bumps", () => {
     });
 
     expect(useAtmosComputerStore.getState().relaySessionRevision).toBe(revision);
+  });
+
+  test("omitting relayE2ee clears a previous Computer static key", async () => {
+    await applyRelaySessionTransport({
+      relayWebSocketUrl: "wss://relay.example/ws",
+      relayGatewayHttpBase: "https://relay.example/gw",
+      relayClientToken: "client-tok",
+      relayE2ee: {
+        enabled: true,
+        alg: "x25519-chacha20poly1305",
+        static_pk: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      },
+    });
+    expect(useAtmosComputerStore.getState().relayE2ee?.static_pk).toBeTruthy();
+
+    await applyRelaySessionTransport({
+      relayWebSocketUrl: "wss://relay.example/ws-2",
+      relayGatewayHttpBase: "https://relay.example/gw-2",
+      relayClientToken: "client-tok-2",
+    });
+    expect(useAtmosComputerStore.getState().relayE2ee).toBeNull();
   });
 
   test("logout and relay session reset clear computer query roots", async () => {

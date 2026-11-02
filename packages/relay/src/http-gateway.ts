@@ -1,6 +1,8 @@
-/** APP-016: HTTP gateway auth + path helpers (Worker → DO → Server outbound WS). */
+/** APP-016: HTTP gateway auth + path helpers (edge → ServerHub → Computer WS). */
 
 import type { Env } from "./index";
+import type { GatewayE2ee } from "./http-stream";
+import { isValidE2eeRequestId } from "./http-stream";
 
 const GATEWAY_PATH_RE = /^\/v1\/computers\/([^/]+)\/proxy(\/.*)?$/;
 const RELAY_SECRET_HEADER = "X-Atmos-Relay-Secret";
@@ -99,11 +101,18 @@ const HOP_BY_HOP = new Set([
   "host",
 ]);
 
+const E2EE_HOP = new Set([
+  "x-atmos-e2ee",
+  "x-atmos-e2ee-alg",
+  "x-atmos-e2ee-request-id",
+  "x-atmos-e2ee-eph-pk",
+]);
+
 export function collectForwardHeaders(request: Request): [string, string][] {
   const out: [string, string][] = [];
   request.headers.forEach((value, key) => {
     const lower = key.toLowerCase();
-    if (HOP_BY_HOP.has(lower)) {
+    if (HOP_BY_HOP.has(lower) || E2EE_HOP.has(lower)) {
       return;
     }
     if (lower === "cf-connecting-ip" || lower.startsWith("cf-")) {
@@ -112,4 +121,23 @@ export function collectForwardHeaders(request: Request): [string, string][] {
     out.push([key, value]);
   });
   return out;
+}
+
+export function parseGatewayE2ee(request: Request): GatewayE2ee | null | "invalid" {
+  const flag = request.headers.get("X-Atmos-E2EE")?.trim();
+  if (!flag || flag === "0") {
+    return null;
+  }
+  const alg = request.headers.get("X-Atmos-E2EE-Alg")?.trim() ?? "";
+  const requestId = request.headers.get("X-Atmos-E2EE-Request-Id")?.trim() ?? "";
+  const ephPk = request.headers.get("X-Atmos-E2EE-Eph-Pk")?.trim() ?? "";
+  if (alg !== "x25519-chacha20poly1305" || !isValidE2eeRequestId(requestId) || ephPk.length < 42) {
+    return "invalid";
+  }
+  return {
+    v: 1,
+    alg,
+    request_id: requestId,
+    eph_pk: ephPk,
+  };
 }

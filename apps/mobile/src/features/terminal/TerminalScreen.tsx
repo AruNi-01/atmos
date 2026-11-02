@@ -78,6 +78,7 @@ export function TerminalScreen({
   const updateEntry = useTerminalStore((state) => state.updateEntry);
   const selectedServerId = useSessionStore((state) => state.selectedServerId);
   const terminalWsUrl = useSessionStore((state) => state.activeClientSession?.terminal_ws_url);
+  const e2ee = useSessionStore((state) => state.activeClientSession?.e2ee);
   const contestedOwners = useContestedCliOwners();
   const webViewRef = useRef<TerminalWebViewHandle>(null);
   const [rendererReadyFor, setRendererReadyFor] = useState<string | null>(null);
@@ -125,6 +126,7 @@ export function TerminalScreen({
     activeEntry,
     activeSessionId,
     appWsState,
+    e2ee,
     projectName,
     terminalWsUrl,
     updateEntry,

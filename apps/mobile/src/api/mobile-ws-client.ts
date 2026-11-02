@@ -10,6 +10,7 @@ import {
   type WsSession,
 } from "@atmos/api-client/ws";
 import type { WebSocketLike } from "@atmos/api-client/platform";
+import { attachRelayFrameE2ee, type RelayE2eeOffer } from "@atmos/relay-client";
 import { redactUrl } from "@/lib/relay-url";
 import { preferredComputerWebSocket } from "@/api/url-session-websocket";
 import {
@@ -51,6 +52,7 @@ export type MobileWsState = "idle" | "connecting" | "open" | "reconnecting" | "c
 type MobileWsClientOptions = {
   WebSocketCtor?: MobileWebSocketCtor;
   clearTimeout?: (timer: MobileTimer) => void;
+  e2ee?: RelayE2eeOffer | null;
   heartbeatIntervalMs?: number;
   heartbeatTimeoutMs?: number;
   maxReconnectAttempts?: number;
@@ -240,11 +242,17 @@ export class MobileWsClient {
       handshakeTimeoutMs: MOBILE_HANDSHAKE_TIMEOUT_MS,
       platform: {
         createWebSocket: (url) =>
-          adaptSocket(
-            WebSocketCtor ? new WebSocketCtor(url) : preferredComputerWebSocket(url),
-            (message) => {
-              this.lastFailureMessage = message;
-            },
+          attachRelayFrameE2ee(
+            (next) =>
+              adaptSocket(
+                WebSocketCtor ? new WebSocketCtor(next) : preferredComputerWebSocket(next),
+                (message) => {
+                  this.lastFailureMessage = message;
+                },
+              ),
+            url,
+            options.e2ee,
+            "app",
           ),
         timers: {
           setTimeout: (fn, ms) => this.setTimer(fn, ms),

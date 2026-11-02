@@ -1,3 +1,4 @@
+import { parseRelayE2eeOffer } from "./e2ee";
 import { RelayError } from "./errors";
 import type { ClientSessionResponse } from "./types";
 
@@ -39,12 +40,18 @@ export function parseClientSessionResponse(payload: unknown): ClientSessionRespo
     throw invalidClientSessionResponse();
   }
 
+  const e2ee = parseRelayE2eeOffer(response.e2ee);
+  if (!e2ee && (response.e2ee as { enabled?: unknown } | undefined)?.enabled === true) {
+    throw invalidClientSessionResponse();
+  }
+
   return {
     client_token: response.client_token,
     expires_at: response.expires_at,
     ws_url: response.ws_url,
     gateway_url: response.gateway_url,
     terminal_ws_url: terminalWsUrl,
+    ...(e2ee ? { e2ee } : {}),
   };
 }
 

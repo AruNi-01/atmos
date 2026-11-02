@@ -8,7 +8,7 @@
  */
 
 import { create } from "zustand";
-import { DEFAULT_RELAY_URL, normalizeRelayUrl } from "@atmos/relay-client";
+import { DEFAULT_RELAY_URL, normalizeRelayUrl, type RelayE2eeOffer } from "@atmos/relay-client";
 import { LOCAL_INSTANCE_ID } from "@/features/connection/lib/connection-instance";
 import {
   readConnectionUiPrefs,
@@ -31,6 +31,8 @@ interface AtmosComputerData {
   relayWebSocketUrl: string | null;
   relayGatewayHttpBase: string | null;
   relayClientToken: string | null;
+  /** Computer static X25519 public key for hop E2EE. Memory only; not a secret. */
+  relayE2ee: RelayE2eeOffer | null;
   registerCommandShown: string | null;
   registerTokenExpiresAt: number | null;
   localComputerDisplayName: string;
@@ -56,6 +58,7 @@ interface AtmosComputerStore extends AtmosComputerData {
     relayWebSocketUrl: string | null;
     relayGatewayHttpBase: string | null;
     relayClientToken: string | null;
+    relayE2ee?: RelayE2eeOffer | null;
   }) => void;
   setRegisterCommandShown: (cmd: string | null) => void;
   setRegisterTokenExpiresAt: (ts: number | null) => void;
@@ -71,6 +74,21 @@ const envRelayUrl =
   typeof process !== "undefined" ? (process.env.NEXT_PUBLIC_ATMOS_RELAY_URL ?? "") : "";
 
 export { DEFAULT_RELAY_URL };
+
+export function relayE2eeOffersEqual(
+  left: RelayE2eeOffer | null | undefined,
+  right: RelayE2eeOffer | null | undefined,
+): boolean {
+  if (left == null && right == null) {
+    return true;
+  }
+  if (left == null || right == null) {
+    return false;
+  }
+  return (
+    left.enabled === right.enabled && left.alg === right.alg && left.static_pk === right.static_pk
+  );
+}
 
 export function resolveRelayUrl(raw?: string | null): string {
   const trimmed = (raw ?? "").trim();
@@ -139,6 +157,7 @@ export const useAtmosComputerStore = create<AtmosComputerStore>((set, get) => ({
   relayWebSocketUrl: null,
   relayGatewayHttpBase: null,
   relayClientToken: null,
+  relayE2ee: null,
   registerCommandShown: null,
   registerTokenExpiresAt: null,
   localComputerDisplayName: localPrefs.localComputerDisplayName,
@@ -178,15 +197,18 @@ export const useAtmosComputerStore = create<AtmosComputerStore>((set, get) => ({
 
   setRelaySessionTransport: (session) => {
     const current = get();
+    const nextE2ee = session.relayE2ee ?? null;
     const changed =
       current.relayWebSocketUrl !== session.relayWebSocketUrl ||
       current.relayGatewayHttpBase !== session.relayGatewayHttpBase ||
-      current.relayClientToken !== session.relayClientToken;
+      current.relayClientToken !== session.relayClientToken ||
+      !relayE2eeOffersEqual(current.relayE2ee, nextE2ee);
     if (!changed) return;
     set({
       relayWebSocketUrl: session.relayWebSocketUrl,
       relayGatewayHttpBase: session.relayGatewayHttpBase,
       relayClientToken: session.relayClientToken,
+      relayE2ee: nextE2ee,
       relaySessionRevision: current.relaySessionRevision + 1,
     });
   },
@@ -224,11 +246,13 @@ export const useAtmosComputerStore = create<AtmosComputerStore>((set, get) => ({
     const hadSession =
       current.relayWebSocketUrl !== null ||
       current.relayGatewayHttpBase !== null ||
-      current.relayClientToken !== null;
+      current.relayClientToken !== null ||
+      current.relayE2ee !== null;
     set({
       relayWebSocketUrl: null,
       relayGatewayHttpBase: null,
       relayClientToken: null,
+      relayE2ee: null,
       registerCommandShown: null,
       registerTokenExpiresAt: null,
       relaySessionRevision: hadSession

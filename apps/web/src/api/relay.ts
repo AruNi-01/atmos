@@ -5,6 +5,7 @@
  * After `createClientSession`, the gateway base (`gateway_url`) proxies to the
  * Computer's local API — paths like `/api/system/*` stay app-owned.
  */
+import { computerFetch } from "@/api/computer-fetch";
 import type {
   GhCliStatusResponse,
   RuntimeInfoResponse,
@@ -24,7 +25,7 @@ async function fetchComputerGatewayJson<T>(
   if (token) {
     headers.set("X-Atmos-Local-Token", token);
   }
-  const res = await fetch(`${base}${path}`, { headers });
+  const res = await computerFetch(`${base}${path}`, { headers });
   const json = (await res.json().catch(() => null)) as {
     data?: T;
     error?: string;

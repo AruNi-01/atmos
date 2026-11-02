@@ -7,6 +7,7 @@ import {
   RELAY_SECRET_HEADER,
   type ComputerRow,
   type RelayClientKind,
+  type RelayE2eeOffer,
 } from "@atmos/relay-client";
 import { fetchRelayRuntimeInfo } from "@/api/relay";
 import { getWebRelayClient } from "@/features/connection/lib/create-web-relay-client";
@@ -49,6 +50,7 @@ export interface HostedRemoteSession {
   gateway_url: string;
   client_token: string;
   terminal_ws_url: string;
+  e2ee?: RelayE2eeOffer;
 }
 
 export function runtimeT(key: string, values?: Record<string, string | number>): string {
