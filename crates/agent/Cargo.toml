@@ -22,7 +22,16 @@ tokio-util = { version = "0.7", features = ["io", "compat"] }
 tracing = "0.1"
 uuid = { version = "1.0", features = ["v4", "serde"] }
 which = "6.0"
-zip = "2.4"
+# Workspace zip is default-features=false + deflate-flate2. Restore zip 9
+# formats that zip="2.4" defaults used to enable for registry archives.
+zip = { workspace = true, features = [
+    "aes-crypto",
+    "bzip2",
+    "deflate64",
+    "lzma",
+    "xz",
+    "zstd",
+] }
 flate2 = "1.1"
 tar = "0.4"
 tempfile = "3.15"

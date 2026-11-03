@@ -537,16 +537,19 @@ fn extract_from_zip(
         let mut entry = archive.by_index(index).map_err(|e| {
             LocalModelError::Runtime(format!("Failed to read runtime zip entry: {e}"))
         })?;
-        if entry.name() == inner_path {
+        let name = String::from_utf8_lossy(entry.name_raw());
+        if name.as_ref() == inner_path {
             found_binary = true;
         }
         if entry.is_dir() {
             continue;
         }
-        let enclosed = entry.enclosed_name().ok_or_else(|| {
-            LocalModelError::Runtime(format!("Unsafe runtime zip entry: {}", entry.name()))
-        })?;
-        let out_path = dest_dir.join(enclosed);
+        let enclosed = entry
+            .enclosed_name()
+            .ok_or_else(|| LocalModelError::Runtime(format!("Unsafe runtime zip entry: {name}")))?;
+        // enclosed_name() already rejects absolute / escaping paths; keep the
+        // extra ParentDir check so zip extract matches safe_archive_dest.
+        let out_path = safe_archive_dest(dest_dir, &enclosed)?;
         if let Some(parent) = out_path.parent() {
             std::fs::create_dir_all(parent)?;
         }

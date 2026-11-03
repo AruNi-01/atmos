@@ -1,5 +1,5 @@
 use std::fs;
-use std::io::{Cursor, Read as _};
+use std::io::{Cursor, Read};
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
@@ -386,6 +386,51 @@ fn is_target_binary(entry_name: &str, binary_name: &str) -> bool {
             == binary_name.strip_suffix(".exe").unwrap_or(binary_name)
 }
 
+fn zip_entry_name<R: Read + ?Sized>(file: &zip::read::ZipFile<'_, R>) -> String {
+    String::from_utf8_lossy(file.name_raw()).into_owned()
+}
+
+fn zip_name_escapes(name: &str) -> bool {
+    let path = Path::new(name);
+    name.starts_with('/')
+        || name.starts_with('\\')
+        || path.is_absolute()
+        || path.components().any(|component| {
+            matches!(
+                component,
+                std::path::Component::Prefix(_)
+                    | std::path::Component::RootDir
+                    | std::path::Component::ParentDir
+            )
+        })
+}
+
+/// Reject absolute paths, `..`, and any join that would leave `dest_dir`.
+/// Mirrors `local-model-runtime`'s `safe_archive_dest`.
+fn safe_dest_join(dest_dir: &Path, relative: &Path) -> Result<PathBuf> {
+    if zip_name_escapes(&relative.to_string_lossy()) {
+        return Err(AgentError::Command(format!(
+            "unsafe zip entry: {}",
+            relative.display()
+        )));
+    }
+    Ok(dest_dir.join(relative))
+}
+
+fn safe_zip_dest<R: Read + ?Sized>(
+    dest_dir: &Path,
+    file: &zip::read::ZipFile<'_, R>,
+) -> Result<PathBuf> {
+    let name = zip_entry_name(file);
+    if zip_name_escapes(&name) {
+        return Err(AgentError::Command(format!("unsafe zip entry: {name}")));
+    }
+    let enclosed = file
+        .enclosed_name()
+        .ok_or_else(|| AgentError::Command(format!("unsafe zip entry: {name}")))?;
+    safe_dest_join(dest_dir, &enclosed)
+}
+
 fn extract_zip(data: &[u8], dest_dir: &Path, binary_name: &str) -> Result<()> {
     let reader = Cursor::new(data);
     let mut archive = zip::ZipArchive::new(reader)
@@ -398,7 +443,7 @@ fn extract_zip(data: &[u8], dest_dir: &Path, binary_name: &str) -> Result<()> {
         let file = archive
             .by_index(i)
             .map_err(|e| AgentError::Command(format!("failed to read zip entry: {}", e)))?;
-        let name = file.name().to_string();
+        let name = zip_entry_name(&file);
         if file.is_dir() {
             continue;
         }
@@ -426,7 +471,8 @@ fn extract_zip(data: &[u8], dest_dir: &Path, binary_name: &str) -> Result<()> {
     file.read_to_end(&mut buf)
         .map_err(|e| AgentError::Command(format!("failed to extract zip entry: {}", e)))?;
 
-    let out_path = dest_dir.join(binary_name);
+    // Write to the caller-supplied binary name, never the zip entry path.
+    let out_path = safe_dest_join(dest_dir, Path::new(binary_name))?;
     if let Some(parent) = out_path.parent() {
         fs::create_dir_all(parent).map_err(|e| {
             AgentError::Command(format!(
@@ -555,13 +601,13 @@ fn extract_zip_all(data: &[u8], dest_dir: &Path) -> Result<()> {
         let mut file = archive
             .by_index(i)
             .map_err(|e| AgentError::Command(format!("failed to read zip entry: {}", e)))?;
-        let name = file.name().to_string();
+        let name = zip_entry_name(&file);
 
         if name.starts_with("._") || name.contains("__MACOSX") {
             continue;
         }
 
-        let out_path = dest_dir.join(&name);
+        let out_path = safe_zip_dest(dest_dir, &file)?;
 
         if file.is_dir() {
             fs::create_dir_all(&out_path)
@@ -630,4 +676,162 @@ pub(crate) async fn detect_binary_version(binary_path: &Path) -> Option<String> 
     }
 
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::{Cursor, Write};
+
+    fn crc32_ieee(data: &[u8]) -> u32 {
+        let mut crc = 0xFFFF_FFFFu32;
+        for &byte in data {
+            crc ^= u32::from(byte);
+            for _ in 0..8 {
+                crc = if crc & 1 != 0 {
+                    (crc >> 1) ^ 0xEDB8_8320
+                } else {
+                    crc >> 1
+                };
+            }
+        }
+        !crc
+    }
+
+    fn push_u16(buf: &mut Vec<u8>, value: u16) {
+        buf.extend_from_slice(&value.to_le_bytes());
+    }
+
+    fn push_u32(buf: &mut Vec<u8>, value: u32) {
+        buf.extend_from_slice(&value.to_le_bytes());
+    }
+
+    /// Build a stored (no compression) ZIP so entry names can include `..` / absolute
+    /// paths that ZipWriter would refuse to emit.
+    fn stored_zip(entries: &[(&str, &[u8])]) -> Vec<u8> {
+        let mut buf = Vec::new();
+        let mut central = Vec::new();
+        for (name, payload) in entries {
+            let name_bytes = name.as_bytes();
+            let crc = crc32_ieee(payload);
+            let local_offset = buf.len() as u32;
+            buf.extend_from_slice(&[0x50, 0x4b, 0x03, 0x04]);
+            push_u16(&mut buf, 20);
+            push_u16(&mut buf, 0);
+            push_u16(&mut buf, 0);
+            push_u16(&mut buf, 0);
+            push_u16(&mut buf, 0);
+            push_u32(&mut buf, crc);
+            push_u32(&mut buf, payload.len() as u32);
+            push_u32(&mut buf, payload.len() as u32);
+            push_u16(&mut buf, name_bytes.len() as u16);
+            push_u16(&mut buf, 0);
+            buf.extend_from_slice(name_bytes);
+            buf.extend_from_slice(payload);
+
+            central.extend_from_slice(&[0x50, 0x4b, 0x01, 0x02]);
+            push_u16(&mut central, 20);
+            push_u16(&mut central, 20);
+            push_u16(&mut central, 0);
+            push_u16(&mut central, 0);
+            push_u16(&mut central, 0);
+            push_u16(&mut central, 0);
+            push_u32(&mut central, crc);
+            push_u32(&mut central, payload.len() as u32);
+            push_u32(&mut central, payload.len() as u32);
+            push_u16(&mut central, name_bytes.len() as u16);
+            push_u16(&mut central, 0);
+            push_u16(&mut central, 0);
+            push_u16(&mut central, 0);
+            push_u16(&mut central, 0);
+            push_u32(&mut central, 0);
+            push_u32(&mut central, local_offset);
+            central.extend_from_slice(name_bytes);
+        }
+        let cd_offset = buf.len() as u32;
+        let cd_size = central.len() as u32;
+        buf.extend_from_slice(&central);
+        buf.extend_from_slice(&[0x50, 0x4b, 0x05, 0x06]);
+        push_u16(&mut buf, 0);
+        push_u16(&mut buf, 0);
+        push_u16(&mut buf, entries.len() as u16);
+        push_u16(&mut buf, entries.len() as u16);
+        push_u32(&mut buf, cd_size);
+        push_u32(&mut buf, cd_offset);
+        push_u16(&mut buf, 0);
+        buf
+    }
+
+    fn deflated_zip(name: &str, payload: &[u8]) -> Vec<u8> {
+        let cursor = Cursor::new(Vec::new());
+        let mut writer = zip::ZipWriter::new(cursor);
+        let options = zip::write::SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Deflated);
+        writer.start_file(name, options).expect("start zip file");
+        writer.write_all(payload).expect("write zip payload");
+        writer.finish().expect("finish zip").into_inner()
+    }
+
+    #[test]
+    fn extract_zip_all_writes_nested_safe_paths() {
+        let dest = tempfile::tempdir().expect("tempdir");
+        let data = deflated_zip("nested/tool", b"ok-bytes");
+        extract_zip_all(&data, dest.path()).expect("extract safe zip");
+        let written = fs::read(dest.path().join("nested/tool")).expect("read extracted");
+        assert_eq!(written, b"ok-bytes");
+    }
+
+    #[test]
+    fn extract_zip_all_rejects_parent_dir_escape() {
+        let dest = tempfile::tempdir().expect("tempdir");
+        let outside = dest.path().parent().expect("parent").join("zip-slip-evil");
+        let _ = fs::remove_file(&outside);
+        let data = stored_zip(&[("../zip-slip-evil", b"pwned")]);
+        let err = extract_zip_all(&data, dest.path()).expect_err("zip slip must fail");
+        assert!(
+            err.to_string().contains("unsafe zip entry"),
+            "unexpected error: {err}"
+        );
+        assert!(
+            !outside.exists(),
+            "zip slip wrote outside dest: {}",
+            outside.display()
+        );
+        assert!(!dest.path().join("zip-slip-evil").exists());
+    }
+
+    #[test]
+    fn extract_zip_all_rejects_absolute_path() {
+        let dest = tempfile::tempdir().expect("tempdir");
+        let data = stored_zip(&[("/tmp/zip-slip-absolute", b"pwned")]);
+        let err = extract_zip_all(&data, dest.path()).expect_err("absolute zip path must fail");
+        assert!(
+            err.to_string().contains("unsafe zip entry"),
+            "unexpected error: {err}"
+        );
+        assert!(!dest.path().join("tmp/zip-slip-absolute").exists());
+    }
+
+    #[test]
+    fn extract_zip_writes_to_binary_name_not_entry_path() {
+        let dest = tempfile::tempdir().expect("tempdir");
+        let data = deflated_zip("pkg/my-agent", b"bin-bytes");
+        extract_zip(&data, dest.path(), "my-agent").expect("extract named binary");
+        assert_eq!(
+            fs::read(dest.path().join("my-agent")).expect("read binary"),
+            b"bin-bytes"
+        );
+        assert!(!dest.path().join("pkg/my-agent").exists());
+    }
+
+    #[test]
+    fn extract_zip_rejects_escaping_binary_name() {
+        let dest = tempfile::tempdir().expect("tempdir");
+        let data = deflated_zip("my-agent", b"bin-bytes");
+        let err = extract_zip(&data, dest.path(), "../evil-bin").expect_err("escape dest");
+        assert!(
+            err.to_string().contains("unsafe zip entry"),
+            "unexpected error: {err}"
+        );
+    }
 }
