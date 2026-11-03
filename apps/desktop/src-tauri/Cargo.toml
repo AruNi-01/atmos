@@ -26,7 +26,8 @@ tauri-plugin-shell = "2"
 tauri-plugin-notification = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
-tauri-plugin-updater = "2"
+# 2.14.1 uses zip ^9 (Zip Cloaking). Deprecated Tauri shell only.
+tauri-plugin-updater = "2.14.1"
 tauri-plugin-process = "2"
 tokio = { workspace = true }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
