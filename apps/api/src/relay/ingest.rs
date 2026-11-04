@@ -227,6 +227,12 @@ pub async fn run(
         }
     };
     req.headers_mut().insert(header::AUTHORIZATION, auth_header);
+    // Cloudflare Bot Fight challenges bare WS clients from some egress IPs;
+    // a stable product UA avoids the managed challenge on /ws/server.
+    req.headers_mut().insert(
+        header::USER_AGENT,
+        HeaderValue::from_static("Atmos-Computer/0.1 (+https://atmos.land)"),
+    );
 
     let (ws, response) = match tokio::select! {
         _ = shutdown.cancelled() => return RunOutcome::Shutdown,
