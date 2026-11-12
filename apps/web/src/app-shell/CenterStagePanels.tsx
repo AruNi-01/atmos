@@ -529,10 +529,7 @@ export function CenterStagePanels({
         const mountedTabIds = mountedTerminalTabsByContext[contextId] ?? EMPTY_MOUNTED_TAB_IDS;
         const mountPlanKeys = mountedKeysForContext(mountPlan, contextId).join("\0");
         const contextLayout = layoutsByContext[contextId];
-        const retainedActiveTabIds =
-          contextLayout && contextLayout.order.length > 1
-            ? collectActiveTabIds(contextLayout)
-            : null;
+        const retainedActiveTabIds = contextLayout ? collectActiveTabIds(contextLayout) : null;
         const contextMaps = layoutMapsFor(layoutMapsCacheRef.current, contextId, contextLayout);
         const frozenGeometry =
           liveBinding === "frozen" && lastLiveGeometryRef.current?.contextId === contextId

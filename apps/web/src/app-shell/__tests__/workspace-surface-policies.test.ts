@@ -3,6 +3,11 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  collectActiveTabIds,
+  createDefaultLayout,
+  removeTabFromLayout,
+} from "../center-pane/center-pane-layout";
+import {
   applyWarmTouch,
   buildProtectSignals,
   computeMountPlan,
@@ -134,6 +139,29 @@ describe("resolveFrameActiveTab / panel visibility", () => {
         panelTabId: "overview",
       }),
     ).toBe(true);
+  });
+
+  it("keeps the last closed Overview hidden on both live and warm empty mosaics", () => {
+    const layout = removeTabFromLayout(createDefaultLayout(["overview"], "overview"), "overview");
+    const emptySelection = collectActiveTabIds(layout);
+    expect(emptySelection).toEqual([]);
+    for (const isUrlSyncedActive of [true, false]) {
+      const activeTabIds = resolveWorkspaceFrameActiveTabIds({
+        isActiveContext: isUrlSyncedActive,
+        isUrlSyncedActive,
+        liveActiveTabIds: emptySelection,
+        retainedActiveTabIds: emptySelection,
+      });
+      expect(activeTabIds).toEqual([]);
+      expect(
+        isFramePanelVisible({
+          isActiveFrame: isUrlSyncedActive,
+          frameActiveTab: "overview",
+          frameActiveTabIds: activeTabIds,
+          panelTabId: "overview",
+        }),
+      ).toBe(false);
+    }
   });
 
   it("keeps the leaving frame live-bound until deferred URL-sync catches paint", () => {

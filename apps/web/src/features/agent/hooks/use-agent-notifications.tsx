@@ -159,10 +159,6 @@ export function useAgentNotifications() {
   );
 
   useEffect(() => {
-    void useNotificationSettingsStore.getState().loadSettings();
-  }, []);
-
-  useEffect(() => {
     unsubscribeAgentRef.current = useWebSocketStore
       .getState()
       .onEvent("agent_notification", handleNotification);

@@ -140,13 +140,14 @@ export function isFramePanelVisible(input: {
   panelTabId: string;
   /**
    * When multi-pane center is open, every pane's active tab is visible.
-   * Falls back to `frameActiveTab` when omitted or empty.
+   * An empty list means no panels are active. Only an omitted list falls
+   * back to `frameActiveTab`.
    */
   frameActiveTabIds?: readonly string[] | null;
 }): boolean {
   void input.isActiveFrame;
   const multi = input.frameActiveTabIds;
-  if (multi && multi.length > 0) {
+  if (multi != null) {
     return multi.includes(input.panelTabId);
   }
   return input.frameActiveTab === input.panelTabId;
@@ -165,11 +166,9 @@ export function resolveWorkspaceFrameActiveTabIds(input: {
   liveActiveTabIds?: readonly string[] | null;
   retainedActiveTabIds?: readonly string[] | null;
 }): readonly string[] | null {
-  const nonempty = (ids: readonly string[] | null | undefined) =>
-    ids && ids.length > 0 ? ids : null;
-  if (input.isUrlSyncedActive) return nonempty(input.liveActiveTabIds);
+  if (input.isUrlSyncedActive) return input.liveActiveTabIds ?? null;
   if (input.isActiveContext) return null;
-  return nonempty(input.retainedActiveTabIds);
+  return input.retainedActiveTabIds ?? null;
 }
 
 /**

@@ -32,12 +32,6 @@ export function splitTrailingAnswer<T>(
   if (trailing.some(isAnswer)) {
     return { process: items.slice(0, lastProcess + 1), answer: trailing };
   }
-  let firstProcess = 0;
-  while (firstProcess < items.length && isAnswer(items[firstProcess]!)) firstProcess += 1;
-  const hasLaterAnswer = items.slice(firstProcess).some(isAnswer);
-  if (firstProcess > 0 && !hasLaterAnswer) {
-    return { process: items.slice(firstProcess), answer: items.slice(0, firstProcess) };
-  }
   return { process: items, answer: [] };
 }
 
@@ -48,40 +42,20 @@ export function splitTrailingAnswer<T>(
  * Same-id tool progress is merged in place, so it never moves a tool after the reply.
  * From the first text after that point, think / plan / extra text stay visible in order.
  * A *new* tool after a text is continued work: that text stays in process.
+ * Both outputs are contiguous slices: folding must never reorder the transcript.
  */
 export function layoutAssistantAnswer<T>(
   items: T[],
   isAnswer: (item: T) => boolean,
   isSoftProcess: (item: T) => boolean,
 ): AssistantAnswerLayout<T> {
-  const split = splitTrailingAnswer(items, isAnswer);
-  if (split.answer.length === 0) {
-    return { process: split.process, tail: [] };
-  }
-
   let lastHard = -1;
   for (let index = 0; index < items.length; index += 1) {
     if (!isAnswer(items[index]!) && !isSoftProcess(items[index]!)) lastHard = index;
   }
 
-  if (lastHard >= 0) {
-    const after = items.slice(lastHard + 1);
-    if (after.some(isAnswer)) {
-      let firstText = 0;
-      while (firstText < after.length && isSoftProcess(after[firstText]!)) firstText += 1;
-      if (firstText < after.length && isAnswer(after[firstText]!)) {
-        return {
-          process: items.slice(0, lastHard + 1 + firstText),
-          tail: after.slice(firstText),
-        };
-      }
-      return { process: items.slice(0, lastHard + 1), tail: after };
-    }
-    return { process: split.process, tail: split.answer };
-  }
-
-  const firstAnswer = items.findIndex(isAnswer);
-  if (firstAnswer < 0) return { process: split.process, tail: [] };
+  const firstAnswer = items.findIndex((item, index) => index > lastHard && isAnswer(item));
+  if (firstAnswer < 0) return { process: items, tail: [] };
   return {
     process: items.slice(0, firstAnswer),
     tail: items.slice(firstAnswer),

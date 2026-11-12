@@ -8,7 +8,7 @@ import {
 import type { AgentMessage, AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
 
 describe("assistant process collapse", () => {
-  it("puts tools and thinking above the final answer even if history stored them last", () => {
+  it("keeps leading text before later thinking and tools when folding the process", () => {
     const parts: AgentPart[] = [
       { type: "text", text: "final answer" },
       { type: "thinking", text: "hmm" },
@@ -22,9 +22,8 @@ describe("assistant process collapse", () => {
       },
     ];
     const { processParts, tailParts } = splitAssistantProcessParts(parts);
-    expect(processParts.map((item) => item.part.type)).toEqual(["thinking", "tool_call"]);
-    expect(tailParts.map((item) => item.part.type)).toEqual(["text"]);
-    expect(tailParts[0]?.part).toMatchObject({ type: "text", text: "final answer" });
+    expect(processParts.map((item) => item.part)).toEqual(parts);
+    expect(tailParts).toEqual([]);
   });
 
   it("keeps mid-turn commentary in process and only the trailing text as the answer", () => {

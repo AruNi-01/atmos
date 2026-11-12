@@ -69,7 +69,7 @@ describe("assistant process collapse chrome", () => {
     expect(view).toContain("foldedPartKey(segment.part, segment.origIndex)");
     expect(view).toContain("processSegments.map((segment) => renderSegment(segment, false))");
     expect(view).toContain("tailSegments.map((segment) => renderSegment(segment, true))");
-    expect(view).not.toContain("segments.map((segment) =>");
+    expect(view).toContain("segments.map((segment) => renderSegment(segment, true))");
     expect(view).not.toContain(
       "return <React.Fragment key={segment.origIndex}>{content}</React.Fragment>",
     );

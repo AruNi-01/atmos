@@ -94,14 +94,13 @@ function getMountedServerSnapshot(): boolean {
 export function HostedWelcomeGate(props: HostedWelcomeGateProps) {
   const mounted = useMounted();
   const bootstrapState = useHostedConnectionStore((s) => s.bootstrapState);
-  const isInitialProjectsLoading = useInitialProjectsLoading();
+  const hosted = mounted && isHostedAtmosOrigin();
+  const showOnboarding = hosted && bootstrapState !== "connected";
+  const isInitialProjectsLoading = useInitialProjectsLoading(!showOnboarding);
 
   if (!mounted || isInitialProjectsLoading) {
     return <HostedLandingLoading />;
   }
-
-  const hosted = isHostedAtmosOrigin();
-  const showOnboarding = hosted && bootstrapState !== "connected";
 
   if (showOnboarding) {
     return (

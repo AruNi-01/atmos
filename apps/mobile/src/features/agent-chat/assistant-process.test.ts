@@ -108,16 +108,16 @@ describe("assistant process fold", () => {
     ).toEqual(["done"]);
   });
 
-  test("the last reply stays visible when the turn ends on a tool", () => {
+  test("leading text stays before the tool when the turn ends on a tool", () => {
     const parts: AgentPart[] = [{ type: "text", text: "the numbers" }, tool("t1", "read")];
     const { processSegments, tailSegments } = splitSegmentedAssistantParts(
       segmentAssistantParts(parts),
     );
-    expect(processSegments.map((item) => item.type)).toEqual(["part"]);
     expect(
-      tailSegments.map((item) =>
+      processSegments.map((item) =>
         item.type === "part" && item.part.type === "text" ? item.part.text : item.type,
       ),
-    ).toEqual(["the numbers"]);
+    ).toEqual(["the numbers", "part"]);
+    expect(tailSegments).toEqual([]);
   });
 });

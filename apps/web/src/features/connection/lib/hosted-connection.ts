@@ -81,7 +81,11 @@ function parseEnvelope<T>(raw: string): ApiEnvelope<T> | null {
 
 function formatNetworkError(err: unknown): string {
   const message = err instanceof Error ? err.message : String(err);
-  if (message === "Load failed" || message.includes("Failed to fetch")) {
+  if (
+    (err instanceof Error && err.name === "TimeoutError") ||
+    message === "Load failed" ||
+    message.includes("Failed to fetch")
+  ) {
     return runtimeT("hostedConnection.errors.cannotReachLocalServer");
   }
   return message;
@@ -89,6 +93,7 @@ function formatNetworkError(err: unknown): string {
 
 async function fetchLoopbackJson<T>(cfg: ApiConfig, path: string): Promise<T> {
   const res = await fetch(`${httpBase(cfg).replace(/\/$/, "")}${path}`, {
+    signal: AbortSignal.timeout(1_500),
     headers: {
       "Content-Type": "application/json",
       ...apiTokenHeaders(),

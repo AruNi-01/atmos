@@ -318,12 +318,11 @@ export const AssistantMessageView = React.memo(function AssistantMessageView({
     );
   }
 
-  // Streaming keeps the settled split, so a reply that began before the tools
-  // still paints under them instead of growing in the part that started first.
+  // Keep live rows in arrival order. Compact density groups only consecutive
+  // process parts, so later tools/thinking cannot jump ahead of visible text.
   return (
     <AssistantProcessInspectProvider onInspect={markInspecting}>
-      {processSegments.map((segment) => renderSegment(segment, false))}
-      {tailSegments.map((segment) => renderSegment(segment, true))}
+      {segments.map((segment) => renderSegment(segment, true))}
     </AssistantProcessInspectProvider>
   );
 });

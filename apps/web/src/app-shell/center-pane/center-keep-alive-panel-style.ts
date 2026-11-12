@@ -33,7 +33,8 @@ export function centerKeepAlivePanelStyle(
   paneSlotBoxes: Readonly<Record<string, PaneSlotBox>> | null | undefined,
   fullscreenPaneId?: string | null,
 ): CSSProperties | undefined {
-  if (!paneId || !paneSlotBoxes) return undefined;
+  if (!paneSlotBoxes) return undefined;
+  if (!paneId) return COLLAPSED_SLOT_STYLE;
   if (paneHiddenByCenterFullscreen(fullscreenPaneId, paneId)) {
     return COLLAPSED_SLOT_STYLE;
   }

@@ -12,6 +12,7 @@ import { useDismissExitedAgentStatusSessions } from "@/features/agent/hooks/use-
 import { useLayoutSettingsStore } from "@/features/settings/store/layout-settings-store";
 import { useAgentActivityIndicatorSettingsStore } from "@/features/settings/store/agent-activity-indicator-settings-store";
 import { useExperimentSettingsStore } from "@/features/settings/store/experiment-settings-store";
+import { useNotificationSettingsStore } from "@/features/settings/store/notification-settings-store";
 import { useHostedConnectionStore } from "@/features/connection/store/hosted-connection-store";
 import { isHostedAtmosOrigin, isPublicTokPath } from "@/shared/lib/desktop-runtime";
 import {
@@ -106,6 +107,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
       useLayoutSettingsStore.getState().loadSettings();
       void useExperimentSettingsStore.getState().loadSettings();
       void useAgentActivityIndicatorSettingsStore.getState().loadSettings();
+      void useNotificationSettingsStore.getState().loadSettings();
       // Project bootstrap is now Query-owned; reconnect invalidation handles refresh.
       void ensureProjectBootstrap().catch(() => undefined);
     }

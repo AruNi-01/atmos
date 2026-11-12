@@ -48,7 +48,8 @@ export type WorkspaceCenterFrameProps = {
   activeValue: string | null;
   /**
    * Multi-pane: every pane's active tab is visible simultaneously on the active frame.
-   * When null/empty, falls back to single `activeValue` / frameActiveTab behavior.
+   * When null, falls back to single `activeValue` / frameActiveTab behavior.
+   * An empty list means the mosaic has no active panels.
    */
   activeTabIds?: readonly string[] | null;
   /** Multi-pane: map tab id → pane id for slot positioning. */
@@ -129,6 +130,8 @@ export function workspaceCenterFramePropsAreEqual(
   if (prev.mountPlanKeys !== next.mountPlanKeys) return false;
   if (prev.fallbackTerminalTitle !== next.fallbackTerminalTitle) return false;
   if (!sameStringList(prev.mountedTabIds, next.mountedTabIds)) return false;
+  // Missing mosaic selection uses the legacy fallback; [] is an empty launcher.
+  if ((prev.activeTabIds == null) !== (next.activeTabIds == null)) return false;
   // mountPlan object identity may churn globally; this frame only cares about its keys.
 
   // Warm frames skip host chrome, but pane-active retention is per-context

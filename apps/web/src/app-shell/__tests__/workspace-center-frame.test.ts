@@ -118,6 +118,13 @@ describe("workspaceCenterFramePropsAreEqual", () => {
     expect(workspaceCenterFramePropsAreEqual(prev, next)).toBe(false);
   });
 
+  it("repaints when a mosaic becomes empty instead of using the legacy last tab", () => {
+    for (const isUrlSyncedActive of [true, false]) {
+      const prev = baseWarm({ isUrlSyncedActive, activeTabIds: null });
+      expect(workspaceCenterFramePropsAreEqual(prev, { ...prev, activeTabIds: [] })).toBe(false);
+    }
+  });
+
   it("re-renders when this frame becomes URL-synced", () => {
     const prev = baseWarm({ isUrlSyncedActive: false, isActiveContext: true });
     const next = baseWarm({

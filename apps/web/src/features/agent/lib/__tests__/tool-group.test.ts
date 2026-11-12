@@ -162,7 +162,7 @@ describe("segmentAssistantParts", () => {
     ).toBe("read");
   });
 
-  it("puts a leading answer under the tool group", () => {
+  it("keeps leading text before a later tool group", () => {
     const parts: AgentPart[] = [
       { type: "text", text: "final answer" },
       tool({ tool_call_id: "t1", kind: "read" }),
@@ -171,8 +171,9 @@ describe("segmentAssistantParts", () => {
     const { processSegments, tailSegments } = splitSegmentedAssistantParts(
       segmentAssistantParts(parts, "compact"),
     );
-    expect(processSegments.map((segment) => segment.type)).toEqual(["tool_group"]);
-    expect(tailSegments).toEqual([{ type: "part", part: parts[0], origIndex: 0 }]);
+    expect(processSegments.map((segment) => segment.type)).toEqual(["part", "tool_group"]);
+    expect(processSegments[0]).toEqual({ type: "part", part: parts[0], origIndex: 0 });
+    expect(tailSegments).toEqual([]);
   });
 
   it("keeps every process row after extracting answer text", () => {

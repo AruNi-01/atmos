@@ -11,6 +11,8 @@ import {
   useAgentChatExpandStore,
 } from "@/features/agent/store/agent-chat-expand-store";
 
+let density: "compact" | "standard" | "detailed" = "compact";
+
 mock.module("next-intl", () => ({
   useTranslations: () => (key: string) => key,
 }));
@@ -62,7 +64,13 @@ mock.module("@/features/agent/components/agent-chat-cwd-context", () => ({
 
 mock.module("@/features/agent/components/AgentPartView", () => ({
   AgentPartView: ({ part }: { part: AgentPart }) => (
-    <div data-part={part.type}>{part.type === "text" ? part.text : part.type}</div>
+    <div data-part={part.type}>
+      {part.type === "text" || part.type === "thinking"
+        ? part.text
+        : part.type === "tool_call"
+          ? part.tool_call_id
+          : part.type}
+    </div>
   ),
 }));
 
@@ -71,9 +79,23 @@ mock.module("@/features/agent/components/AgentStreamReveal", () => ({
 }));
 
 mock.module("@/features/agent/components/AgentToolGroupView", () => ({
-  AgentToolGroupView: ({ onUserOpenChange }: { onUserOpenChange?: (next: boolean) => void }) => (
+  AgentToolGroupView: ({
+    parts,
+    origIndexes,
+    renderPart,
+    onUserOpenChange,
+  }: {
+    parts: AgentPart[];
+    origIndexes: number[];
+    renderPart: (part: AgentPart, origIndex: number) => React.ReactNode;
+    onUserOpenChange?: (next: boolean) => void;
+  }) => (
     <button type="button" data-tool-group="" onClick={() => onUserOpenChange?.(true)}>
-      tool
+      {parts.map((part, index) => (
+        <React.Fragment key={origIndexes[index]}>
+          {renderPart(part, origIndexes[index]!)}
+        </React.Fragment>
+      ))}
     </button>
   ),
 }));
@@ -106,7 +128,9 @@ mock.module("@/shared/components/url-aware-text", () => ({
 
 mock.module("@/features/settings/store/agent-tool-call-density-store", () => {
   const state = {
-    density: "compact" as const,
+    get density() {
+      return density;
+    },
     loadSettings: async () => undefined,
   };
   return {
@@ -146,6 +170,7 @@ function assistantMessage(over: Partial<AgentMessage> = {}): AgentMessage {
 describe("assistant process collapse render", () => {
   beforeEach(() => {
     installDom();
+    density = "compact";
     renderErrors = [];
     originalConsoleError = console.error;
     console.error = (...args: unknown[]) => {
@@ -169,6 +194,77 @@ describe("assistant process collapse render", () => {
     }
     cleanupDom();
   });
+
+  for (const mode of ["compact", "standard", "detailed"] as const) {
+    it(`preserves arrival order through streaming, tool updates, and settle in ${mode}`, async () => {
+      density = mode;
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      root = createRoot(container);
+      const parts: AgentPart[] = [
+        { type: "text", text: "first update" },
+        { type: "thinking", text: "inspect next" },
+        toolPart(),
+        { type: "text", text: "second update" },
+        { ...toolPart(), tool_call_id: "t2", status: "running" },
+        { type: "thinking", text: "check result" },
+        { type: "text", text: "final update" },
+      ];
+      const expected = [
+        "first update",
+        "inspect next",
+        "t1",
+        "second update",
+        "t2",
+        "check result",
+        "final update",
+      ];
+      const visibleParts = () =>
+        Array.from(container.querySelectorAll("[data-part]"), (node) => node.textContent);
+      let firstText: Element | null = null;
+      for (let count = 1; count <= parts.length; count += 1) {
+        // streaming can go false between text chunks while the turn is still running.
+        await act(async () => {
+          root?.render(
+            <AssistantMessageView
+              message={assistantMessage({
+                parts: parts.slice(0, count),
+                streaming: count % 2 === 1,
+                completed_at: null,
+              })}
+            />,
+          );
+        });
+        expect(visibleParts()).toEqual(expected.slice(0, count));
+        expect(container.querySelector("[data-process-collapsible]")).toBeNull();
+        firstText ??= container.querySelector("[data-part]");
+        expect(container.querySelector("[data-part]")).toBe(firstText);
+      }
+
+      const completed = parts.map((part) =>
+        part.type === "tool_call" ? { ...part, status: "completed" as const } : part,
+      );
+      await act(async () => {
+        root?.render(
+          <AssistantMessageView
+            message={assistantMessage({
+              parts: completed,
+              streaming: false,
+              completed_at: null,
+            })}
+          />,
+        );
+      });
+      expect(visibleParts()).toEqual(expected);
+      expect(container.querySelector("[data-part]")).toBe(firstText);
+
+      await act(async () => {
+        root?.render(<AssistantMessageView message={assistantMessage({ parts: completed })} />);
+      });
+      expect(container.querySelector("[data-process-collapsible]")).not.toBeNull();
+      expect(visibleParts()).toEqual(expected);
+    });
+  }
 
   it("auto-collapses process after settle via layout effect, not during render", async () => {
     const container = document.createElement("div");

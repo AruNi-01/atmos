@@ -387,7 +387,7 @@ function WorkspaceCenterFrameImpl({
   // Multi-pane: keep every pane-active surface visible/mounted, including warm
   // frames. Slot geometry is only applied when this frame is URL-synced so
   // active-context boxes cannot paint a warm workspace incorrectly.
-  const multiActiveTabIds = activeTabIds && activeTabIds.length > 0 ? activeTabIds : null;
+  const multiActiveTabIds = activeTabIds ?? null;
 
   const retainSurface = (tabId: string, urlVisible: boolean) => {
     if (isUrlSyncedActive) return urlVisible;
