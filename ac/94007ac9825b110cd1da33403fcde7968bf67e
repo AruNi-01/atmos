@@ -1,0 +1,71 @@
+apps/web/src/app-shell/workspace-center-frame-equality.ts
+  s_baead2ce5b66ff::t_89d6b632ac37db 51-52
+  s_baead2ce5b66ff::t_e2515a90811779 133-134
+apps/web/src/app-shell/workspace-surface-policies.ts
+  s_baead2ce5b66ff::t_89d6b632ac37db 143-144,150,169,171
+apps/web/src/features/agent/lib/__tests__/assistant-process-parts.test.ts
+  s_c7e57342a630ca::t_f379ebeb65b6bd 11,25-26
+apps/web/src/features/project/store/use-initial-projects-loading.ts
+  s_baead2ce5b66ff::t_89d6b632ac37db 6-8
+apps/web/src/features/connection/lib/hosted-connection.ts
+  s_baead2ce5b66ff::t_2cf99287072131 84-88
+  s_baead2ce5b66ff::t_89d6b632ac37db 96
+apps/web/src/app-shell/workspace-center-frame.tsx
+  s_baead2ce5b66ff::t_89d6b632ac37db 390
+packages/agent-transcript/src/assistant-process-parts.test.ts
+  s_c7e57342a630ca::t_f379ebeb65b6bd 1-35
+apps/web/src/app-shell/__tests__/workspace-surface-policies.test.ts
+  s_baead2ce5b66ff::t_2cf99287072131 6-9,145-147,152-153
+  s_baead2ce5b66ff::t_89d6b632ac37db 144,148-151,154-166
+  s_baead2ce5b66ff::t_9cdb42046ba8cc 5
+apps/web/src/app-shell/CenterStagePanels.tsx
+  s_baead2ce5b66ff::t_89d6b632ac37db 532
+apps/web/src/app-shell/center-pane/center-keep-alive-panel-style.ts
+  s_baead2ce5b66ff::t_89d6b632ac37db 36-37
+apps/web/src/features/agent/components/AssistantMessageView.tsx
+  s_c7e57342a630ca::t_7d4efb898e9e47 321-322,325
+packages/agent-transcript/src/assistant-process-parts.ts
+  s_c7e57342a630ca::t_7d4efb898e9e47 45,57-58
+apps/web/src/features/agent/components/__tests__/assistant-message-process-collapse.test.ts
+  s_c7e57342a630ca::t_7d4efb898e9e47 72
+apps/web/src/providers/app/websocket-provider.tsx
+  s_baead2ce5b66ff::t_89d6b632ac37db 15,110
+apps/web/src/app-shell/__tests__/workspace-center-frame.test.ts
+  s_baead2ce5b66ff::t_e2515a90811779 121-123,125-127
+  s_baead2ce5b66ff::t_e4d84d151ed24b 124
+apps/mobile/src/features/agent-chat/assistant-process.test.ts
+  s_c7e57342a630ca::t_cb71247395579c 111,117,120-121
+apps/web/src/features/agent/lib/__tests__/tool-group.test.ts
+  s_c7e57342a630ca::t_f379ebeb65b6bd 165,174-176
+apps/web/src/app-shell/__tests__/center-keep-alive-panel-style.test.ts
+  s_baead2ce5b66ff::t_89d6b632ac37db 38-44
+apps/web/src/features/welcome/components/HostedWelcomeGate.tsx
+  s_baead2ce5b66ff::t_89d6b632ac37db 97-99
+apps/web/src/features/agent/components/__tests__/assistant-message-process-collapse.dom.test.tsx
+  s_c7e57342a630ca::t_f379ebeb65b6bd 14-15,67-73,82-92,94-98,131-133,173,198-267
+  s_c7e57342a630ca::t_5781451f98d9fb 268
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ac94007ac9825b110cd1da33403fcde7968bf67e",
+  "prompts": {},
+  "sessions": {
+    "s_baead2ce5b66ff": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1cfad-720b-7c41-b738-c099d364077d",
+        "model": "codex/gpt-6.1-sol"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_c7e57342a630ca": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1cfc1-741c-7cf3-99d9-6ef6ef2fa9fa",
+        "model": "codex/gpt-6.1-sol"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
