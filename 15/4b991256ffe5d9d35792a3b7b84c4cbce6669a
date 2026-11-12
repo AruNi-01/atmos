@@ -1,0 +1,54 @@
+apps/web/src/features/terminal/lib/__tests__/tui-mouse-scrollback-policy.test.ts
+  s_5fdcb35a9c0e2d::t_89270734809a28 7,23-24,27,30,33-46
+  s_5fdcb35a9c0e2d::t_a24154535b1839 25-26,31-32
+crates/core-engine/src/tmux/capture.rs
+  s_5fdcb35a9c0e2d::t_c06c5521117aa7 94-109
+  s_5fdcb35a9c0e2d::t_a493dcc124f734 454-484,488-534,541-543,547-562
+  s_5fdcb35a9c0e2d::t_edd87f1d5afbb2 3,6-14,21,39-41,311-312,394
+  s_5fdcb35a9c0e2d::t_426994e9b0b8f5 4-5,280-281,313-314,380-381,386-387,446-450,485-487,535-540,544-546,563-566
+  s_5fdcb35a9c0e2d::t_89270734809a28 423-445,451,453
+  s_5fdcb35a9c0e2d::t_7268868dfcf046 452
+packages/shared/src/terminal/protocol.ts
+  s_5fdcb35a9c0e2d::t_89270734809a28 14,16
+crates/core-engine/src/tmux/types.rs
+  s_5fdcb35a9c0e2d::t_c06c5521117aa7 56-58
+  s_5fdcb35a9c0e2d::t_170e41b7ccba20 104
+apps/web/src/features/terminal/lib/tui-mouse-wheel.ts
+  s_5fdcb35a9c0e2d::t_8a0883e2852bcb 116-117,177,188,195-196,200-201,203,215,269-272,274-280
+apps/web/src/features/terminal/components/Terminal.tsx
+  s_5fdcb35a9c0e2d::t_89270734809a28 683,1284-1285
+  s_5fdcb35a9c0e2d::t_8a0883e2852bcb 1043,1122,1636
+packages/shared/src/terminal/snapshot.ts
+  s_5fdcb35a9c0e2d::t_edd87f1d5afbb2 70-71,75
+apps/web/src/features/terminal/lib/terminal-runtime-utils.ts
+  s_5fdcb35a9c0e2d::t_edd87f1d5afbb2 7
+crates/core-engine/src/tmux/locale.rs
+  s_5fdcb35a9c0e2d::t_edd87f1d5afbb2 59-62,67
+crates/core-engine/src/tmux/mouse_modes.rs
+  s_5fdcb35a9c0e2d::t_89270734809a28 544,547-548,552,558-581
+  s_5fdcb35a9c0e2d::t_edd87f1d5afbb2 83-120,432-433,442-443
+  s_5fdcb35a9c0e2d::t_170e41b7ccba20 76-77,122-123
+  s_5fdcb35a9c0e2d::t_c06c5521117aa7 121,124-127,129-136,582-592,597-600
+  s_5fdcb35a9c0e2d::t_9ea6980f045bd5 128,593-596
+apps/web/src/features/terminal/lib/__tests__/tui-mouse-wheel.test.ts
+  s_5fdcb35a9c0e2d::t_c20abed0d9380c 4,10,13-81
+  s_5fdcb35a9c0e2d::t_ad1792e8c6c953 82
+packages/shared/src/terminal/snapshot.test.ts
+  s_5fdcb35a9c0e2d::t_89270734809a28 57,63,104-113
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "154b991256ffe5d9d35792a3b7b84c4cbce6669a",
+  "prompts": {},
+  "sessions": {
+    "s_5fdcb35a9c0e2d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1cfcf-bccc-74a0-81b9-e7d4df48f1c3",
+        "model": "codex/gpt-6.1-sol"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
