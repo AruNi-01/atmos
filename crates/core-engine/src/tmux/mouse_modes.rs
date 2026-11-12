@@ -73,14 +73,67 @@ impl Eq for MouseModeState {}
 /// tmux pane user-option key for persisted mouse tracking state.
 pub const ATMOS_MOUSE_TRACKING_OPTION: &str = "@atmos_mouse_tracking";
 
-/// Default restore when we know the pane needs mouse but never observed modes
-/// (first attach to an already-running alt-screen / inline TUI), or when a
-/// persisted inactive observation is treated as stale under alt/inline policy.
+/// Default restore when pane flags are unavailable and we never observed modes
+/// (first attach to an already-running alt-screen / inline TUI).
 ///
 /// Includes `1003` so hover works; xterm.js last-wins among event modes.
 pub const DEFAULT_TUI_MOUSE_RESTORE: &str = "\x1b[?1000h\x1b[?1002h\x1b[?1003h\x1b[?1006h";
 
 impl MouseModeState {
+    /// Read tmux's current pane modes, independently of stream observation.
+    ///
+    /// Order: standard (1000), button (1002), all-motion (1003), UTF-8, SGR.
+    /// Empty/unsupported format fields are unknown, not an observed disable.
+    pub(super) fn from_tmux_flags(raw: &str) -> Option<Self> {
+        let flags = raw
+            .trim()
+            .split('|')
+            .map(|flag| match flag {
+                "0" => Some(false),
+                "1" => Some(true),
+                _ => None,
+            })
+            .collect::<Option<Vec<_>>>()?;
+        let [standard, button, all, utf8, sgr] = flags.as_slice() else {
+            return None;
+        };
+        Some(Self {
+            event: if *all {
+                MouseEventMode::Any
+            } else if *button {
+                MouseEventMode::Button
+            } else if *standard {
+                MouseEventMode::Normal
+            } else {
+                MouseEventMode::None
+            },
+            format: if *sgr {
+                MouseFormat::Sgr
+            } else if *utf8 {
+                MouseFormat::Utf8
+            } else {
+                MouseFormat::Default
+            },
+            ..Self::default()
+        })
+    }
+
+    /// Current pane flags decide whether mouse is active. Preserve stream-only
+    /// details (focus and unsupported encodings when tmux has no encoding)
+    /// while the event mode still matches. Never revive disabled mouse.
+    pub(super) fn with_observed_details(mut self, observed: Option<Self>) -> Self {
+        if let Some(observed) = observed {
+            self.focus_event = observed.focus_event;
+            if self.event == observed.event
+                && self.format == MouseFormat::Default
+                && matches!(observed.format, MouseFormat::Urxvt | MouseFormat::SgrPixels)
+            {
+                self.format = observed.format;
+            }
+        }
+        self
+    }
+
     pub fn is_active(&self) -> bool {
         self.event != MouseEventMode::None
     }
@@ -376,9 +429,8 @@ impl fmt::Display for MouseModeState {
 /// Resolve what the frontend should inject after snapshot hydrate.
 ///
 /// - Observed active state → exact sequence
-/// - Observed inactive (`none`) → still restore when alt-screen or known
-///   inline mouse TUI (stale/incomplete observation must not steal the wheel
-///   from an active TUI); otherwise no restore
+/// - Observed inactive (`none`) → preserve the app's disabled mouse state,
+///   including on the alternate screen
 /// - Never observed → alt-screen / inline-TUI heuristic with full default
 pub fn resolve_mouse_tracking_restore(
     observed: Option<MouseModeState>,
@@ -387,7 +439,8 @@ pub fn resolve_mouse_tracking_restore(
 ) -> (bool, Option<String>) {
     match observed {
         Some(state) if state.is_active() => (true, Some(state.restore_sequence())),
-        Some(_) | None => {
+        Some(_) => (false, None),
+        None => {
             if super::types::should_restore_tui_mouse_tracking(alternate, current_command) {
                 (true, Some(DEFAULT_TUI_MOUSE_RESTORE.to_string()))
             } else {
@@ -488,24 +541,63 @@ mod tests {
     }
 
     #[test]
-    fn resolve_observed_none_still_restores_on_alternate() {
-        // APP-054: bare inactive must not suppress alt-screen TUI restore.
+    fn resolve_observed_none_preserves_keyboard_only_alternate_screen() {
         let (restore, seq) =
             resolve_mouse_tracking_restore(Some(MouseModeState::default()), true, "vim");
-        assert!(restore);
-        assert_eq!(seq.as_deref(), Some(DEFAULT_TUI_MOUSE_RESTORE));
-        assert!(seq.unwrap().contains("1003"));
+        assert!(!restore);
+        assert!(seq.is_none());
     }
 
     #[test]
-    fn resolve_observed_none_still_restores_inline_mouse_tui() {
+    fn resolve_observed_none_overrides_inline_command_heuristic() {
         let (restore, seq) = resolve_mouse_tracking_restore(
             Some(MouseModeState::default()),
             false,
             "grok-0.2.103-ma",
         );
-        assert!(restore);
-        assert_eq!(seq.as_deref(), Some(DEFAULT_TUI_MOUSE_RESTORE));
+        assert!(!restore);
+        assert!(seq.is_none());
+    }
+
+    #[test]
+    fn tmux_pane_flags_distinguish_disabled_and_unknown() {
+        let disabled = MouseModeState::from_tmux_flags("0|0|0|0|0").unwrap();
+        assert!(!disabled.is_active());
+        assert!(MouseModeState::from_tmux_flags("||||").is_none());
+        assert!(MouseModeState::from_tmux_flags("0|0").is_none());
+        assert!(MouseModeState::from_tmux_flags("0|0|garbage|0|0").is_none());
+    }
+
+    #[test]
+    fn tmux_pane_flags_restore_current_event_and_encoding() {
+        for (flags, expected) in [
+            ("1|0|0|0|1", "\x1b[?1000h\x1b[?1006h"),
+            ("0|1|0|0|1", "\x1b[?1000h\x1b[?1002h\x1b[?1006h"),
+            ("0|0|1|0|1", DEFAULT_TUI_MOUSE_RESTORE),
+            ("1|0|0|1|0", "\x1b[?1000h\x1b[?1005h"),
+        ] {
+            let state = MouseModeState::from_tmux_flags(flags).unwrap();
+            assert_eq!(state.restore_sequence(), expected);
+        }
+    }
+
+    #[test]
+    fn pane_flags_keep_stream_only_details_without_reviving_disabled_mouse() {
+        let mut observed = MouseModeState::default();
+        observed.observe_bytes(b"\x1b[?1003h\x1b[?1016h\x1b[?1004h");
+        let active = MouseModeState::from_tmux_flags("0|0|1|0|0")
+            .unwrap()
+            .with_observed_details(Some(observed.clone()));
+        assert_eq!(active.format, MouseFormat::SgrPixels);
+        assert!(active.focus_event);
+        let sgr = MouseModeState::from_tmux_flags("0|0|1|0|1")
+            .unwrap()
+            .with_observed_details(Some(observed.clone()));
+        assert_eq!(sgr.format, MouseFormat::Sgr);
+        let inactive = MouseModeState::from_tmux_flags("0|0|0|0|0")
+            .unwrap()
+            .with_observed_details(Some(observed));
+        assert!(!inactive.is_active());
     }
 
     #[test]

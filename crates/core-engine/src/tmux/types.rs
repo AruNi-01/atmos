@@ -53,8 +53,9 @@ pub struct TmuxPaneSnapshot {
     pub alternate: bool,
     /// Whether the frontend should re-enable TUI mouse tracking after reattach.
     ///
-    /// `capture-pane` restores cells, not DEC modes. Prefer modes observed on
-    /// the live stream and persisted as `@atmos_mouse_tracking`. Fall back to:
+    /// `capture-pane` restores cells, not DEC modes. Prefer current pane mouse
+    /// flags, then stream modes persisted as `@atmos_mouse_tracking`. An
+    /// observed inactive state remains inactive. When unavailable, fall back to:
     /// - alternate screen (standard full-screen TUIs), or
     /// - known **inline** mouse TUIs ([`is_inline_mouse_tui_command`]).
     ///
@@ -100,7 +101,7 @@ pub fn is_inline_mouse_tui_command(cmd: &str) -> bool {
     name == "grok" || name.starts_with("grok-")
 }
 
-/// Decide whether reattach hydration should re-enable xterm mouse tracking.
+/// Fallback mouse policy when neither pane flags nor observed modes are available.
 pub fn should_restore_tui_mouse_tracking(alternate: bool, current_command: &str) -> bool {
     if alternate {
         return true;

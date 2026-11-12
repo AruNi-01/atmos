@@ -67,15 +67,12 @@ export function shouldRestoreTuiMouseTracking(
   ) {
     return true;
   }
-  // Fullscreen TUIs always need mouse after reattach even if a stale
-  // restore_mouse_tracking=false was persisted (inactive observation lag).
-  if (snapshot.alternate === true) {
-    return true;
-  }
+  // Current servers read the pane's actual DEC mouse modes. An alternate
+  // screen alone does not mean the application accepts mouse reports.
   if (typeof snapshot.restore_mouse_tracking === "boolean") {
     return snapshot.restore_mouse_tracking;
   }
-  return false;
+  return snapshot.alternate === true;
 }
 
 /** Exact or default DECSET sequence for post-hydrate mouse restore. */

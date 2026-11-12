@@ -4,7 +4,7 @@ import {
   applyTuiMouseScrollbackPolicy,
   CLEAR_XTERM_SCROLLBACK,
   discardXtermScrollbackWhileMouseTui,
-  shouldEnableTuiMouseOnCommandStart,
+  mouseTrackingRestoreSequence,
 } from "../terminal-runtime-utils";
 import { DEFAULT_TERMINAL_SCROLLBACK } from "../theme";
 import { isInlineMouseTuiScrollbackSurface } from "../tui-mouse-wheel";
@@ -20,14 +20,30 @@ function makeTerm(scrollback: number) {
   };
 }
 
-describe("shouldEnableTuiMouseOnCommandStart", () => {
-  it("does not synthesize mouse on the normal buffer before a TUI enters alternate screen", () => {
-    expect(shouldEnableTuiMouseOnCommandStart("normal", false)).toBe(false);
+describe("mouseTrackingRestoreSequence", () => {
+  it("keeps mouse disabled for scrollback-mode agents", () => {
+    expect(mouseTrackingRestoreSequence({ alternate: false, restore_mouse_tracking: false })).toBe(
+      "",
+    );
   });
 
-  it("retains mouse already established by alternate screen or a live stream", () => {
-    expect(shouldEnableTuiMouseOnCommandStart("alternate", false)).toBe(true);
-    expect(shouldEnableTuiMouseOnCommandStart("normal", true)).toBe(true);
+  it("does not turn a keyboard-only full-screen app into a mouse app on reconnect", () => {
+    expect(mouseTrackingRestoreSequence({ alternate: true, restore_mouse_tracking: false })).toBe(
+      "",
+    );
+  });
+
+  it("restores the exact mouse protocol for full-screen and inline apps", () => {
+    const sequence = "\x1b[?1002h\x1b[?1006h";
+    for (const alternate of [true, false]) {
+      expect(
+        mouseTrackingRestoreSequence({
+          alternate,
+          restore_mouse_tracking: true,
+          mouse_tracking_sequence: sequence,
+        }),
+      ).toBe(sequence);
+    }
   });
 });
 

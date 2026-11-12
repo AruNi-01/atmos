@@ -41,7 +41,6 @@ import {
   CLEAR_XTERM_SCROLLBACK,
   DISABLE_TUI_MOUSE_TRACKING,
   discardXtermScrollbackWhileMouseTui,
-  ENABLE_TUI_MOUSE_TRACKING,
   mouseTrackingRestoreSequence,
   SafeClipboardProvider,
   cloneTerminalWriteChunk,
@@ -52,7 +51,6 @@ import {
   isTerminalContainerVisible,
   markTerminalSessionLive,
   scheduleTerminalSessionDead,
-  shouldEnableTuiMouseOnCommandStart,
   wasTerminalSessionLive,
   isTerminalEmulatorReport,
   isUsableTerminalGrid,
@@ -309,9 +307,6 @@ const Terminal = ({
   // Track last emitted title and pending CMD_START timer for debounce/dedup
   const lastTitleRef = useRef<string>("");
   const cmdStartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Snapshot asked for TUI mouse; used by real shell CMD_START belt-and-suspenders.
-  const tuiMouseDesiredRef = useRef(false);
-  const lastMouseRestoreSequenceRef = useRef("");
   // Debounce native OSC 0/2 so shell preexec (`ls`) → precmd (path) never paints.
   const oscSettleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingOscRawRef = useRef<string | undefined>(undefined);
@@ -685,8 +680,7 @@ const Terminal = ({
       outputTextDecoderRef.current = new TextDecoder();
       const useAlternateScreen = snapshot.alternate === true;
       // capture-pane restores cells, not DEC mouse modes. Prefer the exact
-      // sequence observed on the live stream; fall back to flag / alternate
-      // heuristic with the full default (includes 1003 hover).
+      // sequence from the pane; explicit disabled state must remain disabled.
       const mouseRestore = mouseTrackingRestoreSequence(snapshot);
       const screenMode = useAlternateScreen ? "\x1b[?1049h" : "\x1b[?1049l";
       // Always erase display; clear scrollback for non-alt. Inline mouse TUIs
@@ -701,8 +695,6 @@ const Terminal = ({
       const cursorRestore = `\x1b[${snapshot.cursor_y + 1};${snapshot.cursor_x + 1}H`;
       // Authoritative mouse for reattach is the snapshot sequence. Synthetic
       // reattach title uses OSC 9998 (title-only) so it cannot race-clear modes.
-      tuiMouseDesiredRef.current = mouseRestore.length > 0;
-      lastMouseRestoreSequenceRef.current = mouseRestore;
       term.reset();
       if (
         isUsableTerminalGrid(snapshot.cols, snapshot.rows) &&
@@ -1048,7 +1040,7 @@ const Terminal = ({
     let selectionAnchorCleanup: (() => void) | null = null;
     let visibilityPollTimer: ReturnType<typeof setTimeout> | null = null;
     let connectRafId = 0;
-    let mouseClassObserver: MutationObserver | null = null;
+    let tuiMouseWheelDisposable: { dispose: () => void } | null = null;
     let inputQueueAlive = true;
     let inputCoalesceQueue: ReturnType<typeof createTerminalInputCoalesceQueue> | null = null;
     let hostForMouseChrome: HTMLElement | null = null;
@@ -1127,27 +1119,9 @@ const Terminal = ({
           terminal.write(CLEAR_XTERM_SCROLLBACK);
         }
       };
-      attachTuiMouseWheelMultiplier(terminal, {
+      tuiMouseWheelDisposable = attachTuiMouseWheelMultiplier(terminal, {
         onMouseTrackingActiveChange: syncTuiMouseChrome,
       });
-      // xterm toggles `.enable-mouse-events` when DEC mouse modes change; observe
-      // only that class so focus/blur (`.focus`) does not re-enter chrome sync.
-      if (terminal.element && typeof MutationObserver !== "undefined") {
-        let lastHadMouseClass = terminal.element.classList.contains("enable-mouse-events");
-        mouseClassObserver = new MutationObserver(() => {
-          const el = terminal.element;
-          if (!el) return;
-          const hasMouseClass = el.classList.contains("enable-mouse-events");
-          if (hasMouseClass === lastHadMouseClass) return;
-          lastHadMouseClass = hasMouseClass;
-          syncTuiMouseChrome(isTerminalMouseTrackingActive(terminal));
-        });
-        mouseClassObserver.observe(terminal.element, {
-          attributes: true,
-          attributeFilter: ["class"],
-        });
-      }
-      syncTuiMouseChrome(isTerminalMouseTrackingActive(terminal));
 
       const readCurrentSelectionSnapshot = (): TerminalSelectionSnapshot | null => {
         const selectedText = terminal.hasSelection() ? terminal.getSelection() : "";
@@ -1307,19 +1281,8 @@ const Terminal = ({
 
       const applyDynamicTitleCmdStart = (payload: string) => {
         const title = extractCommandName(payload);
-        // CMD_START arrives before the process can enter alternate screen or
-        // enable DEC mouse. Reassert only state already observed/restored; a
-        // command name alone must never trigger the inline scrollback policy.
-        const wantMouse = shouldEnableTuiMouseOnCommandStart(
-          terminal.buffer.active.type,
-          tuiMouseDesiredRef.current,
-        );
-        if (wantMouse) {
-          tuiMouseDesiredRef.current = true;
-          const seq = lastMouseRestoreSequenceRef.current || ENABLE_TUI_MOUSE_TRACKING;
-          terminal.write(seq);
-          syncTuiMouseChrome(true);
-        }
+        // The application owns screen and mouse modes. A shell title update
+        // must not synthesize mouse reporting or revive a stale snapshot mode.
         if (cmdStartTimerRef.current) {
           clearTimeout(cmdStartTimerRef.current);
         }
@@ -1337,8 +1300,6 @@ const Terminal = ({
           // Real shell idle: clear mouse only when not on alternate screen.
           // Reattach inject must NOT take this path (uses OSC 9998).
           if (shouldDisableTuiMouseOnCmdEnd(terminal.buffer.active.type)) {
-            tuiMouseDesiredRef.current = false;
-            lastMouseRestoreSequenceRef.current = "";
             // Disable mouse only. Scrollback clear (if any) runs inside
             // syncTuiMouseChrome when leaving the inline zero-scrollback policy —
             // not on every shell precmd (that wiped normal history).
@@ -1672,8 +1633,7 @@ const Terminal = ({
       inputQueueAlive = false;
       inputCoalesceQueue?.clear();
       inputCoalesceQueue = null;
-      mouseClassObserver?.disconnect();
-      mouseClassObserver = null;
+      tuiMouseWheelDisposable?.dispose();
       hostForMouseChrome?.classList.remove("atmos-tui-mouse-active");
       hostForMouseChrome = null;
       terminalInputCleanupRef.current?.();

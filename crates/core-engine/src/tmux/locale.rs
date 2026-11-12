@@ -56,14 +56,15 @@ impl TmuxEngine {
     ///   macOS and leaves stale cells behind in tmux's own pane state.
     /// - **Alternate screen enabled**: TUI apps use the alternate buffer
     ///   normally instead of leaking frames into scrollback.
-    /// - **Mouse OFF**: xterm.js handles all scrolling locally (native scrollbar,
-    ///   smooth scroll, 10K line buffer). TUI apps that enable their own mouse
-    ///   tracking still work because they send escape sequences directly.
+    /// - **Mouse ON**: advertise mouse support to apps that inspect tmux's
+    ///   session options (including Codex). Control-mode output still carries
+    ///   the app's own DEC modes, and input uses raw `send-keys -H`, so xterm.js
+    ///   retains local scrollback until the app requests mouse reporting.
     fn apply_standard_config(&self) {
         let _ = self.run_tmux(&["set-option", "-g", "status", "off"]);
         let _ = self.run_tmux(&["set-option", "-g", "default-terminal", "xterm-256color"]);
         let _ = self.run_tmux(&["set-option", "-g", "allow-passthrough", "on"]);
-        let _ = self.run_tmux(&["set-option", "-g", "mouse", "off"]);
+        let _ = self.run_tmux(&["set-option", "-g", "mouse", "on"]);
         let _ = self.run_tmux(&["set-option", "-gu", "terminal-features"]);
         let _ = self.run_tmux(&["set-option", "-ga", "terminal-features", "xterm*:RGB"]);
         let _ = self.run_tmux(&["set-option", "-gu", "terminal-overrides"]);

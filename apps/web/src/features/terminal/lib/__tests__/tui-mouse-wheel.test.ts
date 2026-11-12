@@ -1,12 +1,84 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  attachTuiMouseWheelMultiplier,
   createTuiWheelDistanceState,
   resolveTuiWheelDistanceRows,
   resolveTuiWheelReportCount,
   shouldDisableTuiMouseOnCmdEnd,
   TUI_WHEEL_MAX_REPORTS_PER_EVENT,
+  type TuiWheelTerminalLike,
 } from "../tui-mouse-wheel";
+
+describe("terminal mouse and screen mode detection", () => {
+  function createTerminal() {
+    const listeners = new Set<() => void>();
+    const terminal: TuiWheelTerminalLike = {
+      element: undefined,
+      rows: 30,
+      modes: { mouseTrackingMode: "none" },
+      buffer: { active: { type: "normal" } },
+      attachCustomWheelEventHandler() {},
+      onWriteParsed(listener) {
+        listeners.add(listener);
+        return { dispose: () => listeners.delete(listener) };
+      },
+    };
+    return {
+      terminal,
+      parsed() {
+        for (const listener of listeners) listener();
+      },
+    };
+  }
+
+  test("reacts to mouse protocols and screen-only changes without a wheel gesture", () => {
+    const { terminal, parsed } = createTerminal();
+    const surfaces: string[] = [];
+    const subscription = attachTuiMouseWheelMultiplier(terminal, {
+      onMouseTrackingActiveChange: (active) => {
+        surfaces.push(`${terminal.buffer.active.type}:${active}`);
+      },
+    });
+    parsed();
+    terminal.modes.mouseTrackingMode = "any";
+    parsed();
+    terminal.buffer.active.type = "alternate";
+    parsed();
+    terminal.buffer.active.type = "normal";
+    parsed();
+    terminal.modes.mouseTrackingMode = "none";
+    parsed();
+    expect(surfaces).toEqual([
+      "normal:false",
+      "normal:true",
+      "alternate:true",
+      "normal:true",
+      "normal:false",
+    ]);
+    subscription.dispose();
+    terminal.modes.mouseTrackingMode = "any";
+    parsed();
+    expect(surfaces).toHaveLength(5);
+  });
+
+  test("does not treat an alt-screen exit followed by mouse disable as an inline TUI", () => {
+    const { terminal, parsed } = createTerminal();
+    terminal.buffer.active.type = "alternate";
+    terminal.modes.mouseTrackingMode = "any";
+    const surfaces: string[] = [];
+    const subscription = attachTuiMouseWheelMultiplier(terminal, {
+      onMouseTrackingActiveChange: (active) => {
+        surfaces.push(`${terminal.buffer.active.type}:${active}`);
+      },
+    });
+    terminal.buffer.active.type = "normal";
+    terminal.modes.mouseTrackingMode = "none";
+    parsed();
+    expect(surfaces).toEqual(["alternate:true", "normal:false"]);
+    subscription.dispose();
+  });
+});
 
 describe("resolveTuiWheelDistanceRows", () => {
   test("maps pixel distance using cell height", () => {

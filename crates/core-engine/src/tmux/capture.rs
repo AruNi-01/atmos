@@ -1,14 +1,24 @@
 use crate::error::Result;
 
-use super::{resolve_mouse_tracking_restore, TmuxEngine, TmuxPaneCapturePage, TmuxPaneSnapshot};
+use super::{
+    resolve_mouse_tracking_restore, MouseModeState, TmuxEngine, TmuxPaneCapturePage,
+    TmuxPaneSnapshot,
+};
 
-#[derive(Debug, Clone, Copy)]
+const PANE_METADATA_FORMAT: &str = concat!(
+    "#{cursor_x}|#{cursor_y}|#{pane_width}|#{pane_height}|#{alternate_on}|",
+    "#{mouse_standard_flag}|#{mouse_button_flag}|#{mouse_all_flag}|",
+    "#{mouse_utf8_flag}|#{mouse_sgr_flag}"
+);
+
+#[derive(Debug, Clone)]
 pub(super) struct PaneMetadata {
     pub cursor_x: u32,
     pub cursor_y: u32,
     pub cols: u32,
     pub rows: u32,
     pub alternate: bool,
+    pub mouse_modes: Option<MouseModeState>,
 }
 
 pub(super) fn parse_pane_metadata(raw: &str) -> PaneMetadata {
@@ -26,6 +36,9 @@ pub(super) fn parse_pane_metadata(raw: &str) -> PaneMetadata {
         cols: parse_part(2),
         rows: parse_part(3),
         alternate: parts.get(4).is_some_and(|value| value.trim() == "1"),
+        mouse_modes: parts
+            .get(5..)
+            .and_then(|flags| MouseModeState::from_tmux_flags(&flags.join("|"))),
     }
 }
 
@@ -78,6 +91,22 @@ fn append_hydration_marker(args: &mut Vec<String>, marker: Option<(&str, &str)>)
 }
 
 impl TmuxEngine {
+    fn snapshot_mouse_modes(
+        &self,
+        session_name: &str,
+        window_index: u32,
+        current: Option<MouseModeState>,
+    ) -> Option<MouseModeState> {
+        let observed = self
+            .get_pane_mouse_tracking(session_name, window_index)
+            .ok()
+            .flatten();
+        match current {
+            Some(current) => Some(current.with_observed_details(observed)),
+            None => observed,
+        }
+    }
+
     /// Capture pane content (scrollback + visible) for reconnection.
     ///
     /// Uses `-e` to preserve ANSI escape sequences (colors, formatting) and
@@ -248,13 +277,8 @@ impl TmuxEngine {
         take_lines: i32,
     ) -> Result<TmuxPaneCapturePage> {
         let target = format!("{}:{}.0", session_name, window_index);
-        let metadata = self.run_tmux(&[
-            "display-message",
-            "-t",
-            &target,
-            "-p",
-            "#{cursor_x}|#{cursor_y}|#{pane_width}|#{pane_height}|#{alternate_on}",
-        ])?;
+        let metadata =
+            self.run_tmux(&["display-message", "-t", &target, "-p", PANE_METADATA_FORMAT])?;
         let metadata = parse_pane_metadata(&metadata);
         let take = take_lines.max(1);
         let skip = skip_from_bottom.max(0);
@@ -284,10 +308,10 @@ impl TmuxEngine {
         let current_command = self
             .get_pane_current_command(session_name, window_index)
             .unwrap_or_default();
-        let observed = self
-            .get_pane_mouse_tracking(session_name, window_index)
-            .ok()
-            .flatten();
+        // Pane flags are current even if an app changed modes while no client
+        // was observing, or the persisted stream observation is stale.
+        let observed =
+            self.snapshot_mouse_modes(session_name, window_index, metadata.mouse_modes.clone());
         let (restore_mouse_tracking, mouse_tracking_sequence) =
             resolve_mouse_tracking_restore(observed, metadata.alternate, &current_command);
 
@@ -353,33 +377,21 @@ impl TmuxEngine {
         marker: Option<(&str, &str)>,
     ) -> Result<TmuxPaneSnapshot> {
         let target = format!("{}:{}.0", session_name, window_index);
-        let metadata = self.run_tmux(&[
-            "display-message",
-            "-t",
-            &target,
-            "-p",
-            "#{cursor_x}|#{cursor_y}|#{pane_width}|#{pane_height}|#{alternate_on}",
-        ])?;
+        let metadata =
+            self.run_tmux(&["display-message", "-t", &target, "-p", PANE_METADATA_FORMAT])?;
         let metadata = parse_pane_metadata(&metadata);
         let current_command = self
             .get_pane_current_command(session_name, window_index)
             .unwrap_or_default();
-        let observed = self
-            .get_pane_mouse_tracking(session_name, window_index)
-            .ok()
-            .flatten();
+        let observed =
+            self.snapshot_mouse_modes(session_name, window_index, metadata.mouse_modes.clone());
         let (restore_mouse_tracking, mouse_tracking_sequence) =
             resolve_mouse_tracking_restore(observed, metadata.alternate, &current_command);
 
         // Viewport-only when the pane is a TUI that will own the wheel (alt-screen
         // or inline mouse TUI). Dumping tmux history for those apps re-hydrates
         // stale TUI frames into xterm scrollback on every refresh (APP-054).
-        let viewport_only = metadata.alternate
-            || restore_mouse_tracking
-            || super::types::should_restore_tui_mouse_tracking(
-                metadata.alternate,
-                &current_command,
-            );
+        let viewport_only = metadata.alternate || restore_mouse_tracking;
         let capture_lines = if viewport_only {
             Some(metadata.rows.max(1) as i32)
         } else {
@@ -408,7 +420,150 @@ impl TmuxEngine {
 
 #[cfg(test)]
 mod tests {
-    use super::append_hydration_marker;
+    use super::{append_hydration_marker, parse_pane_metadata};
+    use crate::tmux::{MouseEventMode, MouseFormat};
+
+    #[test]
+    fn metadata_reads_mouse_modes_independently_of_alternate_screen() {
+        let fullscreen = parse_pane_metadata("3|4|120|40|1|0|0|1|0|1\n");
+        assert!(fullscreen.alternate);
+        assert_eq!((fullscreen.cols, fullscreen.rows), (120, 40));
+        let mouse = fullscreen.mouse_modes.unwrap();
+        assert_eq!(mouse.event, MouseEventMode::Any);
+        assert_eq!(mouse.format, MouseFormat::Sgr);
+
+        let inline = parse_pane_metadata("3|4|120|40|0|0|1|0|0|1");
+        assert!(!inline.alternate);
+        assert_eq!(inline.mouse_modes.unwrap().event, MouseEventMode::Button);
+
+        let keyboard_only = parse_pane_metadata("3|4|120|40|1|0|0|0|0|0");
+        assert!(!keyboard_only.mouse_modes.unwrap().is_active());
+    }
+
+    #[test]
+    fn metadata_without_supported_mouse_flags_leaves_state_unknown() {
+        assert!(parse_pane_metadata("3|4|120|40|1").mouse_modes.is_none());
+        assert!(parse_pane_metadata("3|4|120|40|1|||||")
+            .mouse_modes
+            .is_none());
+    }
+
+    #[test]
+    fn snapshots_follow_live_modes_instead_of_stale_observations() {
+        use std::time::{Duration, Instant};
+
+        use crate::tmux::{MouseModeState, TmuxEngine};
+
+        if !TmuxEngine::check_installed()
+            || !std::process::Command::new("python3")
+                .arg("--version")
+                .output()
+                .is_ok_and(|output| output.status.success())
+        {
+            return;
+        }
+        // Short socket paths also work with macOS's Unix socket path limit.
+        let dir = tempfile::Builder::new()
+            .prefix("atms")
+            .tempdir_in("/tmp")
+            .unwrap();
+        let engine = TmuxEngine::with_socket_dir(dir.path().to_owned());
+        struct ServerGuard(TmuxEngine);
+        impl Drop for ServerGuard {
+            fn drop(&mut self) {
+                let _ = self.0.run_tmux_pub(&["kill-server"]);
+            }
+        }
+        let _guard = ServerGuard(engine.clone());
+        engine
+            .run_tmux_pub(&["new-session", "-d", "-s", "modes", "sleep", "30"])
+            .unwrap();
+        engine.ensure_standard_config();
+        assert_eq!(
+            engine
+                .run_tmux_pub(&["display-message", "-p", "#{mouse}"])
+                .unwrap(),
+            "1",
+            "apps probing tmux must see mouse support"
+        );
+
+        let script = dir.path().join("modes.py");
+        std::fs::write(
+            &script,
+            r#"
+import os, tty
+tty.setraw(0)
+def render(data):
+    os.write(1, data)
+render(b"\x1b[?1049h\x1b[?1003h\x1b[?1006hfullscreen-ready")
+while True:
+    key = os.read(0, 1)
+    if key == b"i":
+        render(b"\x1b[?1003l\x1b[?1006l\x1b[?1049linline-ready\r\n")
+    elif key == b"k":
+        render(b"\x1b[?1049hkeyboard-ready")
+    elif key == b"f":
+        render(b"\x1b[?1003h\x1b[?1006hmouse-ready")
+"#,
+        )
+        .unwrap();
+        let index = engine
+            .create_window(
+                "modes",
+                "app",
+                None,
+                Some(&["python3".to_owned(), script.to_string_lossy().into_owned()]),
+                None,
+            )
+            .unwrap();
+        let snapshot_when = |marker: &str| {
+            let deadline = Instant::now() + Duration::from_secs(2);
+            loop {
+                let snapshot = engine.capture_pane_snapshot("modes", index, None).unwrap();
+                if snapshot.data.contains(marker) {
+                    break snapshot;
+                }
+                assert!(Instant::now() < deadline, "pane never rendered {marker}");
+                std::thread::sleep(Duration::from_millis(10));
+            }
+        };
+        let fullscreen = snapshot_when("fullscreen-ready");
+        assert!(fullscreen.alternate);
+        assert!(fullscreen.restore_mouse_tracking);
+        assert!(fullscreen
+            .mouse_tracking_sequence
+            .unwrap()
+            .contains("?1003h"));
+
+        let mut stale_active = MouseModeState::default();
+        stale_active.observe_bytes(b"\x1b[?1003h\x1b[?1006h");
+        engine
+            .set_pane_mouse_tracking("modes", index, &stale_active)
+            .unwrap();
+        engine.send_text_to_window("modes", index, "i").unwrap();
+        let inline = snapshot_when("inline-ready");
+        assert!(!inline.alternate);
+        assert!(!inline.restore_mouse_tracking);
+        assert!(inline.mouse_tracking_sequence.is_none());
+
+        engine.send_text_to_window("modes", index, "k").unwrap();
+        let keyboard = snapshot_when("keyboard-ready");
+        assert!(keyboard.alternate);
+        assert!(!keyboard.restore_mouse_tracking);
+
+        engine
+            .set_pane_mouse_tracking("modes", index, &MouseModeState::default())
+            .unwrap();
+        engine.send_text_to_window("modes", index, "f").unwrap();
+        assert!(snapshot_when("mouse-ready").restore_mouse_tracking);
+        assert!(
+            engine
+                .capture_pane_page("modes", index, 0, 100)
+                .unwrap()
+                .snapshot
+                .restore_mouse_tracking
+        );
+    }
 
     #[test]
     fn capture_marker_runs_after_capture_in_same_tmux_command_queue() {

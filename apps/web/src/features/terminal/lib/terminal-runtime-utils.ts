@@ -4,6 +4,7 @@ import type { TerminalPaneAgent } from "../types/index";
 
 import { isDesktopRuntime } from "@/shared/lib/desktop-runtime";
 import { DEFAULT_TERMINAL_SCROLLBACK, terminalFont } from "./theme";
+export { mouseTrackingRestoreSequence } from "@atmos/shared/terminal";
 
 const TERMINAL_FONT_REGULAR_PATH = "/fonts/HackNerdFontMono-Regular.ttf";
 const TERMINAL_FONT_BOLD_PATH = "/fonts/HackNerdFontMono-Bold.ttf";
@@ -71,41 +72,6 @@ export function discardXtermScrollbackWhileMouseTui(
 ): void {
   if (!inlineMouseTuiActive) return;
   term.write(CLEAR_XTERM_SCROLLBACK);
-}
-
-/** Prefer backend-observed sequence; else flag/alternate heuristic with full default. */
-export function mouseTrackingRestoreSequence(snapshot: {
-  alternate?: boolean;
-  restore_mouse_tracking?: boolean;
-  mouse_tracking_sequence?: string | null;
-}): string {
-  if (
-    typeof snapshot.mouse_tracking_sequence === "string" &&
-    snapshot.mouse_tracking_sequence.length > 0
-  ) {
-    return snapshot.mouse_tracking_sequence;
-  }
-  // Alternate-screen TUIs always restore (stale restore_mouse_tracking=false
-  // must not leave reattach on local xterm scrollback).
-  if (snapshot.alternate === true) {
-    return ENABLE_TUI_MOUSE_TRACKING;
-  }
-  if (snapshot.restore_mouse_tracking === true) {
-    return ENABLE_TUI_MOUSE_TRACKING;
-  }
-  return "";
-}
-
-/**
- * CMD_START runs before an application can enter alternate screen or enable
- * mouse reporting. Command names alone are not evidence that either mode is
- * active; only retain state already established by the live stream/snapshot.
- */
-export function shouldEnableTuiMouseOnCommandStart(
-  bufferType: string | undefined,
-  mouseAlreadyDesired: boolean,
-): boolean {
-  return bufferType === "alternate" || mouseAlreadyDesired;
 }
 
 let terminalFontLoadPromise: Promise<void> | null = null;

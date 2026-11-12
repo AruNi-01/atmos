@@ -54,14 +54,13 @@ describe("shouldRestoreTuiMouseTracking", () => {
     ).toBe(false);
   });
 
-  test("alternate screen always restores even if flag is false", () => {
-    // Stale inactive observation must not leave reattach on local scrollback.
+  test("honors disabled mouse reporting on the alternate screen", () => {
     expect(
       shouldRestoreTuiMouseTracking({
         alternate: true,
         restore_mouse_tracking: false,
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 });
 
@@ -102,6 +101,16 @@ describe("mouseTrackingRestoreSequence", () => {
 });
 
 describe("buildTerminalSnapshotRestorePayload", () => {
+  test("keeps keyboard-only alternate screens free of synthetic mouse modes", () => {
+    const { payload, useAlternateScreen, restoreMouseTracking } =
+      buildTerminalSnapshotRestorePayload(
+        baseSnapshot({ alternate: true, restore_mouse_tracking: false }),
+      );
+    expect(useAlternateScreen).toBe(true);
+    expect(restoreMouseTracking).toBe(false);
+    expect(payload).not.toContain(ENABLE_TUI_MOUSE_TRACKING);
+  });
+
   test("restores mouse tracking for non-alternate inline TUI snapshots", () => {
     const { payload, useAlternateScreen, restoreMouseTracking } =
       buildTerminalSnapshotRestorePayload(

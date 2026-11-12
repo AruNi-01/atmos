@@ -113,6 +113,8 @@ export type TuiWheelTerminalLike = {
   element: HTMLElement | undefined;
   rows: number;
   modes: { mouseTrackingMode: "none" | "x10" | "vt200" | "drag" | "any" };
+  buffer: { active: { type: string } };
+  onWriteParsed: (listener: () => void) => { dispose: () => void };
 };
 
 const REPLAYED_WHEEL_PROPERTY = "__atmosReplayedTuiWheel";
@@ -172,7 +174,7 @@ function cloneLineWheelEvent(event: WheelEvent): WheelEvent {
 }
 
 export type AttachTuiMouseWheelOptions = {
-  /** Fired when mouse-tracking active state may have changed (for UI chrome). */
+  /** Fired after mouse or screen mode changes have finished parsing. */
   onMouseTrackingActiveChange?: (active: boolean) => void;
 };
 
@@ -183,18 +185,22 @@ export type AttachTuiMouseWheelOptions = {
 export function attachTuiMouseWheelMultiplier(
   terminal: TuiWheelTerminalLike,
   options: AttachTuiMouseWheelOptions = {},
-): void {
+): { dispose: () => void } {
   const distanceState = createTuiWheelDistanceState();
   let pendingReports = 0;
   let pendingEvent: WheelEvent | null = null;
   let pendingTarget: EventTarget | null = null;
   let drainScheduled = false;
   let lastActive: boolean | null = null;
+  let lastBufferType: string | null = null;
+  let disposed = false;
 
   const publishActive = () => {
     const active = terminal.modes.mouseTrackingMode !== "none";
-    if (lastActive === active) return;
+    const bufferType = terminal.buffer.active.type;
+    if (lastActive === active && lastBufferType === bufferType) return;
     lastActive = active;
+    lastBufferType = bufferType;
     options.onMouseTrackingActiveChange?.(active);
   };
 
@@ -206,7 +212,7 @@ export function attachTuiMouseWheelMultiplier(
     pendingTarget = null;
     pendingEvent = null;
     pendingReports = 0;
-    if (!target || !event || count <= 0) {
+    if (disposed || !target || !event || count <= 0) {
       return;
     }
     if (terminal.modes.mouseTrackingMode === "none") {
@@ -260,8 +266,18 @@ export function attachTuiMouseWheelMultiplier(
     return false;
   });
 
-  // Initial sync (e.g. after hydrate restores mouse modes).
+  // Read final parsed state rather than DOM classes or intermediate DECSET
+  // events. An app may leave alt-screen before disabling mouse in one write;
+  // that transient normal+mouse state must not erase shell scrollback.
+  const modeListener = terminal.onWriteParsed(publishActive);
   publishActive();
+  return {
+    dispose() {
+      disposed = true;
+      modeListener.dispose();
+      terminal.attachCustomWheelEventHandler(() => true);
+    },
+  };
 }
 
 /** Whether the terminal currently reports mouse to the application. */

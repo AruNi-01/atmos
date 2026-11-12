@@ -11,9 +11,9 @@ export type TerminalSnapshot = TerminalSize & {
   /**
    * Re-enable TUI mouse tracking after reattach hydration.
    * Set by the backend when:
-   * - live stream observed active DEC mouse modes (preferred), or
+   * - current pane flags / live stream show active DEC mouse modes (preferred), or
    * - pane is on the alternate screen / known inline mouse TUI (fallback).
-   * Not set for arbitrary non-shell processes so wheel scrollback stays usable.
+   * An explicit false preserves disabled reporting, even on alternate screen.
    * Older servers omit this; clients fall back to `alternate`.
    */
   restore_mouse_tracking?: boolean;
