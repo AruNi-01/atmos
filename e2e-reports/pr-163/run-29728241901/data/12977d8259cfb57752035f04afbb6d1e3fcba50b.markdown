@@ -1,0 +1,963 @@
+# Instructions
+
+- Following Playwright test failed.
+- Explain why, be concise, respect Playwright best practices.
+- Provide a snippet of code with the fix, if possible.
+
+# Test info
+
+- Name: smoke/settings/settings-modal.e2e.ts >> smoke settings >> @smoke @stateful boots settings modal from project context route params
+- Location: tests/smoke/settings/settings-modal.e2e.ts:31:3
+
+# Error details
+
+```
+Error: Unexpected browser error output:
+- [response.404] http://localhost:30303/api/canvas/documents/Default.atmos.tldr
+```
+
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - alert [ref=e2]: Atmos E2E – ATMOS
+  - generic:
+    - region "Notifications"
+  - generic:
+    - region "Notifications"
+  - generic:
+    - region "Notifications"
+  - generic [ref=e5]:
+    - banner [ref=e6]:
+      - generic [ref=e7]:
+        - button "Collapse left sidebar" [ref=e8]:
+          - img [ref=e9]
+        - generic [ref=e12]:
+          - button "Go back" [ref=e13]:
+            - img [ref=e14]
+          - button "Go forward" [ref=e16]:
+            - img [ref=e17]
+          - button "Refresh page" [ref=e19]:
+            - img [ref=e20]
+        - generic:
+          - generic [ref=e23]: /
+          - generic [ref=e24]: Atmos E2E
+        - generic [ref=e26]:
+          - button "Open O" [ref=e27]:
+            - generic: Open
+            - generic:
+              - generic: O
+          - button [ref=e29]:
+            - img [ref=e30]
+      - generic [ref=e32]:
+        - generic [ref=e33]:
+          - status "Unable to compare the remote branch with origin/main" [ref=e34]:
+            - img [ref=e36]
+          - generic [ref=e40]: HEAD
+        - img [ref=e41]
+        - button "origin/ main" [ref=e44] [cursor=pointer]:
+          - generic [ref=e45]: origin/
+          - generic [ref=e46]: main
+          - img [ref=e47]
+      - generic [ref=e49]:
+        - button "Search" [ref=e50] [cursor=pointer]:
+          - img [ref=e51]
+          - generic [ref=e54]: Search...
+          - generic:
+            - img
+            - generic: K
+        - button "Open workspace summary" [ref=e55]:
+          - img [ref=e56]
+        - generic [ref=e58]:
+          - button "Usage" [ref=e59]:
+            - img [ref=e60]
+          - button "Open actions menu" [ref=e63]:
+            - generic [ref=e64]: ···
+          - button "Collapse right sidebar" [ref=e66]:
+            - img [ref=e67]
+    - generic [ref=e71]:
+      - complementary [ref=e74]:
+        - generic [ref=e75]:
+          - generic [ref=e76] [cursor=pointer]:
+            - generic [ref=e77]:
+              - img [ref=e78]
+              - generic [ref=e82]: Management Center
+            - img [ref=e84]
+          - generic [ref=e86]:
+            - generic [ref=e88] [cursor=pointer]:
+              - img [ref=e90]
+              - generic [ref=e93]: Workspaces
+            - generic [ref=e95] [cursor=pointer]:
+              - img [ref=e97]
+              - generic [ref=e100]: Skills
+            - generic [ref=e102] [cursor=pointer]:
+              - img [ref=e104]
+              - generic [ref=e108]: Canvas
+            - generic [ref=e110] [cursor=pointer]:
+              - img [ref=e112]
+              - generic [ref=e115]: Kanban
+            - generic [ref=e117] [cursor=pointer]:
+              - img [ref=e119]
+              - generic [ref=e121]: New Workspace
+        - tabpanel "Projects" [ref=e124]:
+          - generic [ref=e127]:
+            - generic [ref=e129]:
+              - generic [ref=e130]:
+                - button "A Atmos E2E" [ref=e131] [cursor=pointer]:
+                  - generic [ref=e132]:
+                    - generic [ref=e134]: A
+                    - generic [ref=e135]: Atmos E2E
+                - generic [ref=e137]:
+                  - button [ref=e138]:
+                    - img [ref=e139]
+                  - button [ref=e141]:
+                    - img [ref=e142]
+              - button "meowth 25s" [ref=e151] [cursor=pointer]:
+                - generic [ref=e152]:
+                  - img [ref=e154]
+                  - generic [ref=e159]: meowth
+                  - generic:
+                    - generic: 25s
+                    - button "Archive":
+                      - img
+            - status [ref=e160]
+        - generic [ref=e162]:
+          - button "Add Project" [ref=e164]:
+            - img [ref=e166]
+          - generic [ref=e168]:
+            - button [ref=e169]:
+              - img [ref=e171]
+            - button "Open Kanban" [ref=e172]:
+              - img [ref=e174]
+      - separator [ref=e176]
+      - main [ref=e178]:
+        - generic [ref=e179]:
+          - tablist [ref=e180]:
+            - tab [ref=e181] [cursor=pointer]:
+              - img [ref=e182]
+            - tab "Terminal Term Close Term" [selected] [ref=e188] [cursor=pointer]:
+              - generic [ref=e189]:
+                - img [ref=e190]
+                - button "Terminal":
+                  - img
+              - generic [ref=e193]: Term
+              - button "Close Term" [ref=e195]:
+                - img [ref=e196]
+            - generic [ref=e199]:
+              - button "New tab" [ref=e200]:
+                - img [ref=e201]
+              - button "Open tab groups" [ref=e202] [cursor=pointer]:
+                - img
+          - generic [ref=e209]:
+            - generic [ref=e211]:
+              - generic [ref=e213]:
+                - img [ref=e214]
+                - generic [ref=e216]: atmos/atmos
+              - generic [ref=e217]:
+                - button "Pin to canvas (⌘⇧P)" [ref=e218] [cursor=pointer]:
+                  - img [ref=e219]
+                - generic [ref=e222]:
+                  - generic [ref=e223]:
+                    - button "Split horizontally (⌘D)" [ref=e224] [cursor=pointer]:
+                      - img [ref=e225]
+                    - button "Split vertically (⌘⇧D)" [ref=e227] [cursor=pointer]:
+                      - img [ref=e228]
+                  - generic [ref=e230]:
+                    - button "Maximize" [ref=e231] [cursor=pointer]:
+                      - img [ref=e232]
+                    - button "Close (⌘W)" [ref=e237] [cursor=pointer]:
+                      - img [ref=e238]
+            - generic [ref=e242]:
+              - textbox "Terminal input" [ref=e248]
+              - generic [ref=e251]:
+                - generic [ref=e253]:
+                  - generic [ref=e255]:
+                    - generic: "[⌘ + (⇧ Pin) + G] Input anything to terminal (@ annotation, / command, or paste img)"
+                  - button "Send to terminal" [disabled] [ref=e257]:
+                    - img [ref=e258]
+                - button "Open agent input" [ref=e261]
+            - heading "atmos/atmos" [level=4] [ref=e265]
+      - separator [ref=e266]
+      - complementary [ref=e269]:
+        - generic [ref=e271]:
+          - tablist [ref=e272]:
+            - tab "Changes" [selected] [ref=e273] [cursor=pointer]:
+              - img [ref=e274]
+            - tab "Review" [ref=e278] [cursor=pointer]:
+              - img [ref=e279]
+            - tab "Browser" [ref=e281] [cursor=pointer]:
+              - img [ref=e282]
+            - tab "Run" [ref=e285] [cursor=pointer]:
+              - img [ref=e286]
+            - tab "Files" [ref=e288] [cursor=pointer]:
+              - img [ref=e289]
+            - tab "Pull Requests" [ref=e294] [cursor=pointer]:
+              - img [ref=e295]
+            - tab "Actions" [ref=e299] [cursor=pointer]:
+              - img [ref=e300]
+          - generic [ref=e304]:
+            - tablist [ref=e307]:
+              - tab "Files Diff Refresh changes Select changes scope Show changed files as tree" [selected] [ref=e308] [cursor=pointer]:
+                - generic [ref=e309]:
+                  - img [ref=e310]
+                  - generic [ref=e313]: Files Diff
+                - generic:
+                  - button "Refresh changes":
+                    - img
+                    - generic: Refresh
+                  - button "Select changes scope":
+                    - generic: Branch
+                    - img
+                  - button "Show changed files as tree":
+                    - img
+              - tab "Commits Refresh commits" [ref=e314] [cursor=pointer]:
+                - generic [ref=e315]:
+                  - img [ref=e316]
+                  - generic [ref=e318]: Commits
+                - generic:
+                  - button "Refresh commits":
+                    - img
+                    - generic: Refresh
+            - generic [ref=e322]:
+              - generic [ref=e323] [cursor=pointer]:
+                - generic [ref=e324]:
+                  - 'img "File: handlers.rs" [ref=e325]'
+                  - generic [ref=e326]: handlers.rs
+                  - generic [ref=e327]: apps/api/src/api/canvas/
+                - generic [ref=e329]:
+                  - generic [ref=e330]:
+                    - generic [ref=e331]: "+7"
+                    - generic [ref=e332]: "-4"
+                  - generic [ref=e333]: M
+              - generic [ref=e334] [cursor=pointer]:
+                - generic [ref=e335]:
+                  - 'img "File: mod.rs" [ref=e336]'
+                  - generic [ref=e337]: mod.rs
+                  - generic [ref=e338]: apps/api/src/api/hooks/
+                - generic [ref=e340]:
+                  - generic [ref=e341]:
+                    - generic [ref=e342]: "+1"
+                    - generic [ref=e343]: "-1"
+                  - generic [ref=e344]: M
+              - generic [ref=e345] [cursor=pointer]:
+                - generic [ref=e346]:
+                  - 'img "File: handlers.rs" [ref=e347]'
+                  - generic [ref=e348]: handlers.rs
+                  - generic [ref=e349]: apps/api/src/api/system/
+                - generic [ref=e351]:
+                  - generic [ref=e352]:
+                    - generic [ref=e353]: "+80"
+                    - generic [ref=e354]: "-1"
+                  - generic [ref=e355]: M
+              - generic [ref=e356] [cursor=pointer]:
+                - generic [ref=e357]:
+                  - 'img "File: mod.rs" [ref=e358]'
+                  - generic [ref=e359]: mod.rs
+                  - generic [ref=e360]: apps/api/src/api/system/
+                - generic [ref=e362]:
+                  - generic [ref=e364]: "+1"
+                  - generic [ref=e365]: M
+              - generic [ref=e366] [cursor=pointer]:
+                - generic [ref=e367]:
+                  - 'img "File: handlers.rs" [ref=e368]'
+                  - generic [ref=e369]: handlers.rs
+                  - generic [ref=e370]: apps/api/src/api/ws/
+                - generic [ref=e372]:
+                  - generic [ref=e373]:
+                    - generic [ref=e374]: "+18"
+                    - generic [ref=e375]: "-18"
+                  - generic [ref=e376]: M
+              - generic [ref=e377] [cursor=pointer]:
+                - generic [ref=e378]:
+                  - 'img "File: settings.rs" [ref=e379]'
+                  - generic [ref=e380]: settings.rs
+                  - generic [ref=e381]: apps/api/src/api/ws/router/
+                - generic [ref=e383]:
+                  - generic [ref=e384]:
+                    - generic [ref=e385]: "+5"
+                    - generic [ref=e386]: "-1"
+                  - generic [ref=e387]: M
+              - generic [ref=e388] [cursor=pointer]:
+                - generic [ref=e389]:
+                  - 'img "File: main.rs" [ref=e390]'
+                  - generic [ref=e391]: main.rs
+                  - generic [ref=e392]: apps/api/src/
+                - generic [ref=e394]:
+                  - generic [ref=e395]:
+                    - generic [ref=e396]: "+2"
+                    - generic [ref=e397]: "-2"
+                  - generic [ref=e398]: M
+              - generic [ref=e399] [cursor=pointer]:
+                - generic [ref=e400]:
+                  - 'img "File: canvas.rs" [ref=e401]'
+                  - generic [ref=e402]: canvas.rs
+                  - generic [ref=e403]: apps/cli/src/commands/
+                - generic [ref=e405]:
+                  - generic [ref=e406]:
+                    - generic [ref=e407]: "+9"
+                    - generic [ref=e408]: "-28"
+                  - generic [ref=e409]: M
+              - generic [ref=e410] [cursor=pointer]:
+                - generic [ref=e411]:
+                  - 'img "File: commands.rs" [ref=e412]'
+                  - generic [ref=e413]: commands.rs
+                  - generic [ref=e414]: apps/desktop/src-tauri/src/
+                - generic [ref=e416]:
+                  - generic [ref=e417]:
+                    - generic [ref=e418]: "+10"
+                    - generic [ref=e419]: "-11"
+                  - generic [ref=e420]: M
+              - generic [ref=e421] [cursor=pointer]:
+                - generic [ref=e422]:
+                  - 'img "File: en.json" [ref=e423]'
+                  - generic [ref=e424]: en.json
+                  - generic [ref=e425]: apps/web/messages/
+                - generic [ref=e427]:
+                  - generic [ref=e429]: "+135"
+                  - generic [ref=e430]: M
+              - generic [ref=e431] [cursor=pointer]:
+                - generic [ref=e432]:
+                  - 'img "File: zh.json" [ref=e433]'
+                  - generic [ref=e434]: zh.json
+                  - generic [ref=e435]: apps/web/messages/
+                - generic [ref=e437]:
+                  - generic [ref=e439]: "+135"
+                  - generic [ref=e440]: M
+              - generic [ref=e441] [cursor=pointer]:
+                - generic [ref=e442]:
+                  - 'img "File: clusters.png" [ref=e443]'
+                  - generic [ref=e444]: clusters.png
+                  - generic [ref=e445]: apps/web/public/figures/
+                - generic [ref=e448]: A
+              - generic [ref=e449] [cursor=pointer]:
+                - generic [ref=e450]:
+                  - 'img "File: team.png" [ref=e451]'
+                  - generic [ref=e452]: team.png
+                  - generic [ref=e453]: apps/web/public/figures/
+                - generic [ref=e456]: A
+              - generic [ref=e457] [cursor=pointer]:
+                - generic [ref=e458]:
+                  - 'img "File: welcome.png" [ref=e459]'
+                  - generic [ref=e460]: welcome.png
+                  - generic [ref=e461]: apps/web/public/figures/
+                - generic [ref=e464]: A
+              - generic [ref=e465] [cursor=pointer]:
+                - generic [ref=e466]:
+                  - 'img "File: computer-query-options.ts" [ref=e467]'
+                  - generic [ref=e468]: computer-query-options.ts
+                  - generic: apps/web/src/api/query/
+                - generic [ref=e471]: M
+              - generic [ref=e472] [cursor=pointer]:
+                - generic [ref=e473]:
+                  - 'img "File: query-keys.ts" [ref=e474]'
+                  - generic [ref=e475]: query-keys.ts
+                  - generic [ref=e476]: apps/web/src/api/query/
+                - generic [ref=e478]:
+                  - generic [ref=e480]: "+2"
+                  - generic [ref=e481]: M
+              - generic [ref=e482] [cursor=pointer]:
+                - generic [ref=e483]:
+                  - 'img "File: rest-api.ts" [ref=e484]'
+                  - generic [ref=e485]: rest-api.ts
+                  - generic [ref=e486]: apps/web/src/api/
+                - generic [ref=e488]:
+                  - generic [ref=e490]: "+14"
+                  - generic [ref=e491]: M
+              - generic [ref=e492] [cursor=pointer]:
+                - generic [ref=e493]:
+                  - 'img "File: layout.tsx" [ref=e494]'
+                  - generic [ref=e495]: layout.tsx
+                  - generic [ref=e496]: apps/web/src/app/(app)/
+                - generic [ref=e498]:
+                  - generic [ref=e499]:
+                    - generic [ref=e500]: "+15"
+                    - generic [ref=e501]: "-12"
+                  - generic [ref=e502]: M
+              - generic [ref=e503] [cursor=pointer]:
+                - generic [ref=e504]:
+                  - 'img "File: OnboardingClientPage.tsx" [ref=e505]'
+                  - generic [ref=e506]: OnboardingClientPage.tsx
+                  - generic [ref=e507]: apps/web/src/app/onboarding/
+                - generic [ref=e510]: A
+              - generic [ref=e511] [cursor=pointer]:
+                - generic [ref=e512]:
+                  - 'img "File: page.tsx" [ref=e513]'
+                  - generic [ref=e514]: page.tsx
+                  - generic [ref=e515]: apps/web/src/app/onboarding/
+                - generic [ref=e517]:
+                  - generic [ref=e519]: "+10"
+                  - generic [ref=e520]: A
+              - generic [ref=e521] [cursor=pointer]:
+                - generic [ref=e522]:
+                  - 'img "File: OnboardingGate.tsx" [ref=e523]'
+                  - generic [ref=e524]: OnboardingGate.tsx
+                  - generic [ref=e525]: apps/web/src/app-shell/
+                - generic [ref=e527]:
+                  - generic [ref=e529]: "+70"
+                  - generic [ref=e530]: A
+              - generic [ref=e531] [cursor=pointer]:
+                - generic [ref=e532]:
+                  - 'img "File: UpdateNotification.tsx" [ref=e533]'
+                  - generic [ref=e534]: UpdateNotification.tsx
+                  - generic [ref=e535]: apps/web/src/app-shell/
+                - generic [ref=e538]: M
+              - generic [ref=e539] [cursor=pointer]:
+                - generic [ref=e540]:
+                  - 'img "File: CanvasView.tsx" [ref=e541]'
+                  - generic [ref=e542]: CanvasView.tsx
+                  - generic [ref=e543]: apps/web/src/features/canvas/components/
+                - generic [ref=e545]:
+                  - generic [ref=e546]:
+                    - generic [ref=e547]: "+3"
+                    - generic [ref=e548]: "-2"
+                  - generic [ref=e549]: M
+              - generic [ref=e550] [cursor=pointer]:
+                - generic [ref=e551]:
+                  - 'img "File: FileViewer.tsx" [ref=e552]'
+                  - generic [ref=e553]: FileViewer.tsx
+                  - generic [ref=e554]: apps/web/src/features/editor/components/
+                - generic [ref=e556]:
+                  - generic [ref=e557]:
+                    - generic [ref=e558]: "+10"
+                    - generic [ref=e559]: "-5"
+                  - generic [ref=e560]: M
+              - generic [ref=e561] [cursor=pointer]:
+                - generic [ref=e562]:
+                  - 'img "File: IntegrationsSettingsSection.tsx" [ref=e563]'
+                  - generic [ref=e564]: IntegrationsSettingsSection.tsx
+                  - generic: apps/web/src/features/settings/components/
+                - generic [ref=e567]: M
+              - generic [ref=e568] [cursor=pointer]:
+                - generic [ref=e569]:
+                  - 'img "File: SettingsAboutSection.tsx" [ref=e570]'
+                  - generic [ref=e571]: SettingsAboutSection.tsx
+                  - generic [ref=e572]: apps/web/src/features/settings/components/
+                - generic [ref=e575]: M
+              - generic [ref=e576] [cursor=pointer]:
+                - generic [ref=e577]:
+                  - 'img "File: use-system-status-queries.ts" [ref=e578]'
+                  - generic [ref=e579]: use-system-status-queries.ts
+                  - generic: apps/web/src/features/system/hooks/
+                - generic [ref=e582]: M
+              - generic [ref=e583] [cursor=pointer]:
+                - generic [ref=e584]:
+                  - 'img "File: system-query-options.ts" [ref=e585]'
+                  - generic [ref=e586]: system-query-options.ts
+                  - generic [ref=e587]: apps/web/src/features/system/lib/
+                - generic [ref=e590]: M
+              - generic [ref=e591] [cursor=pointer]:
+                - generic [ref=e592]:
+                  - 'img "File: OnboardingPage.tsx" [ref=e593]'
+                  - generic [ref=e594]: OnboardingPage.tsx
+                  - generic [ref=e595]: apps/web/src/features/welcome/components/
+                - generic [ref=e597]:
+                  - generic [ref=e599]: "+872"
+                  - generic [ref=e600]: A
+              - generic [ref=e601] [cursor=pointer]:
+                - generic [ref=e602]:
+                  - 'img "File: PackageInstallTerminalDialog.tsx" [ref=e603]'
+                  - generic [ref=e604]: PackageInstallTerminalDialog.tsx
+                  - generic: apps/web/src/features/welcome/components/
+                - generic [ref=e607]: A
+              - generic [ref=e608] [cursor=pointer]:
+                - generic [ref=e609]:
+                  - 'img "File: workbench-intl-provider.tsx" [ref=e610]'
+                  - generic [ref=e611]: workbench-intl-provider.tsx
+                  - generic: apps/web/src/providers/app/
+                - generic [ref=e614]: M
+              - generic [ref=e615] [cursor=pointer]:
+                - generic [ref=e616]:
+                  - 'img "File: breakout-error-page.tsx" [ref=e617]'
+                  - generic [ref=e618]: breakout-error-page.tsx
+                  - generic [ref=e619]: apps/web/src/shared/components/
+                - generic [ref=e622]: M
+              - generic [ref=e623] [cursor=pointer]:
+                - generic [ref=e624]:
+                  - 'img "File: tsconfig.json" [ref=e625]'
+                  - generic [ref=e626]: tsconfig.json
+                  - generic [ref=e627]: apps/web/
+                - generic [ref=e629]:
+                  - generic [ref=e630]:
+                    - generic [ref=e631]: "+2"
+                    - generic [ref=e632]: "-1"
+                  - generic [ref=e633]: M
+              - generic [ref=e634] [cursor=pointer]:
+                - generic [ref=e635]:
+                  - 'img "File: Cargo.lock" [ref=e636]'
+                  - generic [ref=e637]: Cargo.lock
+                - generic [ref=e639]:
+                  - generic [ref=e640]:
+                    - generic [ref=e641]: "+1"
+                    - generic [ref=e642]: "-1"
+                  - generic [ref=e643]: M
+              - generic [ref=e644] [cursor=pointer]:
+                - generic [ref=e645]:
+                  - 'img "File: mod.rs" [ref=e646]'
+                  - generic [ref=e647]: mod.rs
+                  - generic [ref=e648]: crates/agent/src/manager/
+                - generic [ref=e650]:
+                  - generic [ref=e651]:
+                    - generic [ref=e652]: "+1"
+                    - generic [ref=e653]: "-1"
+                  - generic [ref=e654]: M
+              - generic [ref=e655] [cursor=pointer]:
+                - generic [ref=e656]:
+                  - 'img "File: antigravity.rs" [ref=e657]'
+                  - generic [ref=e658]: antigravity.rs
+                  - generic [ref=e659]: crates/ai-usage/src/providers/
+                - generic [ref=e661]:
+                  - generic [ref=e662]:
+                    - generic [ref=e663]: "+7"
+                    - generic [ref=e664]: "-2"
+                  - generic [ref=e665]: M
+              - generic [ref=e666] [cursor=pointer]:
+                - generic [ref=e667]:
+                  - 'img "File: grok.rs" [ref=e668]'
+                  - generic [ref=e669]: grok.rs
+                  - generic [ref=e670]: crates/ai-usage/src/providers/
+                - generic [ref=e672]:
+                  - generic [ref=e673]:
+                    - generic [ref=e674]: "+7"
+                    - generic [ref=e675]: "-3"
+                  - generic [ref=e676]: M
+              - generic [ref=e677] [cursor=pointer]:
+                - generic [ref=e678]:
+                  - 'img "File: antigravity.rs" [ref=e679]'
+                  - generic [ref=e680]: antigravity.rs
+                  - generic [ref=e681]: crates/core-engine/src/agent_hooks/
+                - generic [ref=e683]:
+                  - generic [ref=e684]:
+                    - generic [ref=e685]: "+4"
+                    - generic [ref=e686]: "-1"
+                  - generic [ref=e687]: M
+              - generic [ref=e688] [cursor=pointer]:
+                - generic [ref=e689]:
+                  - 'img "File: grok_build.rs" [ref=e690]'
+                  - generic [ref=e691]: grok_build.rs
+                  - generic [ref=e692]: crates/core-engine/src/agent_hooks/
+                - generic [ref=e694]:
+                  - generic [ref=e695]:
+                    - generic [ref=e696]: "+16"
+                    - generic [ref=e697]: "-4"
+                  - generic [ref=e698]: M
+              - generic [ref=e699] [cursor=pointer]:
+                - generic [ref=e700]:
+                  - 'img "File: mod.rs" [ref=e701]'
+                  - generic [ref=e702]: mod.rs
+                  - generic [ref=e703]: crates/core-engine/src/agent_hooks/
+                - generic [ref=e705]:
+                  - generic [ref=e706]:
+                    - generic [ref=e707]: "+14"
+                    - generic [ref=e708]: "-19"
+                  - generic [ref=e709]: M
+              - generic [ref=e710] [cursor=pointer]:
+                - generic [ref=e711]:
+                  - 'img "File: commits.rs" [ref=e712]'
+                  - generic [ref=e713]: commits.rs
+                  - generic [ref=e714]: crates/core-engine/src/git/
+                - generic [ref=e716]:
+                  - generic [ref=e717]:
+                    - generic [ref=e718]: "+7"
+                    - generic [ref=e719]: "-6"
+                  - generic [ref=e720]: M
+              - generic [ref=e721] [cursor=pointer]:
+                - generic [ref=e722]:
+                  - 'img "File: scanner.rs" [ref=e723]'
+                  - generic [ref=e724]: scanner.rs
+                  - generic [ref=e725]: crates/core-engine/src/local_services/
+                - generic [ref=e727]:
+                  - generic [ref=e728]:
+                    - generic [ref=e729]: "+2"
+                    - generic [ref=e730]: "-1"
+                  - generic [ref=e731]: M
+              - generic [ref=e732] [cursor=pointer]:
+                - generic [ref=e733]:
+                  - 'img "File: capture.rs" [ref=e734]'
+                  - generic [ref=e735]: capture.rs
+                  - generic [ref=e736]: crates/core-engine/src/tmux/
+                - generic [ref=e738]:
+                  - generic [ref=e739]:
+                    - generic [ref=e740]: "+1"
+                    - generic [ref=e741]: "-3"
+                  - generic [ref=e742]: M
+              - generic [ref=e743] [cursor=pointer]:
+                - generic [ref=e744]:
+                  - 'img "File: types.rs" [ref=e745]'
+                  - generic [ref=e746]: types.rs
+                  - generic [ref=e747]: crates/core-engine/src/tmux/
+                - generic [ref=e749]:
+                  - generic [ref=e750]:
+                    - generic [ref=e751]: "+1"
+                    - generic [ref=e752]: "-4"
+                  - generic [ref=e753]: M
+              - generic [ref=e754] [cursor=pointer]:
+                - generic [ref=e755]:
+                  - 'img "File: output_rendering.rs" [ref=e756]'
+                  - generic [ref=e757]: output_rendering.rs
+                  - generic [ref=e758]: crates/core-service/src/service/automation/
+                - generic [ref=e761]: M
+              - generic [ref=e762] [cursor=pointer]:
+                - generic [ref=e763]:
+                  - 'img "File: canvas_agent_relay.rs" [ref=e764]'
+                  - generic [ref=e765]: canvas_agent_relay.rs
+                  - generic [ref=e766]: crates/core-service/src/service/
+                - generic [ref=e769]: M
+              - generic [ref=e770] [cursor=pointer]:
+                - generic [ref=e771]:
+                  - 'img "File: canvas.rs" [ref=e772]'
+                  - generic [ref=e773]: canvas.rs
+                  - generic [ref=e774]: crates/core-service/src/service/
+                - generic [ref=e776]:
+                  - generic [ref=e777]:
+                    - generic [ref=e778]: "+25"
+                    - generic [ref=e779]: "-24"
+                  - generic [ref=e780]: M
+              - generic [ref=e781] [cursor=pointer]:
+                - generic [ref=e782]:
+                  - 'img "File: management.rs" [ref=e783]'
+                  - generic [ref=e784]: management.rs
+                  - generic [ref=e785]: crates/core-service/src/service/terminal/
+                - generic [ref=e787]:
+                  - generic [ref=e788]:
+                    - generic [ref=e789]: "+2"
+                    - generic [ref=e790]: "-2"
+                  - generic [ref=e791]: M
+              - generic [ref=e792] [cursor=pointer]:
+                - generic [ref=e793]:
+                  - 'img "File: types.rs" [ref=e794]'
+                  - generic [ref=e795]: types.rs
+                  - generic [ref=e796]: crates/core-service/src/service/terminal/
+                - generic [ref=e798]:
+                  - generic [ref=e799]:
+                    - generic [ref=e800]: "+2"
+                    - generic [ref=e801]: "-7"
+                  - generic [ref=e802]: M
+              - generic [ref=e803] [cursor=pointer]:
+                - generic [ref=e804]:
+                  - 'img "File: terminal.rs" [ref=e805]'
+                  - generic [ref=e806]: terminal.rs
+                  - generic [ref=e807]: crates/core-service/src/service/
+                - generic [ref=e809]:
+                  - generic [ref=e810]:
+                    - generic [ref=e811]: "+1"
+                    - generic [ref=e812]: "-1"
+                  - generic [ref=e813]: M
+              - generic [ref=e814] [cursor=pointer]:
+                - generic [ref=e815]:
+                  - 'img "File: m20260718_000032_drop_canvas_board.rs" [ref=e816]'
+                  - generic [ref=e817]: m20260718_000032_drop_canvas_board.rs
+                  - generic: crates/infra/src/db/migration/
+                - generic [ref=e820]: M
+              - generic [ref=e821] [cursor=pointer]:
+                - generic [ref=e822]:
+                  - 'img "File: cli_update.rs" [ref=e823]'
+                  - generic [ref=e824]: cli_update.rs
+                  - generic [ref=e825]: crates/runtime-manager/src/
+                - generic [ref=e827]:
+                  - generic [ref=e828]:
+                    - generic [ref=e829]: "+1"
+                    - generic [ref=e830]: "-1"
+                  - generic [ref=e831]: M
+              - generic [ref=e832] [cursor=pointer]:
+                - generic [ref=e833]:
+                  - 'img "File: app-smoke.ts" [ref=e834]'
+                  - generic [ref=e835]: app-smoke.ts
+                  - generic [ref=e836]: e2e/tests/smoke/support/
+                - generic [ref=e838]:
+                  - generic [ref=e840]: "+22"
+                  - generic [ref=e841]: M
+              - generic [ref=e842] [cursor=pointer]:
+                - generic [ref=e843]:
+                  - 'img "File: tsconfig.json" [ref=e844]'
+                  - generic [ref=e845]: tsconfig.json
+                  - generic [ref=e846]: packages/shared/
+                - generic [ref=e848]:
+                  - generic [ref=e849]:
+                    - generic [ref=e850]: "+1"
+                    - generic [ref=e851]: "-1"
+                  - generic [ref=e852]: M
+              - generic [ref=e853] [cursor=pointer]:
+                - generic [ref=e854]:
+                  - 'img "File: clusters.png" [ref=e855]'
+                  - generic [ref=e856]: clusters.png
+                  - generic [ref=e857]: packages/ui/src/assets/figures/
+                - generic [ref=e860]: A
+              - generic [ref=e861] [cursor=pointer]:
+                - generic [ref=e862]:
+                  - 'img "File: team.png" [ref=e863]'
+                  - generic [ref=e864]: team.png
+                  - generic [ref=e865]: packages/ui/src/assets/figures/
+                - generic [ref=e868]: A
+              - generic [ref=e869] [cursor=pointer]:
+                - generic [ref=e870]:
+                  - 'img "File: welcome.png" [ref=e871]'
+                  - generic [ref=e872]: welcome.png
+                  - generic [ref=e873]: packages/ui/src/assets/figures/
+                - generic [ref=e876]: A
+              - generic [ref=e877] [cursor=pointer]:
+                - generic [ref=e878]:
+                  - 'img "File: auth-check-email.tsx" [ref=e879]'
+                  - generic [ref=e880]: auth-check-email.tsx
+                  - generic [ref=e881]: packages/ui/src/components/
+                - generic [ref=e884]: A
+              - generic [ref=e885] [cursor=pointer]:
+                - generic [ref=e886]:
+                  - 'img "File: auth-shell.tsx" [ref=e887]'
+                  - generic [ref=e888]: auth-shell.tsx
+                  - generic [ref=e889]: packages/ui/src/components/
+                - generic [ref=e891]:
+                  - generic [ref=e893]: "+102"
+                  - generic [ref=e894]: A
+              - generic [ref=e895] [cursor=pointer]:
+                - generic [ref=e896]:
+                  - 'img "File: auth-split-layout.tsx" [ref=e897]'
+                  - generic [ref=e898]: auth-split-layout.tsx
+                  - generic [ref=e899]: packages/ui/src/components/
+                - generic [ref=e901]:
+                  - generic [ref=e903]: "+57"
+                  - generic [ref=e904]: A
+              - generic [ref=e905] [cursor=pointer]:
+                - generic [ref=e906]:
+                  - 'img "File: particle-field.tsx" [ref=e907]'
+                  - generic [ref=e908]: particle-field.tsx
+                  - generic [ref=e909]: packages/ui/src/components/
+                - generic [ref=e911]:
+                  - generic [ref=e913]: "+614"
+                  - generic [ref=e914]: A
+              - generic [ref=e915] [cursor=pointer]:
+                - generic [ref=e916]:
+                  - 'img "File: theme-provider.tsx" [ref=e917]'
+                  - generic [ref=e918]: theme-provider.tsx
+                  - generic [ref=e919]: packages/ui/src/components/
+                - generic [ref=e921]:
+                  - generic [ref=e923]: "+158"
+                  - generic [ref=e924]: A
+              - generic [ref=e925] [cursor=pointer]:
+                - generic [ref=e926]:
+                  - 'img "File: theme-toggle.tsx" [ref=e927]'
+                  - generic [ref=e928]: theme-toggle.tsx
+                  - generic [ref=e929]: packages/ui/src/components/
+                - generic [ref=e931]:
+                  - generic [ref=e932]:
+                    - generic [ref=e933]: "+54"
+                    - generic [ref=e934]: "-53"
+                  - generic [ref=e935]: M
+              - generic [ref=e936] [cursor=pointer]:
+                - generic [ref=e937]:
+                  - 'img "File: button.tsx" [ref=e938]'
+                  - generic [ref=e939]: button.tsx
+                  - generic [ref=e940]: packages/ui/src/components/ui/
+                - generic [ref=e942]:
+                  - generic [ref=e943]:
+                    - generic [ref=e944]: "+90"
+                    - generic [ref=e945]: "-48"
+                  - generic [ref=e946]: M
+              - generic [ref=e947] [cursor=pointer]:
+                - generic [ref=e948]:
+                  - 'img "File: spinner.tsx" [ref=e949]'
+                  - generic [ref=e950]: spinner.tsx
+                  - generic [ref=e951]: packages/ui/src/components/ui/
+                - generic [ref=e953]:
+                  - generic [ref=e954]:
+                    - generic [ref=e955]: "+9"
+                    - generic [ref=e956]: "-8"
+                  - generic [ref=e957]: M
+              - generic [ref=e958] [cursor=pointer]:
+                - generic [ref=e959]:
+                  - 'img "File: css.d.ts" [ref=e960]'
+                  - generic [ref=e961]: css.d.ts
+                  - generic [ref=e962]: packages/ui/src/
+                - generic [ref=e964]:
+                  - generic [ref=e966]: "+4"
+                  - generic [ref=e967]: M
+              - generic [ref=e968] [cursor=pointer]:
+                - generic [ref=e969]:
+                  - 'img "File: index.ts" [ref=e970]'
+                  - generic [ref=e971]: index.ts
+                  - generic [ref=e972]: packages/ui/src/
+                - generic [ref=e974]:
+                  - generic [ref=e976]: "+5"
+                  - generic [ref=e977]: M
+              - generic [ref=e978] [cursor=pointer]:
+                - generic [ref=e979]:
+                  - 'img "File: palettes.ts" [ref=e980]'
+                  - generic [ref=e981]: palettes.ts
+                  - generic [ref=e982]: packages/ui/src/lib/themes/
+                - generic [ref=e984]:
+                  - generic [ref=e986]: "+170"
+                  - generic [ref=e987]: A
+              - generic [ref=e988] [cursor=pointer]:
+                - generic [ref=e989]:
+                  - 'img "File: types.ts" [ref=e990]'
+                  - generic [ref=e991]: types.ts
+                  - generic [ref=e992]: packages/ui/src/lib/themes/
+                - generic [ref=e994]:
+                  - generic [ref=e996]: "+19"
+                  - generic [ref=e997]: A
+              - generic [ref=e998] [cursor=pointer]:
+                - generic [ref=e999]:
+                  - 'img "File: globals.css" [ref=e1000]'
+                  - generic [ref=e1001]: globals.css
+                  - generic [ref=e1002]: packages/ui/src/styles/
+                - generic [ref=e1004]:
+                  - generic [ref=e1006]: "+3"
+                  - generic [ref=e1007]: M
+              - generic [ref=e1008] [cursor=pointer]:
+                - generic [ref=e1009]:
+                  - 'img "File: BRAINSTORM.md" [ref=e1010]'
+                  - generic [ref=e1011]: BRAINSTORM.md
+                  - generic [ref=e1012]: specs/APP/APP-038_onboarding-page/
+                - generic [ref=e1014]:
+                  - generic [ref=e1016]: "+40"
+                  - generic [ref=e1017]: A
+              - generic [ref=e1018] [cursor=pointer]:
+                - generic [ref=e1019]:
+                  - 'img "File: PRD.md" [ref=e1020]'
+                  - generic [ref=e1021]: PRD.md
+                  - generic [ref=e1022]: specs/APP/APP-038_onboarding-page/
+                - generic [ref=e1024]:
+                  - generic [ref=e1026]: "+42"
+                  - generic [ref=e1027]: A
+              - generic [ref=e1028] [cursor=pointer]:
+                - generic [ref=e1029]:
+                  - 'img "File: TECH.md" [ref=e1030]'
+                  - generic [ref=e1031]: TECH.md
+                  - generic [ref=e1032]: specs/APP/APP-038_onboarding-page/
+                - generic [ref=e1034]:
+                  - generic [ref=e1036]: "+74"
+                  - generic [ref=e1037]: A
+              - generic [ref=e1038] [cursor=pointer]:
+                - generic [ref=e1039]:
+                  - 'img "File: TEST.md" [ref=e1040]'
+                  - generic [ref=e1041]: TEST.md
+                  - generic [ref=e1042]: specs/APP/APP-038_onboarding-page/
+                - generic [ref=e1044]:
+                  - generic [ref=e1046]: "+63"
+                  - generic [ref=e1047]: A
+              - generic [ref=e1048] [cursor=pointer]:
+                - generic [ref=e1049]:
+                  - 'img "File: README.md" [ref=e1050]'
+                  - generic [ref=e1051]: README.md
+                  - generic [ref=e1052]: specs/
+                - generic [ref=e1054]:
+                  - generic [ref=e1056]: "+1"
+                  - generic [ref=e1057]: M
+              - generic [ref=e1058] [cursor=pointer]:
+                - generic [ref=e1059]:
+                  - 'img "File: roocode.rs" [ref=e1060]'
+                  - generic [ref=e1061]: roocode.rs
+                  - generic [ref=e1062]: vendor/tokscale-core/src/sessions/
+                - generic [ref=e1064]:
+                  - generic [ref=e1065]:
+                    - generic [ref=e1066]: "+2"
+                    - generic [ref=e1067]: "-3"
+                  - generic [ref=e1068]: M
+            - generic [ref=e1071]:
+              - generic [ref=e1072]:
+                - textbox "Message (Cmd/Ctrl+Enter to commit)" [ref=e1073]
+                - button [disabled] [ref=e1074]:
+                  - img [ref=e1075]
+              - generic [ref=e1078]:
+                - button "Publish Branch" [ref=e1079]:
+                  - generic [ref=e1080]: Publish Branch
+                - button [ref=e1081]:
+                  - img [ref=e1082]
+    - contentinfo [ref=e1084]:
+      - generic [ref=e1085]:
+        - generic [ref=e1088] [cursor=pointer]: NORMAL
+        - button "LOCAL 0" [ref=e1090]:
+          - img [ref=e1091]
+          - generic [ref=e1094]: LOCAL 0
+      - button "Napping ~" [ref=e1096] [cursor=pointer]:
+        - generic [ref=e1097]:
+          - generic [ref=e1098]:
+            - img [ref=e1099]
+            - generic [ref=e1102]: z
+            - generic [ref=e1103]: z
+            - generic [ref=e1104]: z
+          - generic [ref=e1105]: Napping ~
+```
+
+# Test source
+
+```ts
+  1  | import type { ConsoleMessage, Page, TestInfo } from "@playwright/test";
+  2  | 
+  3  | const allowedConsoleErrorPatterns = [
+  4  |   /favicon\.ico/i,
+  5  |   /\[response\.404\] .*\/api\/system\/client-session\b/i,
+  6  |   // Setup / remote onboarding probes the relay proxy before credentials exist.
+  7  |   /\[response\.400\] .*\/api\/system\/computer\/relay\b/i,
+  8  |   // registerAccessTokenOnRelay treats 409 as success (token already registered).
+  9  |   /\[response\.409\] .*\/v1\/tenants\b/i,
+  10 |   /Encountered a script tag while rendering React component/i,
+  11 |   /(Failed to load (local models|skills)|Error fetching projects): Error: WebSocket disconnected/i,
+  12 |   /\[console\.error\] Error: WebSocket not connected\b/i,
+  13 |   /\[WebSocket\] Error: Event/i,
+  14 |   // TanStack Query cancels in-flight settings bootstrap on computer/scope change.
+  15 |   /CancelledError\b/,
+  16 | ];
+  17 | 
+  18 | function formatConsoleMessage(message: ConsoleMessage): string {
+  19 |   return `[console.${message.type()}] ${message.text()}`;
+  20 | }
+  21 | 
+  22 | function isAllowedConsoleError(message: string): boolean {
+  23 |   return allowedConsoleErrorPatterns.some((pattern) => pattern.test(message));
+  24 | }
+  25 | 
+  26 | export async function attachBrowserErrorCollector(
+  27 |   page: Page,
+  28 |   testInfo: TestInfo,
+  29 | ): Promise<() => Promise<void>> {
+  30 |   const errors: string[] = [];
+  31 |   const failedResponseUrls = new Set<string>();
+  32 | 
+  33 |   page.on("pageerror", (error) => {
+  34 |     errors.push(`[pageerror] ${error.stack || error.message}`);
+  35 |   });
+  36 | 
+  37 |   page.on("console", (message) => {
+  38 |     if (message.type() === "error") {
+  39 |       errors.push(formatConsoleMessage(message));
+  40 |     }
+  41 |   });
+  42 | 
+  43 |   page.on("response", (response) => {
+  44 |     const status = response.status();
+  45 |     if (status < 400) return;
+  46 |     const url = response.url();
+  47 |     failedResponseUrls.add(url);
+  48 |     errors.push(`[response.${status}] ${url}`);
+  49 |   });
+  50 | 
+  51 |   return async () => {
+  52 |     const unexpected = errors.filter((message) => {
+  53 |       if (isAllowedConsoleError(message)) return false;
+  54 |       if (
+  55 |         failedResponseUrls.size > 0 &&
+  56 |         /\[console\.error\] Failed to load resource: the server responded with a status of \d+/.test(message)
+  57 |       ) {
+  58 |         return false;
+  59 |       }
+  60 |       return true;
+  61 |     });
+  62 |     if (unexpected.length === 0) {
+  63 |       return;
+  64 |     }
+  65 | 
+  66 |     await testInfo.attach("browser-errors", {
+  67 |       body: unexpected.join("\n\n"),
+  68 |       contentType: "text/plain",
+  69 |     });
+  70 | 
+> 71 |     throw new Error(
+     |           ^ Error: Unexpected browser error output:
+  72 |       `Unexpected browser error output:\n${unexpected
+  73 |         .map((message) => `- ${message}`)
+  74 |         .join("\n")}`,
+  75 |     );
+  76 |   };
+  77 | }
+  78 | 
+```
