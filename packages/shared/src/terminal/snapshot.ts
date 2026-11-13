@@ -54,13 +54,19 @@ export function isInlineMouseTuiCommand(cmd: string): boolean {
   return name === "grok" || name.startsWith("grok-");
 }
 
+/**
+ * Mouse-restore inputs. `alternate` is optional because web/wire snapshots
+ * may omit it; missing is treated as not-alternate (`=== true` checks).
+ * Shared `TerminalSnapshot.alternate` stays required for fully parsed panes.
+ */
+type MouseRestoreSnapshot = {
+  alternate?: boolean;
+  restore_mouse_tracking?: boolean;
+  mouse_tracking_sequence?: string | null;
+};
+
 /** Whether reattach hydration should re-enable xterm mouse tracking modes. */
-export function shouldRestoreTuiMouseTracking(
-  snapshot: Pick<
-    TerminalSnapshot,
-    "alternate" | "restore_mouse_tracking" | "mouse_tracking_sequence"
-  >,
-): boolean {
+export function shouldRestoreTuiMouseTracking(snapshot: MouseRestoreSnapshot): boolean {
   if (
     typeof snapshot.mouse_tracking_sequence === "string" &&
     snapshot.mouse_tracking_sequence.length > 0
@@ -76,12 +82,7 @@ export function shouldRestoreTuiMouseTracking(
 }
 
 /** Exact or default DECSET sequence for post-hydrate mouse restore. */
-export function mouseTrackingRestoreSequence(
-  snapshot: Pick<
-    TerminalSnapshot,
-    "alternate" | "restore_mouse_tracking" | "mouse_tracking_sequence"
-  >,
-): string {
+export function mouseTrackingRestoreSequence(snapshot: MouseRestoreSnapshot): string {
   if (
     typeof snapshot.mouse_tracking_sequence === "string" &&
     snapshot.mouse_tracking_sequence.length > 0
