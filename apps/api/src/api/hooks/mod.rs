@@ -50,6 +50,28 @@ fn extract_atmos_context(headers: &HeaderMap) -> AtmosContext {
     terminal_hook_context(ctx)
 }
 
+/// Some vendor lifecycle payloads omit the event discriminator. Keep their
+/// session metadata and recover only the missing event from the installed hook.
+fn with_hook_event(mut payload: Value, headers: &HeaderMap) -> Value {
+    if let Some(object) = payload.as_object_mut() {
+        let has_event = object
+            .get("hook_event_name")
+            .and_then(Value::as_str)
+            .is_some_and(|event| !event.trim().is_empty());
+        if !has_event {
+            if let Some(event) = headers
+                .get("x-atmos-hook-event")
+                .and_then(|value| value.to_str().ok())
+                .map(str::trim)
+                .filter(|event| !event.is_empty())
+            {
+                object.insert("hook_event_name".into(), Value::String(event.into()));
+            }
+        }
+    }
+    payload
+}
+
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/claude-code", post(handle_claude_code_hook))
@@ -79,6 +101,7 @@ async fn handle_claude_code_hook(
     Json(payload): Json<Value>,
 ) -> Json<Value> {
     let ctx = extract_atmos_context(&headers);
+    let payload = with_hook_event(payload, &headers);
     state
         .agent_hooks_service
         .handle_claude_code_event(&payload, &ctx);
@@ -91,6 +114,7 @@ async fn handle_codex_hook(
     Json(payload): Json<Value>,
 ) -> Json<Value> {
     let ctx = extract_atmos_context(&headers);
+    let payload = with_hook_event(payload, &headers);
     state.agent_hooks_service.handle_codex_event(&payload, &ctx);
     permission_hook_body(&state, &payload, AgentToolType::Codex, &ctx).await
 }
@@ -101,6 +125,7 @@ async fn handle_gemini_hook(
     Json(payload): Json<Value>,
 ) -> Json<Value> {
     let ctx = extract_atmos_context(&headers);
+    let payload = with_hook_event(payload, &headers);
     state
         .agent_hooks_service
         .handle_gemini_event(&payload, &ctx);
@@ -113,6 +138,7 @@ async fn handle_antigravity_hook(
     Json(payload): Json<Value>,
 ) -> Json<Value> {
     let ctx = extract_atmos_context(&headers);
+    let payload = with_hook_event(payload, &headers);
     state
         .agent_hooks_service
         .handle_antigravity_event(&payload, &ctx);
@@ -125,6 +151,7 @@ async fn handle_pi_hook(
     Json(payload): Json<Value>,
 ) -> Json<Value> {
     let ctx = extract_atmos_context(&headers);
+    let payload = with_hook_event(payload, &headers);
     state.agent_hooks_service.handle_pi_event(&payload, &ctx);
     permission_hook_body(&state, &payload, AgentToolType::Pi, &ctx).await
 }
@@ -158,6 +185,7 @@ async fn handle_opencode_hook(
     Json(payload): Json<Value>,
 ) -> Json<Value> {
     let ctx = extract_atmos_context(&headers);
+    let payload = with_hook_event(payload, &headers);
     state
         .agent_hooks_service
         .handle_opencode_event(&payload, &ctx);
@@ -170,6 +198,7 @@ async fn handle_ampcode_hook(
     Json(payload): Json<Value>,
 ) -> Json<Value> {
     let ctx = extract_atmos_context(&headers);
+    let payload = with_hook_event(payload, &headers);
     state
         .agent_hooks_service
         .handle_ampcode_event(&payload, &ctx);
@@ -182,6 +211,7 @@ async fn handle_hermes_hook(
     Json(payload): Json<Value>,
 ) -> Json<Value> {
     let ctx = extract_atmos_context(&headers);
+    let payload = with_hook_event(payload, &headers);
     state
         .agent_hooks_service
         .handle_hermes_event(&payload, &ctx);
@@ -194,6 +224,7 @@ async fn handle_grok_build_hook(
     Json(payload): Json<Value>,
 ) -> Json<Value> {
     let ctx = extract_atmos_context(&headers);
+    let payload = with_hook_event(payload, &headers);
     state
         .agent_hooks_service
         .handle_grok_build_event(&payload, &ctx);
@@ -229,6 +260,7 @@ async fn handle_cursor_hook(
     Json(payload): Json<Value>,
 ) -> Json<Value> {
     let ctx = extract_atmos_context(&headers);
+    let payload = with_hook_event(payload, &headers);
     state
         .agent_hooks_service
         .handle_cursor_event(&payload, &ctx);
@@ -241,6 +273,7 @@ async fn handle_factory_droid_hook(
     Json(payload): Json<Value>,
 ) -> Json<Value> {
     let ctx = extract_atmos_context(&headers);
+    let payload = with_hook_event(payload, &headers);
     state
         .agent_hooks_service
         .handle_factory_droid_event(&payload, &ctx);
@@ -253,6 +286,7 @@ async fn handle_kiro_hook(
     Json(payload): Json<Value>,
 ) -> Json<Value> {
     let ctx = extract_atmos_context(&headers);
+    let payload = with_hook_event(payload, &headers);
     state.agent_hooks_service.handle_kiro_event(&payload, &ctx);
     Json(serde_json::json!({ "ok": true }))
 }
@@ -318,6 +352,82 @@ async fn refresh_project_paths(State(state): State<AppState>) -> Json<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn lifecycle_event_header_preserves_native_session_payload() {
+        let mut headers = HeaderMap::new();
+        headers.insert("x-atmos-hook-event", "SessionStart".parse().unwrap());
+        let original = serde_json::json!({
+            "session_id": "native-2", "cwd": "/tmp/shared-project", "extra": {"kept": true},
+        });
+        let payload = with_hook_event(original.clone(), &headers);
+        assert_eq!(payload["hook_event_name"], "SessionStart");
+        for key in ["session_id", "cwd", "extra"] {
+            assert_eq!(payload[key], original[key]);
+        }
+    }
+
+    #[test]
+    fn lifecycle_event_header_does_not_replace_vendor_event() {
+        let mut headers = HeaderMap::new();
+        headers.insert("x-atmos-hook-event", "SessionStart".parse().unwrap());
+        let payload = serde_json::json!({"hook_event_name": "Stop", "session_id": "native-2"});
+        assert_eq!(with_hook_event(payload.clone(), &headers), payload);
+        assert_eq!(with_hook_event(Value::Null, &headers), Value::Null);
+    }
+
+    #[test]
+    fn lifecycle_payload_without_header_is_unchanged() {
+        let payload =
+            serde_json::json!({"type": "session.idle", "properties": {"sessionID": "s2"}});
+        assert_eq!(with_hook_event(payload.clone(), &HeaderMap::new()), payload);
+    }
+
+    #[test]
+    fn lifecycle_payloads_keep_same_directory_panes_and_native_sessions_separate() {
+        use core_service::{AgentHooksService, AgentStatusService};
+        use std::sync::Arc;
+
+        type Handler = fn(&AgentHooksService, &Value, &AtmosContext);
+        let handlers: [(Handler, &str); 5] = [
+            (AgentHooksService::handle_claude_code_event, "SessionStart"),
+            (AgentHooksService::handle_codex_event, "SessionStart"),
+            (AgentHooksService::handle_gemini_event, "SessionStart"),
+            (
+                AgentHooksService::handle_factory_droid_event,
+                "SessionStart",
+            ),
+            (AgentHooksService::handle_kiro_event, "agentSpawn"),
+        ];
+        for (handle, event) in handlers {
+            let status = Arc::new(AgentStatusService::new());
+            let hooks = AgentHooksService::new(Arc::clone(&status));
+            for (pane, native) in [("ws:1", "native-1"), ("ws:2", "native-2")] {
+                let mut headers = HeaderMap::new();
+                headers.insert("x-atmos-context", "ws".parse().unwrap());
+                headers.insert("x-atmos-pane", pane.parse().unwrap());
+                headers.insert("x-atmos-hook-event", event.parse().unwrap());
+                let payload = with_hook_event(
+                    serde_json::json!({"session_id": native, "cwd": "/tmp/same-project"}),
+                    &headers,
+                );
+                handle(&hooks, &payload, &extract_atmos_context(&headers));
+            }
+            let sessions = status.get_all_sessions();
+            assert_eq!(sessions.len(), 2, "{event}");
+            let activities = status.get_all_activity();
+            for (pane, native) in [("ws:1", "native-1"), ("ws:2", "native-2")] {
+                let row = sessions.iter().find(|row| row.session_id == pane).unwrap();
+                assert_eq!(row.pane_id.as_deref(), Some(pane));
+                assert_eq!(row.project_path.as_deref(), Some("/tmp/same-project"));
+                let activity = activities
+                    .iter()
+                    .find(|row| row.session_id == pane)
+                    .unwrap();
+                assert_eq!(activity.native_session_id.as_deref(), Some(native));
+            }
+        }
+    }
 
     #[test]
     fn extracts_hook_version_and_side_chat_headers() {

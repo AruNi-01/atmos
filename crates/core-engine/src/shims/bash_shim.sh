@@ -29,7 +29,7 @@ __atmos_ensure_shims_path() {
     done
     filtered_path="${filtered_path#:}"
     filtered_path="${filtered_path%:}"
-    export ATMOS_GROK_REAL_PATH="$filtered_path"
+    export ATMOS_SHIMS_REAL_PATH="$filtered_path"
     export PATH="$shim_path${filtered_path:+:$filtered_path}"
 }
 __atmos_ensure_shims_path
@@ -45,6 +45,18 @@ grok() {
         command "$wrapper" "$@"
     else
         command grok "$@"
+    fi
+}
+
+# Keep Codex hooks in this terminal instead of the shared daemon's environment.
+unalias codex 2>/dev/null || true
+codex() {
+    __atmos_ensure_shims_path
+    local wrapper="${ATMOS_SHIMS_BIN%/}/codex"
+    if [[ -n "${ATMOS_SHIMS_BIN:-}" && -x "$wrapper" ]]; then
+        command "$wrapper" "$@"
+    else
+        command codex "$@"
     fi
 }
 

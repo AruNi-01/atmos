@@ -20,6 +20,7 @@ use tracing::info;
 
 use crate::error::{EngineError, Result};
 
+// v9: Preserve lifecycle session payloads and explicit event headers.
 // v8: OpenCode plugin waits for a panel decision and replies on OpenCode's own API.
 // v7: Gemini and Antigravity tool gates wait for a decision. Permission holds last 10 minutes.
 // v6: Claude and Codex permission hooks wait and print the decision JSON.
@@ -29,7 +30,7 @@ use crate::error::{EngineError, Result};
 // agent_id traffic can defer lead TerminalIdle until background children finish.
 // v3: optional `${VAR:-}` expansion so Grok's required-env preflight does not
 // skip Atmos hooks when side-chat (or other) vars are unset in the process env.
-pub const CURRENT_HOOK_VERSION: u32 = 8;
+pub const CURRENT_HOOK_VERSION: u32 = 9;
 const LEGACY_HOOK_VERSION: u32 = 1;
 
 /// Canonical tool keys used by install/uninstall APIs and opt-out persistence.

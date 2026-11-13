@@ -28,6 +28,7 @@ const ZSH_SHIM_ZSHENV: &str = include_str!("zsh_shim_zshenv");
 const ZSH_SHIM_ZSHRC: &str = include_str!("zsh_shim_zshrc");
 const FISH_SHIM: &str = include_str!("fish_shim.fish");
 const GROK_WRAPPER: &str = include_str!("grok_wrapper.sh");
+const CODEX_WRAPPER: &str = include_str!("codex_wrapper.sh");
 
 /// Cached shims directory path (initialized once)
 static SHIMS_DIR: OnceLock<PathBuf> = OnceLock::new();
@@ -90,6 +91,11 @@ fn install_into(dir: &Path) -> Result<()> {
     std::fs::write(&grok_path, GROK_WRAPPER)
         .map_err(|e| EngineError::Tmux(format!("Failed to write Grok shim: {}", e)))?;
     set_executable(&grok_path)?;
+
+    let codex_path = bin_dir.join("codex");
+    std::fs::write(&codex_path, CODEX_WRAPPER)
+        .map_err(|e| EngineError::Tmux(format!("Failed to write Codex shim: {}", e)))?;
+    set_executable(&codex_path)?;
 
     Ok(())
 }
@@ -227,6 +233,7 @@ mod tests {
         assert!(dir.join("zdotdir/.zshenv").exists());
         assert!(dir.join("atmos_shim.fish").exists());
         assert!(dir.join("bin/grok").exists());
+        assert!(dir.join("bin/codex").exists());
     }
 
     #[test]
@@ -242,6 +249,141 @@ mod tests {
             let command = build_shell_command(temp.path(), Some(shell)).unwrap();
             assert_eq!(command[0], "env");
             assert!(command.contains(&expected), "{shell}: {command:?}");
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_codex_wrapper_isolates_managed_panes_and_supports_older_versions() {
+        use std::os::unix::fs::PermissionsExt;
+        use std::process::Command;
+
+        let temp = tempfile::tempdir().unwrap();
+        let shims_dir = temp.path().join("shims");
+        install_into(&shims_dir).unwrap();
+        let shim_bin = shims_dir.join("bin");
+        let real_bin = temp.path().join("real-bin");
+        std::fs::create_dir_all(&real_bin).unwrap();
+        let real_codex = real_bin.join("codex");
+        std::fs::write(
+            &real_codex,
+            r#"#!/bin/sh
+if [ "$1" = "--help" ]; then
+    [ "$FAKE_DAEMON_SUPPORT" != "1" ] || printf '%s\n' '  --no-daemon  Run without the shared background server'
+    exit 0
+fi
+printf '%s\n' "$ATMOS_PANE_ID" "$TMUX_PANE" "$@"
+"#,
+        )
+        .unwrap();
+        std::fs::set_permissions(&real_codex, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+        for (managed, modern, args, expected) in [
+            (
+                "1",
+                "1",
+                vec!["resume", "two words"],
+                vec!["--no-daemon", "resume", "two words"],
+            ),
+            (
+                "1",
+                "0",
+                vec!["resume", "two words"],
+                vec!["resume", "two words"],
+            ),
+            ("0", "1", vec!["--version"], vec!["--version"]),
+            (
+                "1",
+                "1",
+                vec!["--no-daemon", "--version"],
+                vec!["--no-daemon", "--version"],
+            ),
+            (
+                "1",
+                "1",
+                vec!["--", "--no-daemon"],
+                vec!["--no-daemon", "--", "--no-daemon"],
+            ),
+        ] {
+            for (pane, tmux_pane) in [("workspace:1", "%0"), ("workspace:2", "%8")] {
+                let output = Command::new(shim_bin.join("codex"))
+                    .args(&args)
+                    .env(
+                        "PATH",
+                        std::env::join_paths([&shim_bin, &shim_bin, &real_bin]).unwrap(),
+                    )
+                    .env("ATMOS_SHIMS_BIN", &shim_bin)
+                    .env("ATMOS_SHIMS_REAL_PATH", &real_bin)
+                    .env("ATMOS_MANAGED", managed)
+                    .env("ATMOS_PANE_ID", pane)
+                    .env("TMUX_PANE", tmux_pane)
+                    .env("FAKE_DAEMON_SUPPORT", modern)
+                    .output()
+                    .unwrap();
+                assert!(output.status.success(), "{output:?}");
+                let stdout = String::from_utf8(output.stdout).unwrap();
+                let mut expected_lines = vec![pane, tmux_pane];
+                expected_lines.extend(expected.iter().copied());
+                assert_eq!(stdout.lines().collect::<Vec<_>>(), expected_lines);
+            }
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_codex_shell_functions_survive_path_and_hook_replacement() {
+        use std::os::unix::fs::PermissionsExt;
+        use std::process::Command;
+
+        let temp = tempfile::tempdir().unwrap();
+        let shims_dir = temp.path().join("shims");
+        install_into(&shims_dir).unwrap();
+        let real_bin = temp.path().join("real-bin");
+        std::fs::create_dir_all(&real_bin).unwrap();
+        let real_codex = real_bin.join("codex");
+        std::fs::write(
+            &real_codex,
+            "#!/bin/sh\nif [ \"$1\" = --help ]; then printf '%s\\n' --no-daemon; exit; fi\nprintf '%s\\n' \"$ATMOS_PANE_ID\" \"$@\"\n",
+        )
+        .unwrap();
+        std::fs::set_permissions(&real_codex, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+        for (shell, shim, reset_hooks) in [
+            (
+                "/bin/bash",
+                "atmos_shim.bash",
+                "trap - DEBUG; PROMPT_COMMAND=",
+            ),
+            (
+                "/bin/zsh",
+                "zdotdir/.zshrc",
+                "precmd_functions=(); preexec_functions=()",
+            ),
+        ] {
+            if !Path::new(shell).exists() {
+                continue;
+            }
+            let script = format!(
+                "source '{}'\nPATH='{}:/usr/bin:/bin'\n{}\ncodex resume 'two words'\n",
+                shims_dir.join(shim).display(),
+                real_bin.display(),
+                reset_hooks,
+            );
+            let output = Command::new(shell)
+                .args(["-f", "-c", &script])
+                .env("HOME", temp.path())
+                .env("ATMOS_SHIMS_BIN", shims_dir.join("bin"))
+                .env("ATMOS_MANAGED", "1")
+                .env("ATMOS_PANE_ID", "workspace:2")
+                .env("PATH", "/usr/bin:/bin")
+                .output()
+                .unwrap();
+            assert!(output.status.success(), "{shell}: {output:?}");
+            let stdout = String::from_utf8(output.stdout).unwrap();
+            assert!(
+                stdout.contains("workspace:2\n--no-daemon\nresume\ntwo words\n"),
+                "{shell}: {stdout:?}"
+            );
         }
     }
 
@@ -271,22 +413,27 @@ printf '%s\n' "${TMUX-unset}" "${TMUX_PANE-unset}" "$#" "$1" "$2"
         let path =
             std::env::join_paths([shim_bin.as_path(), shim_bin.as_path(), real_bin.as_path()])
                 .unwrap();
-        let output = Command::new(shim_bin.join("grok"))
-            .args(["alpha", "two words"])
-            .env("ATMOS_SHIMS_BIN", &shim_bin)
-            .env("ATMOS_GROK_REAL_PATH", &real_bin)
-            .env("PATH", path)
-            .env("TMUX", "/tmp/tmux,1,0")
-            .env("TMUX_PANE", "%1")
-            .output()
-            .unwrap();
+        // Restored terminal shells can still have the previous variable name.
+        for real_path_key in ["ATMOS_SHIMS_REAL_PATH", "ATMOS_GROK_REAL_PATH"] {
+            let output = Command::new(shim_bin.join("grok"))
+                .args(["alpha", "two words"])
+                .env_remove("ATMOS_SHIMS_REAL_PATH")
+                .env_remove("ATMOS_GROK_REAL_PATH")
+                .env("ATMOS_SHIMS_BIN", &shim_bin)
+                .env(real_path_key, &real_bin)
+                .env("PATH", &path)
+                .env("TMUX", "/tmp/tmux,1,0")
+                .env("TMUX_PANE", "%1")
+                .output()
+                .unwrap();
 
-        assert!(output.status.success(), "{output:?}");
-        let lines = String::from_utf8(output.stdout).unwrap();
-        assert_eq!(
-            lines.lines().collect::<Vec<_>>(),
-            ["unset", "unset", "2", "alpha", "two words"]
-        );
+            assert!(output.status.success(), "{output:?}");
+            let lines = String::from_utf8(output.stdout).unwrap();
+            assert_eq!(
+                lines.lines().collect::<Vec<_>>(),
+                ["unset", "unset", "2", "alpha", "two words"]
+            );
+        }
     }
 
     #[cfg(unix)]
@@ -605,7 +752,7 @@ print -r -- "execfn=${+functions[exec]}"
         let output = Command::new(shim_bin.join("grok"))
             .current_dir(&real_bin)
             .env("ATMOS_SHIMS_BIN", &shim_bin)
-            .env("ATMOS_GROK_REAL_PATH", "")
+            .env("ATMOS_SHIMS_REAL_PATH", "")
             .env("PATH", &shim_bin)
             .env("TMUX", "/tmp/tmux,1,0")
             .env("TMUX_PANE", "%1")

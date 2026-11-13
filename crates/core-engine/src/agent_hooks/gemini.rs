@@ -40,12 +40,12 @@ fn is_atmos_hook(hook_entry: &Value) -> bool {
         .unwrap_or(false)
 }
 
-fn build_cmd(port: u16, event_name: &str) -> String {
+fn build_event_stdin_cmd(port: u16, event_name: &str) -> String {
     let url = hook_url(port);
     let hook_version = hook_version_assignment();
     let hook_version_header = hook_version_header_shell();
     format!(
-        r#"{guard} && {hook_version} && curl -sf -X POST -H 'Content-Type: application/json' {context_headers} {hook_version_header} -d '{{"hook_event_name":"{event_name}"}}' '{url}' >/dev/null 2>&1 || true"#,
+        r#"{guard} && {hook_version} && cat | curl -sf -X POST -H 'Content-Type: application/json' {context_headers} {hook_version_header} -H 'X-Atmos-Hook-Event: {event_name}' -d @- '{url}' >/dev/null 2>&1 || true"#,
         guard = atmos_managed_guard(),
         hook_version = hook_version,
         context_headers = atmos_context_curl_headers(),
@@ -87,7 +87,7 @@ fn build_hook_entries(port: u16) -> Value {
     let stdin = build_stdin_cmd(port);
     json!({
         "SessionStart": [{
-            "hooks": [{ "type": "command", "command": build_cmd(port, "SessionStart"), "timeout": 5 }]
+            "hooks": [{ "type": "command", "command": build_event_stdin_cmd(port, "SessionStart"), "timeout": 5 }]
         }],
         "BeforeAgent": [{
             "hooks": [{ "type": "command", "command": stdin.clone(), "async": true }]
@@ -96,7 +96,7 @@ fn build_hook_entries(port: u16) -> Value {
             "hooks": [{ "type": "command", "command": stdin.clone(), "async": true }]
         }],
         "BeforeToolSelection": [{
-            "hooks": [{ "type": "command", "command": build_cmd(port, "BeforeToolSelection"), "async": true }]
+            "hooks": [{ "type": "command", "command": build_event_stdin_cmd(port, "BeforeToolSelection"), "async": true }]
         }],
         "BeforeTool": [{
             "hooks": [{
@@ -266,6 +266,20 @@ fn which_exists(cmd: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn lifecycle_and_selection_hooks_preserve_payload_and_event_fallback() {
+        let entries = build_hook_entries(4310);
+        for event in ["SessionStart", "BeforeToolSelection"] {
+            let cmd = entries[event][0]["hooks"][0]["command"].as_str().unwrap();
+            assert!(cmd.contains("cat | curl"), "{event}: {cmd}");
+            assert!(cmd.contains("-d @-"), "{event}: {cmd}");
+            assert!(
+                cmd.contains(&format!("X-Atmos-Hook-Event: {event}")),
+                "{event}: {cmd}"
+            );
+        }
+    }
 
     #[test]
     fn before_agent_and_tool_hooks_forward_stdin() {

@@ -44,7 +44,7 @@ fn build_agent_config(port: u16) -> Value {
     let guard = atmos_managed_guard();
     let context_headers = atmos_context_curl_headers();
     let agent_spawn_cmd = format!(
-        r#"{guard} && {hook_version} && curl -sf -X POST -H 'Content-Type: application/json' {context_headers} {hook_version_header} -d '{{"hook_event_name":"agentSpawn"}}' '{url}' >/dev/null 2>&1 || true"#,
+        r#"{guard} && {hook_version} && {{ payload=$(cat); if [ -n "$payload" ]; then printf '%s' "$payload"; else printf '{{}}'; fi; }} | curl -sf -X POST -H 'Content-Type: application/json' {context_headers} {hook_version_header} -H 'X-Atmos-Hook-Event: agentSpawn' -d @- '{url}' >/dev/null 2>&1 || true"#,
         guard = guard,
         hook_version = hook_version.as_str(),
         context_headers = context_headers,
@@ -72,7 +72,7 @@ fn build_agent_config(port: u16) -> Value {
         hook_version_header = hook_version_header.as_str(),
     );
     let stop_cmd = format!(
-        r#"{guard} && {hook_version} && curl -sf -X POST -H 'Content-Type: application/json' {context_headers} {hook_version_header} -d '{{"hook_event_name":"stop"}}' '{url}' >/dev/null 2>&1 || true"#,
+        r#"{guard} && {hook_version} && {{ payload=$(cat); if [ -n "$payload" ]; then printf '%s' "$payload"; else printf '{{}}'; fi; }} | curl -sf -X POST -H 'Content-Type: application/json' {context_headers} {hook_version_header} -H 'X-Atmos-Hook-Event: stop' -d @- '{url}' >/dev/null 2>&1 || true"#,
         guard = guard,
         hook_version = hook_version.as_str(),
         context_headers = context_headers,
@@ -252,6 +252,51 @@ fn which_exists(cmd: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn lifecycle_hooks_preserve_payload_and_event_fallback() {
+        use std::io::Write;
+        use std::process::{Command, Stdio};
+
+        let config = build_agent_config(4310);
+        for event in ["agentSpawn", "stop"] {
+            let cmd = config["hooks"][event][0]["command"].as_str().unwrap();
+            for payload in [
+                "",
+                r#"{"session_id":"native-2","cwd":"/tmp/project","agent_id":"child-2"}"#,
+            ] {
+                // Keep the mock's capture on fd 3 despite the sender's stdout redirect.
+                let script = format!(
+                    "exec 3>&1\ncurl() {{ printf '%s\\n' \"$@\" >&3; printf '\\nPAYLOAD\\n' >&3; cat >&3; }}\n{cmd}"
+                );
+                let mut child = Command::new("sh")
+                    .args(["-c", &script])
+                    .env("ATMOS_MANAGED", "1")
+                    .env("ATMOS_PANE_ID", "pane-2")
+                    .stdin(Stdio::piped())
+                    .stdout(Stdio::piped())
+                    .stderr(Stdio::piped())
+                    .spawn()
+                    .unwrap();
+                child
+                    .stdin
+                    .take()
+                    .unwrap()
+                    .write_all(payload.as_bytes())
+                    .unwrap();
+                let output = child.wait_with_output().unwrap();
+                assert!(output.status.success(), "{event}: {output:?}");
+                let capture = String::from_utf8(output.stdout).unwrap();
+                let (args, body) = capture.split_once("\nPAYLOAD\n").unwrap();
+                assert!(args
+                    .lines()
+                    .any(|arg| arg == format!("X-Atmos-Hook-Event: {event}")));
+                assert!(args.lines().any(|arg| arg == "X-Atmos-Pane: pane-2"));
+                assert_eq!(body, if payload.is_empty() { "{}" } else { payload });
+            }
+        }
+    }
 
     #[test]
     fn prompt_and_tool_hooks_forward_stdin() {

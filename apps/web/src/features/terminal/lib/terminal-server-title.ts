@@ -10,7 +10,7 @@ import { mergeServerTerminalTitle } from "@/features/terminal/store/terminal-sto
 import { useTerminalStore } from "@/features/terminal/store/use-terminal-store";
 
 function windowMatches(paneWindow: string, serverWindow: string): boolean {
-  return paneWindow === serverWindow || paneWindow.endsWith(`__${serverWindow}`);
+  return paneWindow === serverWindow;
 }
 
 function matchingPaneTitles(

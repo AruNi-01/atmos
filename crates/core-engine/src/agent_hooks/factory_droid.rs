@@ -40,12 +40,12 @@ fn is_atmos_hook(hook_entry: &Value) -> bool {
         .unwrap_or(false)
 }
 
-fn build_fixed_cmd(port: u16, event_name: &str, r#async: bool) -> Value {
+fn build_event_stdin_cmd(port: u16, event_name: &str, r#async: bool) -> Value {
     let url = hook_url(port);
     let hook_version = hook_version_assignment();
     let hook_version_header = hook_version_header_shell();
     let command = format!(
-        r#"{guard} && {hook_version} && curl -sf -X POST -H 'Content-Type: application/json' {context_headers} {hook_version_header} -d '{{"hook_event_name":"{event_name}"}}' '{url}' >/dev/null 2>&1 || true"#,
+        r#"{guard} && {hook_version} && cat | curl -sf -X POST -H 'Content-Type: application/json' {context_headers} {hook_version_header} -H 'X-Atmos-Hook-Event: {event_name}' -d @- '{url}' >/dev/null 2>&1 || true"#,
         guard = atmos_managed_guard(),
         hook_version = hook_version,
         context_headers = atmos_context_curl_headers(),
@@ -113,16 +113,16 @@ fn build_stdin_cmd(port: u16, r#async: bool) -> Value {
 
 fn build_hook_entries(port: u16) -> Value {
     json!({
-        "SessionStart": [build_fixed_cmd(port, "SessionStart", false)],
-        "SessionEnd": [build_fixed_cmd(port, "SessionEnd", true)],
+        "SessionStart": [build_event_stdin_cmd(port, "SessionStart", false)],
+        "SessionEnd": [build_event_stdin_cmd(port, "SessionEnd", true)],
         "UserPromptSubmit": [build_stdin_cmd(port, false)],
         "PreToolUse": [build_stdin_cmd(port, true)],
         "PostToolUse": [build_stdin_cmd(port, true)],
         "Notification": [build_stdin_cmd(port, true)],
-        "Stop": [build_fixed_cmd(port, "Stop", true)],
+        "Stop": [build_event_stdin_cmd(port, "Stop", true)],
         "SubagentStart": [build_stdin_cmd(port, true)],
         "SubagentStop": [build_stdin_cmd(port, true)],
-        "PreCompact": [build_fixed_cmd(port, "PreCompact", true)]
+        "PreCompact": [build_event_stdin_cmd(port, "PreCompact", true)]
     })
 }
 
@@ -278,6 +278,20 @@ fn which_exists(cmd: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn lifecycle_hooks_preserve_payload_and_event_fallback() {
+        let entries = build_hook_entries(4310);
+        for event in ["SessionStart", "SessionEnd", "Stop", "PreCompact"] {
+            let cmd = entries[event][0]["hooks"][0]["command"].as_str().unwrap();
+            assert!(cmd.contains("cat | curl"), "{event}: {cmd}");
+            assert!(cmd.contains("-d @-"), "{event}: {cmd}");
+            assert!(
+                cmd.contains(&format!("X-Atmos-Hook-Event: {event}")),
+                "{event}: {cmd}"
+            );
+        }
+    }
 
     #[test]
     fn prompt_and_tool_hooks_forward_stdin() {

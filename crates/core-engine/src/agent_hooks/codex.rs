@@ -38,21 +38,6 @@ fn is_atmos_hook(hook_entry: &Value) -> bool {
         .unwrap_or(false)
 }
 
-fn build_cmd(port: u16, event_name: &str) -> String {
-    let url = hook_url(port);
-    let hook_version = hook_version_assignment();
-    let hook_version_header = hook_version_header_shell();
-    format!(
-        r#"{guard} && {hook_version} && curl -sf -X POST -H 'Content-Type: application/json' {context_headers} {hook_version_header} -d '{{"hook_event_name":"{event_name}"}}' '{url}' >/dev/null 2>&1 || true"#,
-        guard = atmos_managed_guard(),
-        hook_version = hook_version,
-        context_headers = atmos_context_curl_headers(),
-        hook_version_header = hook_version_header,
-        event_name = event_name,
-        url = url,
-    )
-}
-
 fn build_stdin_cmd(port: u16) -> String {
     let url = hook_url(port);
     let hook_version = hook_version_assignment();
@@ -85,7 +70,7 @@ fn build_hook_entries(port: u16) -> Value {
     let stdin = build_stdin_cmd(port);
     json!({
         "SessionStart": [{
-            "hooks": [{ "type": "command", "command": build_cmd(port, "SessionStart"), "timeout": 5 }]
+            "hooks": [{ "type": "command", "command": stdin.clone(), "timeout": 5 }]
         }],
         "UserPromptSubmit": [{
             "hooks": [{ "type": "command", "command": stdin.clone(), "timeout": 5 }]
@@ -262,6 +247,17 @@ fn which_exists(cmd: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn session_start_preserves_native_session_payload() {
+        let entries = build_hook_entries(4310);
+        let command = entries["SessionStart"][0]["hooks"][0]["command"]
+            .as_str()
+            .unwrap();
+        assert!(command.contains("cat | curl"));
+        assert!(command.contains("-d @-"));
+        assert!(!command.contains("-d '{"));
+    }
 
     #[test]
     fn tool_hooks_are_stdin_and_not_bash_only() {

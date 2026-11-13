@@ -40,13 +40,13 @@ fn is_atmos_hook(hook_entry: &Value) -> bool {
         .unwrap_or(false)
 }
 
-/// Fixed-body hook for events that only need the event name (session boundaries).
-fn build_fixed_cmd(port: u16, event_name: &str, r#async: bool) -> Value {
+/// Preserve session identity while supplying the lifecycle event as a fallback.
+fn build_event_stdin_cmd(port: u16, event_name: &str, r#async: bool) -> Value {
     let url = hook_url(port);
     let hook_version = hook_version_assignment();
     let hook_version_header = hook_version_header_shell();
     let command = format!(
-        r#"{guard} && {hook_version} && curl -sf -X POST -H 'Content-Type: application/json' {context_headers} {hook_version_header} -d '{{"hook_event_name":"{event_name}"}}' '{url}' >/dev/null 2>&1 || true"#,
+        r#"{guard} && {hook_version} && cat | curl -sf -X POST -H 'Content-Type: application/json' {context_headers} {hook_version_header} -H 'X-Atmos-Hook-Event: {event_name}' -d @- '{url}' >/dev/null 2>&1 || true"#,
         guard = atmos_managed_guard(),
         hook_version = hook_version,
         context_headers = atmos_context_curl_headers(),
@@ -145,8 +145,7 @@ fn build_hook_entries(port: u16) -> Value {
     };
 
     json!({
-        // Session boundaries only need the event name.
-        "SessionStart": [build_fixed_cmd(port, "SessionStart", false)],
+        "SessionStart": [build_event_stdin_cmd(port, "SessionStart", false)],
         "UserPromptSubmit": [build_stdin_cmd(port, false)],
         // Tool + lifecycle: forward full stdin so agent_id / tool_name arrive.
         "PreToolUse": [build_stdin_cmd(port, true)],
@@ -156,7 +155,7 @@ fn build_hook_entries(port: u16) -> Value {
         "Notification": [notification],
         "Stop": [build_stdin_cmd(port, true)],
         "StopFailure": [build_stdin_cmd(port, true)],
-        "SessionEnd": [build_fixed_cmd(port, "SessionEnd", true)],
+        "SessionEnd": [build_event_stdin_cmd(port, "SessionEnd", true)],
         // Child-agent lifecycle: keep lead Running while children outlive the turn.
         "SubagentStart": [build_stdin_cmd(port, true)],
         "SubagentStop": [build_stdin_cmd(port, true)],
@@ -298,6 +297,20 @@ fn write_json(path: &std::path::Path, value: &Value) -> std::result::Result<(), 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn lifecycle_hooks_preserve_payload_and_event_fallback() {
+        let entries = build_hook_entries(4310);
+        for event in ["SessionStart", "SessionEnd"] {
+            let cmd = entries[event][0]["hooks"][0]["command"].as_str().unwrap();
+            assert!(cmd.contains("cat | curl"), "{event}: {cmd}");
+            assert!(cmd.contains("-d @-"), "{event}: {cmd}");
+            assert!(
+                cmd.contains(&format!("X-Atmos-Hook-Event: {event}")),
+                "{event}: {cmd}"
+            );
+        }
+    }
 
     #[test]
     fn user_prompt_submit_forwards_stdin() {

@@ -20,7 +20,7 @@ function __atmos_ensure_shims_path
                 set -a filtered "$path_entry"
             end
         end
-        set -gx ATMOS_GROK_REAL_PATH (string join : -- $filtered)
+        set -gx ATMOS_SHIMS_REAL_PATH (string join : -- $filtered)
         set -gx PATH "$shim_path" $filtered
     end
 end
@@ -40,10 +40,26 @@ function __atmos_install_grok_function
     end
 end
 
+function __atmos_install_codex_function
+    if set -q ATMOS_SHIMS_BIN
+        functions -e codex 2>/dev/null
+        function codex
+            __atmos_ensure_shims_path
+            set -l wrapper (string trim -r -c / -- "$ATMOS_SHIMS_BIN")/codex
+            if test -x "$wrapper"
+                command "$wrapper" $argv
+            else
+                command codex $argv
+            end
+        end
+    end
+end
+
 # --init-command runs before config.fish; repeat at the first prompt in case
 # user configuration replaces PATH after this file is sourced.
 __atmos_ensure_shims_path
 __atmos_install_grok_function
+__atmos_install_codex_function
 
 function __atmos_send_meta
     if set -q TMUX
@@ -58,11 +74,13 @@ end
 function __atmos_preexec --on-event fish_preexec
     __atmos_ensure_shims_path
     __atmos_install_grok_function
+    __atmos_install_codex_function
     __atmos_send_meta "CMD_START" "$argv"
 end
 
 function __atmos_precmd --on-event fish_prompt
     __atmos_ensure_shims_path
     __atmos_install_grok_function
+    __atmos_install_codex_function
     __atmos_send_meta "CMD_END" "$PWD"
 end

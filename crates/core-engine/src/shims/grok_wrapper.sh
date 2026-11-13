@@ -2,7 +2,11 @@
 # Make Grok treat Atmos's tmux-backed terminal like a regular PTY so its
 # default alt_screen=auto policy uses the real alternate screen.
 
-if [ "${ATMOS_GROK_REAL_PATH+x}" = x ]; then
+if [ "${ATMOS_SHIMS_REAL_PATH+x}" = x ]; then
+    PATH=$ATMOS_SHIMS_REAL_PATH
+    export PATH
+elif [ "${ATMOS_GROK_REAL_PATH+x}" = x ]; then
+    # Existing terminal shells may still export the pre-Codex shim name.
     PATH=$ATMOS_GROK_REAL_PATH
     export PATH
 fi
