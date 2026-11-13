@@ -341,7 +341,8 @@ export function displayResetText(
   }
 
   if (/^reset unknown$/i.test(normalizedResetText)) {
-    if (fallbackResetAt) return formatRelativeReset(fallbackResetAt, formatters, locale);
+    // The provider explicitly lacks this window's reset. The subscription
+    // summary may describe a different window or quota pool.
     return resolveFormatterValue(formatters.resetUnknownLabel, "Reset unknown");
   }
 

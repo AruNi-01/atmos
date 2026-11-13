@@ -9,8 +9,7 @@ use crate::models::{DetailRow, DetailSection, ProviderError, RowTone};
 use crate::runtime::LiveFetchResult;
 use crate::support::{
     build_percent_usage_summary, expand_home, format_reset_relative_text,
-    map_claude_rate_limit_tier, normalize_fraction_percent, parse_offset_datetime, run_command,
-    unix_now,
+    map_claude_rate_limit_tier, parse_offset_datetime, round_metric, run_command, unix_now,
 };
 use std::fs;
 use tracing::debug;
@@ -129,28 +128,17 @@ pub(crate) async fn fetch_claude_live(client: &Client) -> Result<LiveFetchResult
         Err(error) => return Err(ProviderError::Fetch(error)),
     };
 
-    let session_percent = payload
-        .five_hour
-        .as_ref()
-        .and_then(|window| window.utilization)
-        .map(normalize_fraction_percent);
-    let weekly_percent = payload
-        .seven_day
-        .as_ref()
-        .and_then(|window| window.utilization)
-        .map(normalize_fraction_percent);
-    let session_reset = payload
-        .five_hour
-        .as_ref()
-        .and_then(|window| window.resets_at.as_deref())
-        .and_then(parse_offset_datetime)
-        .map(|value| value.unix_timestamp() as u64);
-    let weekly_reset = payload
-        .seven_day
-        .as_ref()
-        .and_then(|window| window.resets_at.as_deref())
-        .and_then(parse_offset_datetime)
-        .map(|value| value.unix_timestamp() as u64);
+    Ok(build_claude_live_result(payload, credentials))
+}
+
+fn build_claude_live_result(
+    payload: ClaudeUsageResponse,
+    credentials: ClaudeCredentials,
+) -> LiveFetchResult {
+    let summary_window = [payload.five_hour.as_ref(), payload.seven_day.as_ref()]
+        .into_iter()
+        .flatten()
+        .find(|window| window.utilization.is_some());
 
     let mut detail_sections = vec![
         DetailSection {
@@ -173,26 +161,28 @@ pub(crate) async fn fetch_claude_live(client: &Client) -> Result<LiveFetchResult
         },
         DetailSection {
             title: "Usage".to_string(),
-            rows: vec![
-                DetailRow {
-                    label: "5 hours".to_string(),
+            rows: [
+                ("5 hours", payload.five_hour.as_ref()),
+                ("1 week", payload.seven_day.as_ref()),
+                ("Opus · 1 week", payload.seven_day_opus.as_ref()),
+                ("Sonnet · 1 week", payload.seven_day_sonnet.as_ref()),
+            ]
+            .into_iter()
+            .filter_map(|(label, window)| {
+                let window = window?;
+                // OAuth utilization is already a percentage, including values
+                // below 1%. It is not a fractional remaining balance.
+                let percent = round_metric(window.utilization?);
+                Some(DetailRow {
+                    label: label.to_string(),
                     value: format!(
-                        "{}% used · {}",
-                        session_percent.unwrap_or(0.0).round(),
-                        format_reset_relative_text(session_reset)
+                        "{percent:.0}% used · {}",
+                        format_reset_relative_text(claude_reset_at(window))
                     ),
                     tone: RowTone::Default,
-                },
-                DetailRow {
-                    label: "1 week".to_string(),
-                    value: format!(
-                        "{}% used · {}",
-                        weekly_percent.unwrap_or(0.0).round(),
-                        format_reset_relative_text(weekly_reset)
-                    ),
-                    tone: RowTone::Default,
-                },
-            ],
+                })
+            })
+            .collect(),
         },
     ];
 
@@ -228,9 +218,9 @@ pub(crate) async fn fetch_claude_live(client: &Client) -> Result<LiveFetchResult
         });
     }
 
-    Ok(LiveFetchResult {
+    LiveFetchResult {
         plan_label: credentials.rate_limit_tier,
-        usage_summary: Some(build_percent_usage_summary(session_percent)),
+        usage_summary: summary_window.map(|window| build_percent_usage_summary(window.utilization)),
         detail_sections,
         warnings: if !credentials
             .scopes
@@ -242,10 +232,18 @@ pub(crate) async fn fetch_claude_live(client: &Client) -> Result<LiveFetchResult
             vec![]
         },
         fetch_message: "Claude OAuth API".to_string(),
-        reset_at: session_reset.or(weekly_reset),
+        reset_at: summary_window.and_then(claude_reset_at),
         credits_label,
         last_updated_at: Some(unix_now()),
-    })
+    }
+}
+
+fn claude_reset_at(window: &ClaudeUsageWindow) -> Option<u64> {
+    window
+        .resets_at
+        .as_deref()
+        .and_then(parse_offset_datetime)
+        .map(|value| value.unix_timestamp() as u64)
 }
 
 fn claude_token_needs_refresh(credentials: &ClaudeCredentials) -> bool {
@@ -554,9 +552,65 @@ fn parse_primary_api_key(contents: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        extract_claude_version, help_lists_command, parse_primary_api_key, parse_subscription_type,
-        CLAUDE_AUTH_STATUS_ARGS,
+        build_claude_live_result, extract_claude_version, help_lists_command,
+        parse_primary_api_key, parse_subscription_type, ClaudeCredentials, CLAUDE_AUTH_STATUS_ARGS,
     };
+    use serde_json::json;
+
+    fn result(payload: serde_json::Value) -> crate::runtime::LiveFetchResult {
+        build_claude_live_result(
+            serde_json::from_value(payload).unwrap(),
+            ClaudeCredentials {
+                access_token: String::new(),
+                scopes: vec!["user:profile".to_string()],
+                rate_limit_tier: Some("Pro".to_string()),
+                expires_at: None,
+            },
+        )
+    }
+
+    #[test]
+    fn weekly_only_usage_does_not_invent_a_session_window() {
+        let result = result(json!({
+            "five_hour": null,
+            "seven_day": { "utilization": 9, "resets_at": "2026-11-19T00:00:00Z" },
+            "seven_day_sonnet": { "utilization": 0, "resets_at": null }
+        }));
+        let rows = &result.detail_sections[1].rows;
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0].label, "1 week");
+        assert!(rows[0].value.starts_with("9% used"));
+        assert_eq!(rows[1].label, "Sonnet · 1 week");
+        assert!(rows[1].value.starts_with("0% used"));
+        assert_eq!(result.usage_summary.unwrap().percent, Some(9.0));
+        assert!(result.reset_at.is_some());
+    }
+
+    #[test]
+    fn utilization_below_one_is_still_a_percentage() {
+        for percent in [0.0, 0.5, 1.0, 9.0] {
+            let result = result(json!({ "five_hour": { "utilization": percent } }));
+            assert_eq!(result.usage_summary.unwrap().percent, Some(percent));
+        }
+    }
+
+    #[test]
+    fn missing_usage_does_not_become_zero() {
+        let result = result(json!({ "five_hour": {}, "seven_day": null }));
+        assert!(result.detail_sections[1].rows.is_empty());
+        assert!(result.usage_summary.is_none());
+        assert!(result.reset_at.is_none());
+    }
+
+    #[test]
+    fn primary_window_does_not_inherit_weekly_reset() {
+        let result = result(json!({
+            "five_hour": { "utilization": 12 },
+            "seven_day": { "utilization": 20, "resets_at": "2026-11-19T00:00:00Z" }
+        }));
+        assert_eq!(result.usage_summary.unwrap().percent, Some(12.0));
+        assert!(result.reset_at.is_none());
+    }
 
     #[test]
     fn parses_primary_api_key_from_claude_config() {

@@ -352,54 +352,57 @@ fn build_remote_result(
     source: &BrowserCookieSource,
     parsed: ParsedRemoteUsage,
 ) -> LiveFetchResult {
-    let primary_pct = parsed
-        .rolling_pct
-        .or(parsed.weekly_pct)
-        .or(parsed.monthly_pct);
+    let windows = [
+        (
+            "Session",
+            parsed.rolling_pct,
+            parsed.rolling_reset.as_ref(),
+            parsed.rolling_reset_at,
+        ),
+        (
+            "Weekly",
+            parsed.weekly_pct,
+            parsed.weekly_reset.as_ref(),
+            parsed.weekly_reset_at,
+        ),
+        (
+            "Monthly",
+            parsed.monthly_pct,
+            parsed.monthly_reset.as_ref(),
+            parsed.monthly_reset_at,
+        ),
+    ];
+    let summary_window = windows.iter().find(|(_, percent, _, _)| percent.is_some());
 
-    let format_row = |pct: Option<f64>, reset: Option<&String>| -> String {
-        let mut parts = Vec::new();
-        if let Some(p) = pct {
-            parts.push(format!("{}% used", round_metric(p)));
-        } else {
-            parts.push("—".to_string());
-        }
+    let format_row = |pct: f64, reset: Option<&String>| -> String {
+        let mut parts = vec![format!("{}% used", round_metric(pct))];
         if let Some(r) = reset.filter(|s| !s.is_empty()) {
             if r.to_ascii_lowercase().starts_with("reset") {
                 parts.push(r.to_string());
             } else {
                 parts.push(format!("Resets in {r}"));
             }
+        } else {
+            parts.push("Reset unknown".to_string());
         }
         parts.join(" · ")
     };
 
-    let reset_at = parsed
-        .rolling_reset_at
-        .or(parsed.weekly_reset_at)
-        .or(parsed.monthly_reset_at);
-
-    let rows = vec![
-        DetailRow {
-            label: "Session".to_string(),
-            value: format_row(parsed.rolling_pct, parsed.rolling_reset.as_ref()),
-            tone: RowTone::Default,
-        },
-        DetailRow {
-            label: "Weekly".to_string(),
-            value: format_row(parsed.weekly_pct, parsed.weekly_reset.as_ref()),
-            tone: RowTone::Default,
-        },
-        DetailRow {
-            label: "Monthly".to_string(),
-            value: format_row(parsed.monthly_pct, parsed.monthly_reset.as_ref()),
-            tone: RowTone::Default,
-        },
-    ];
+    let rows = windows
+        .iter()
+        .filter_map(|(label, percent, reset, _)| {
+            Some(DetailRow {
+                label: label.to_string(),
+                value: format_row((*percent)?, *reset),
+                tone: RowTone::Default,
+            })
+        })
+        .collect();
 
     LiveFetchResult {
         plan_label: Some("Go".to_string()),
-        usage_summary: Some(build_percent_usage_summary(primary_pct)),
+        usage_summary: summary_window
+            .map(|(_, percent, _, _)| build_percent_usage_summary(*percent)),
         detail_sections: vec![
             DetailSection {
                 title: "Account".to_string(),
@@ -423,7 +426,7 @@ fn build_remote_result(
         ],
         warnings: vec![],
         fetch_message: format!("opencode.ai workspace dashboard ({})", source.source_label),
-        reset_at,
+        reset_at: summary_window.and_then(|(_, _, _, reset_at)| *reset_at),
         credits_label: None,
         last_updated_at: Some(unix_now()),
     }
@@ -762,6 +765,59 @@ pub(crate) fn opencode_go_auth_source() -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn remote_weekly_only_usage_omits_unreported_windows() {
+        let parsed = ParsedRemoteUsage {
+            rolling_pct: None,
+            weekly_pct: Some(9.0),
+            monthly_pct: None,
+            rolling_reset: None,
+            weekly_reset: Some("5d 19h".to_string()),
+            monthly_reset: None,
+            rolling_reset_at: None,
+            weekly_reset_at: Some(1_800_000_000),
+            monthly_reset_at: None,
+        };
+        let source = BrowserCookieSource {
+            cookie_header: String::new(),
+            source_label: "test".to_string(),
+        };
+        let result = build_remote_result("test", &source, parsed);
+        let rows = &result.detail_sections[1].rows;
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].label, "Weekly");
+        assert_eq!(rows[0].value, "9% used · Resets in 5d 19h");
+        assert_eq!(result.usage_summary.unwrap().percent, Some(9.0));
+        assert_eq!(result.reset_at, Some(1_800_000_000));
+    }
+
+    #[test]
+    fn remote_summary_does_not_use_another_windows_reset() {
+        let parsed = ParsedRemoteUsage {
+            rolling_pct: Some(0.0),
+            weekly_pct: Some(9.0),
+            monthly_pct: None,
+            rolling_reset: None,
+            weekly_reset: Some("5d 19h".to_string()),
+            monthly_reset: None,
+            rolling_reset_at: None,
+            weekly_reset_at: Some(1_800_000_000),
+            monthly_reset_at: None,
+        };
+        let source = BrowserCookieSource {
+            cookie_header: String::new(),
+            source_label: "test".to_string(),
+        };
+        let result = build_remote_result("test", &source, parsed);
+        assert_eq!(result.detail_sections[1].rows.len(), 2);
+        assert_eq!(
+            result.detail_sections[1].rows[0].value,
+            "0% used · Reset unknown"
+        );
+        assert_eq!(result.usage_summary.unwrap().percent, Some(0.0));
+        assert!(result.reset_at.is_none());
+    }
 
     #[test]
     fn extracts_workspace_id_from_redirect_path() {

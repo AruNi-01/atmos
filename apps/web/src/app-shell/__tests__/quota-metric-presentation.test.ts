@@ -69,6 +69,49 @@ function present(providerValue: QuotaProviderResponse) {
 }
 
 describe("presentQuotaMetric", () => {
+  test("Codex Pro weekly-only usage stays a single weekly row", () => {
+    const views = present(
+      provider({
+        id: "codex",
+        label: "Codex",
+        detail_sections: [
+          {
+            title: "Usage",
+            rows: [{ label: "1 week", value: "9% used · Resets in 5d 19h", tone: "default" }],
+          },
+        ],
+      }),
+    );
+    expect(views).toHaveLength(1);
+    expect(views[0]).toMatchObject({ label: "1 week", valueText: "9%", percent: 9 });
+    expect(views[0]?.resetText).toMatch(/5d.*19h/);
+  });
+
+  test("an unknown window reset does not inherit another window's summary reset", () => {
+    const views = present(
+      provider({
+        id: "codex",
+        label: "Codex",
+        detail_sections: [
+          {
+            title: "Usage",
+            rows: [
+              { label: "5 hours", value: "9% used · Reset unknown", tone: "default" },
+              { label: "1 week", value: "20% used · Resets in 5d 19h", tone: "default" },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(views[0]?.resetText).toBe("Reset unknown");
+    expect(views[1]?.resetText).toMatch(/5d.*19h/);
+    expect(
+      displayResetText("Reset unknown", Math.floor(Date.now() / 1000) + 3600, {
+        resetUnknownLabel: "重置时间未知",
+      }),
+    ).toBe("重置时间未知");
+  });
+
   test("Grok weekly window keeps percent, bar, and reset; extra usage is amount-only", () => {
     const views = present(
       provider({

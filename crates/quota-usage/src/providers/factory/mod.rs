@@ -414,16 +414,18 @@ fn build_factory_live_result(
         ));
     }
 
-    let five_hour = standard.and_then(|w| w.five_hour.as_ref());
-    let weekly = standard.and_then(|w| w.weekly.as_ref());
-    let monthly = standard.and_then(|w| w.monthly.as_ref());
-
-    let five_hour_percent = window_percent(five_hour);
-    let weekly_percent = window_percent(weekly);
-    let monthly_percent = window_percent(monthly);
-    let five_hour_reset = window_reset_at(five_hour, now);
-    let weekly_reset = window_reset_at(weekly, now);
-    let monthly_reset = window_reset_at(monthly, now);
+    let summary_window = [standard, core]
+        .into_iter()
+        .flatten()
+        .flat_map(|limits| {
+            [
+                limits.five_hour.as_ref(),
+                limits.weekly.as_ref(),
+                limits.monthly.as_ref(),
+            ]
+        })
+        .flatten()
+        .find(|window| window.used_percent.is_some());
 
     let mut account_rows = vec![
         DetailRow {
@@ -504,16 +506,10 @@ fn build_factory_live_result(
         });
     }
 
-    let core_five_hour_percent = window_percent(core.and_then(|w| w.five_hour.as_ref()));
-    // Prefer Standard's short window for the summary bar (matches Claude / Codex).
-    let summary_percent = five_hour_percent
-        .or(weekly_percent)
-        .or(monthly_percent)
-        .or(core_five_hour_percent);
-
     Ok(LiveFetchResult {
         plan_label: Some(plan_label),
-        usage_summary: Some(build_percent_usage_summary(summary_percent)),
+        usage_summary: summary_window
+            .map(|window| build_percent_usage_summary(window_percent(Some(window)))),
         detail_sections,
         warnings: if limits.uses_token_rate_limits_billing == Some(false) {
             vec!["Factory account may still be on legacy allocation billing.".to_string()]
@@ -521,7 +517,7 @@ fn build_factory_live_result(
             vec![]
         },
         fetch_message: "Factory auth + billing limits APIs".to_string(),
-        reset_at: five_hour_reset.or(weekly_reset).or(monthly_reset),
+        reset_at: window_reset_at(summary_window, now),
         credits_label,
         last_updated_at: Some(unix_now()),
     })
@@ -743,44 +739,27 @@ fn format_compute_duration_ms(ms: i64) -> String {
 }
 
 fn window_rows(limits: Option<&FactoryWindowLimits>, now: u64) -> Vec<DetailRow> {
-    let five = limits.and_then(|window| window.five_hour.as_ref());
-    let weekly = limits.and_then(|window| window.weekly.as_ref());
-    let monthly = limits.and_then(|window| window.monthly.as_ref());
-    let mut rows = Vec::with_capacity(3);
-    push_window_row(
-        &mut rows,
-        "5 hours",
-        window_percent(five),
-        window_reset_at(five, now),
-    );
-    push_window_row(
-        &mut rows,
-        "1 week",
-        window_percent(weekly),
-        window_reset_at(weekly, now),
-    );
-    push_window_row(
-        &mut rows,
-        "1 month",
-        window_percent(monthly),
-        window_reset_at(monthly, now),
-    );
-    rows
-}
-
-fn push_window_row(
-    rows: &mut Vec<DetailRow>,
-    label: &str,
-    percent: Option<f64>,
-    reset_at: Option<u64>,
-) {
-    // Always show the three primary windows when the bucket exists;
-    // missing percent falls back to 0 so the UI still lists the window.
-    rows.push(DetailRow {
-        label: label.to_string(),
-        value: format_window(percent.unwrap_or(0.0), reset_at),
-        tone: RowTone::Default,
-    });
+    let Some(limits) = limits else {
+        return Vec::new();
+    };
+    [
+        ("5 hours", limits.five_hour.as_ref()),
+        ("1 week", limits.weekly.as_ref()),
+        ("1 month", limits.monthly.as_ref()),
+    ]
+    .into_iter()
+    .filter_map(|(label, window)| {
+        let window = window?;
+        Some(DetailRow {
+            label: label.to_string(),
+            value: format_window(
+                window_percent(Some(window))?,
+                window_reset_at(Some(window), now),
+            ),
+            tone: RowTone::Default,
+        })
+    })
+    .collect()
 }
 
 fn format_window(percent: f64, reset_at: Option<u64>) -> String {
@@ -887,6 +866,73 @@ mod tests {
             })),
             Some(76.4)
         );
+    }
+
+    #[test]
+    fn weekly_only_bucket_does_not_invent_other_windows() {
+        let result = build_factory_live_result(
+            json!({}),
+            json!({
+                "limits": {
+                    "standard": {
+                        "fiveHour": null,
+                        "weekly": { "usedPercent": 9, "secondsRemaining": 503245 }
+                    }
+                }
+            }),
+            None,
+            None,
+        )
+        .unwrap();
+        let usage = &result.detail_sections[1];
+        assert_eq!(usage.title, "Standard");
+        assert_eq!(usage.rows.len(), 1);
+        assert_eq!(usage.rows[0].label, "1 week");
+        assert_eq!(result.usage_summary.unwrap().percent, Some(9.0));
+        assert!(result.reset_at.is_some());
+    }
+
+    #[test]
+    fn core_only_weekly_usage_supplies_summary_and_its_own_reset() {
+        let result = build_factory_live_result(
+            json!({}),
+            json!({
+                "limits": {
+                    "core": {
+                        "weekly": { "usedPercent": 0, "secondsRemaining": 100 }
+                    }
+                }
+            }),
+            None,
+            None,
+        )
+        .unwrap();
+        assert_eq!(result.detail_sections[1].title, "Droid Core");
+        assert_eq!(result.detail_sections[1].rows.len(), 1);
+        assert_eq!(result.usage_summary.unwrap().percent, Some(0.0));
+        assert!(result.reset_at.is_some());
+    }
+
+    #[test]
+    fn missing_percent_is_not_zero_and_resets_stay_with_their_summary_window() {
+        let result = build_factory_live_result(
+            json!({}),
+            json!({
+                "limits": {
+                    "standard": {
+                        "fiveHour": { "usedPercent": 12 },
+                        "weekly": { "usedPercent": 20, "secondsRemaining": 503245 },
+                        "monthly": {}
+                    }
+                }
+            }),
+            None,
+            None,
+        )
+        .unwrap();
+        assert_eq!(result.detail_sections[1].rows.len(), 2);
+        assert_eq!(result.usage_summary.unwrap().percent, Some(12.0));
+        assert!(result.reset_at.is_none());
     }
 
     #[test]

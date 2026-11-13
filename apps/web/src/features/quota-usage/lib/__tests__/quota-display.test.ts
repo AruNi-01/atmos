@@ -67,6 +67,26 @@ function provider(partial: Partial<QuotaProviderResponse>): QuotaProviderRespons
   };
 }
 
+describe("quota window display", () => {
+  test("Codex Pro weekly-only usage does not add a five-hour window to the carousel", () => {
+    expect(
+      formatQuotaCarouselText(
+        provider({
+          id: "codex",
+          label: "Codex",
+          subscription_summary: null,
+          detail_sections: [
+            {
+              title: "Usage",
+              rows: [{ label: "1 week", value: "9% used · Resets in 5d 19h", tone: "default" }],
+            },
+          ],
+        }),
+      ),
+    ).toBe("Codex: 1w 9% used");
+  });
+});
+
 describe("DeepSeek quota display", () => {
   test("carousel shows prepaid balances instead of usage percent", () => {
     expect(formatQuotaCarouselText(provider({}))).toBe("DeepSeek: 110.00 CNY · 20 USD");
