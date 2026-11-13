@@ -62,6 +62,12 @@ describe("shouldRestoreTuiMouseTracking", () => {
       }),
     ).toBe(false);
   });
+
+  test("treats omitted alternate as not-alternate", () => {
+    expect(shouldRestoreTuiMouseTracking({})).toBe(false);
+    expect(shouldRestoreTuiMouseTracking({ restore_mouse_tracking: false })).toBe(false);
+    expect(shouldRestoreTuiMouseTracking({ restore_mouse_tracking: true })).toBe(true);
+  });
 });
 
 describe("ENABLE_TUI_MOUSE_TRACKING", () => {
@@ -97,6 +103,11 @@ describe("mouseTrackingRestoreSequence", () => {
         restore_mouse_tracking: true,
       }),
     ).toBe(ENABLE_TUI_MOUSE_TRACKING);
+  });
+
+  test("does not restore mouse when alternate is omitted and tracking is off", () => {
+    expect(mouseTrackingRestoreSequence({})).toBe("");
+    expect(mouseTrackingRestoreSequence({ restore_mouse_tracking: false })).toBe("");
   });
 });
 

@@ -8,6 +8,7 @@ import {
 } from "../terminal-runtime-utils";
 import { DEFAULT_TERMINAL_SCROLLBACK } from "../theme";
 import { isInlineMouseTuiScrollbackSurface } from "../tui-mouse-wheel";
+import type { TerminalSnapshot } from "../../types";
 
 function makeTerm(scrollback: number) {
   const writes: string[] = [];
@@ -31,6 +32,29 @@ describe("mouseTrackingRestoreSequence", () => {
     expect(mouseTrackingRestoreSequence({ alternate: true, restore_mouse_tracking: false })).toBe(
       "",
     );
+  });
+
+  it("accepts web wire snapshots that omit alternate without re-enabling mouse", () => {
+    const snapshot: TerminalSnapshot = {
+      data: "",
+      cursor_x: 0,
+      cursor_y: 0,
+      cols: 80,
+      rows: 24,
+    };
+    expect(mouseTrackingRestoreSequence(snapshot)).toBe("");
+  });
+
+  it("keeps explicitly disabled tracking off when alternate is omitted", () => {
+    const snapshot: TerminalSnapshot = {
+      data: "",
+      cursor_x: 0,
+      cursor_y: 0,
+      cols: 80,
+      rows: 24,
+      restore_mouse_tracking: false,
+    };
+    expect(mouseTrackingRestoreSequence(snapshot)).toBe("");
   });
 
   it("restores the exact mouse protocol for full-screen and inline apps", () => {
