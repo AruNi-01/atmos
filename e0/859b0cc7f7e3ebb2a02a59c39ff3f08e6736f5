@@ -1,0 +1,39 @@
+apps/web/src/features/quota-usage/lib/__tests__/quota-display.test.ts
+  s_8813a5268c3d6e::t_4b28e0b32e2d9d 70-89
+apps/web/src/app-shell/__tests__/quota-metric-presentation.test.ts
+  s_8813a5268c3d6e::t_4b28e0b32e2d9d 72-114
+crates/quota-usage/src/providers/codex.rs
+  s_8813a5268c3d6e::t_90408c1e7a2caa 90-99,109-118,129,141,156,158-159,163,165-166,312,318-365,406-407
+  s_8813a5268c3d6e::t_5550a047fb6db1 100-108,545-548
+  s_8813a5268c3d6e::t_1fee3ec11872d6 417-418,420-544,549,587,589
+apps/web/src/app-shell/quota-popover-utils.ts
+  s_8813a5268c3d6e::t_4b28e0b32e2d9d 344-345
+crates/quota-usage/src/providers/claude.rs
+  s_8813a5268c3d6e::t_1480acb9013aa3 558-613
+  s_8813a5268c3d6e::t_e77e74db691d88 12,131-141,164-177,179-180,183-185,221,235,238-246
+  s_8813a5268c3d6e::t_5550a047fb6db1 223,555-556
+crates/quota-usage/src/providers/factory/mod.rs
+  s_8813a5268c3d6e::t_1480acb9013aa3 871-937
+  s_8813a5268c3d6e::t_e988fde03a5c99 417-428,511-512,520,742-762
+crates/quota-usage/src/providers/opencode.rs
+  s_8813a5268c3d6e::t_5550a047fb6db1 395-397
+  s_8813a5268c3d6e::t_4509ad2e16d186 769-821
+  s_8813a5268c3d6e::t_45d0d9f0c6d00a 355-378,391-394,398-400,404-405,429
+  s_8813a5268c3d6e::t_8aabc443631866 385-386
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e0859b0cc7f7e3ebb2a02a59c39ff3f08e6736f5",
+  "prompts": {},
+  "sessions": {
+    "s_8813a5268c3d6e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d365-86b2-7aa3-abb3-d9286502a749",
+        "model": "codex/gpt-6.1-sol"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
