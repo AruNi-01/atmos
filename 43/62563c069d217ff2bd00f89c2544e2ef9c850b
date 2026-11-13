@@ -1,0 +1,95 @@
+crates/core-engine/src/agent_hooks/factory_droid.rs
+  s_fb6e34d51e737b::t_a0533dcd735179 48
+  s_fb6e34d51e737b::t_907b0b8368f1be 283-288,293-295
+  s_fb6e34d51e737b::t_2c7dbe7ad9daa1 116-117,122,125
+  s_fb6e34d51e737b::t_28b45838feabb8 289-292
+  s_fb6e34d51e737b::t_0fa4f4bab9b8a7 43
+  s_fb6e34d51e737b::t_91c58f20321350 282
+apps/api/src/api/hooks/mod.rs
+  s_fb6e34d51e737b::t_50174bf1915fac 53-74
+  s_fb6e34d51e737b::t_67f41a11afde2e 104,117,128,141,154,188,201,214,227,263,276,289
+  s_fb6e34d51e737b::t_aa9c67f7df96f1 387-397,399-431
+  s_fb6e34d51e737b::t_7d030309a6ba00 356-386
+  s_fb6e34d51e737b::t_c55a99c006f8a6 398
+crates/core-engine/src/shims/grok_wrapper.sh
+  s_fb6e34d51e737b::t_5c5a9dd96dc26b 8-9
+  s_fb6e34d51e737b::t_e832ddff4f73bf 5-6
+  s_fb6e34d51e737b::t_0beb6115e9a2c1 7
+crates/core-engine/src/shims/bash_shim.sh
+  s_fb6e34d51e737b::t_de526b5e412427 51-62
+  s_fb6e34d51e737b::t_b43efefde6e0b9 32
+apps/web/src/features/terminal/lib/__tests__/terminal-server-title.test.ts
+  s_fb6e34d51e737b::t_e66eef83d12d36 1-91
+crates/core-engine/src/agent_hooks/gemini.rs
+  s_fb6e34d51e737b::t_20dddd1ff9fdc0 90,99
+  s_fb6e34d51e737b::t_22ade7a46c15f0 43
+  s_fb6e34d51e737b::t_b9332ebfb4bdc3 48
+  s_fb6e34d51e737b::t_28b45838feabb8 277-280
+  s_fb6e34d51e737b::t_656c0edd24128e 271-276,281-283
+  s_fb6e34d51e737b::t_373a30cdfbf1c0 270
+crates/core-engine/src/agent_hooks/kiro.rs
+  s_fb6e34d51e737b::t_9f095c678eb0a4 47
+  s_fb6e34d51e737b::t_0e432a90f41b6f 256,259-261,265-281,288-291,295-297
+  s_fb6e34d51e737b::t_64b1adc26c4fc2 282-287,292-294
+  s_fb6e34d51e737b::t_2ecf3a874e2d5e 258,262-264,298-300
+  s_fb6e34d51e737b::t_74570fa19bf205 75
+  s_fb6e34d51e737b::t_a422919281c589 257
+crates/core-engine/src/shims/codex_wrapper.sh
+  s_fb6e34d51e737b::t_4a6a3125e39c9c 1-7,11-34
+  s_fb6e34d51e737b::t_7a46c5fabd7b2d 8-10
+crates/core-engine/src/agent_hooks/codex.rs
+  s_fb6e34d51e737b::t_ae5b9ba7d4823d 73
+  s_fb6e34d51e737b::t_6ff7b22764ae4d 252-261
+  s_fb6e34d51e737b::t_fee2edf2a7833e 251
+crates/core-engine/src/shims/mod.rs
+  s_fb6e34d51e737b::t_19f7982e80a747 255-285,287-291,293-298,300-304,306-312,314-354,356-359,361-389
+  s_fb6e34d51e737b::t_047eacf6375a55 95-99
+  s_fb6e34d51e737b::t_3227d1b76428d2 236
+  s_fb6e34d51e737b::t_72b7b81b5dff03 416-428,430-436
+  s_fb6e34d51e737b::t_0715b8102c71cf 755
+  s_fb6e34d51e737b::t_19260836b53332 31
+  s_fb6e34d51e737b::t_e64e508afef427 286
+  s_fb6e34d51e737b::t_194732d5a37258 292
+  s_fb6e34d51e737b::t_8d903427174487 299
+  s_fb6e34d51e737b::t_7e6325ac723749 305
+  s_fb6e34d51e737b::t_62b0211de65b52 313
+  s_fb6e34d51e737b::t_d2e2ae70b2d4dd 355
+  s_fb6e34d51e737b::t_2ace5d45dbabec 360
+crates/core-engine/src/shims/fish_shim.fish
+  s_fb6e34d51e737b::t_eab8f57266ef55 43-57
+  s_fb6e34d51e737b::t_6d342bcca02933 77,84
+  s_fb6e34d51e737b::t_71d65fa450d227 23
+  s_fb6e34d51e737b::t_5efd3cf110d83e 62
+crates/core-engine/src/agent_hooks/claude_code.rs
+  s_fb6e34d51e737b::t_2c6bb27ec4063a 43-44
+  s_fb6e34d51e737b::t_6cde5e584f6bd6 49
+  s_fb6e34d51e737b::t_a118b33e52f006 148
+  s_fb6e34d51e737b::t_42a258e463b313 158
+  s_fb6e34d51e737b::t_7598a05485a27e 302-307,312-314
+  s_fb6e34d51e737b::t_28b45838feabb8 308-311
+  s_fb6e34d51e737b::t_dfca4a8e4a49b3 301
+crates/core-engine/src/agent_hooks/mod.rs
+  s_fb6e34d51e737b::t_1fa8c1533345c1 33
+  s_fb6e34d51e737b::t_77c1355172e63a 23
+apps/web/src/features/terminal/lib/terminal-server-title.ts
+  s_fb6e34d51e737b::t_ebc4b9f0446363 13
+crates/core-engine/src/shims/zsh_shim_zshrc
+  s_fb6e34d51e737b::t_cd526789ced285 73-84
+  s_fb6e34d51e737b::t_2194cb6a33a928 54
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4362563c069d217ff2bd00f89c2544e2ef9c850b",
+  "prompts": {},
+  "sessions": {
+    "s_fb6e34d51e737b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "49ec54d6-33b6-4eec-97c4-59c815f4f754",
+        "model": "codex/gpt-6.1-sol"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
