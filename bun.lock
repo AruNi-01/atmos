@@ -412,7 +412,7 @@
         "typescript": "6.0.3",
       },
       "peerDependencies": {
-        "next": "16.4.1",
+        "next": "16.4.5",
         "react": "^18 || ^19",
       },
     },

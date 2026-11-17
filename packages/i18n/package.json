@@ -24,6 +24,6 @@
   },
   "peerDependencies": {
     "react": "^18 || ^19",
-    "next": "16.4.1"
+    "next": "16.4.5"
   }
 }
