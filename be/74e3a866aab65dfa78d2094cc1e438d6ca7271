@@ -1,0 +1,21 @@
+apps/desktop-electron/package.json
+  s_d618cbfad59f25::t_49f44a1e4a7be0 4
+"releasenotes/Atmos Desktop 2026.11.20.md"
+  s_d618cbfad59f25::t_c57e55928b61fd 1-43
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "be74e3a866aab65dfa78d2094cc1e438d6ca7271",
+  "prompts": {},
+  "sessions": {
+    "s_d618cbfad59f25": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2a71a714-4bf4-4aa1-b1fa-9cf2f2474026",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
