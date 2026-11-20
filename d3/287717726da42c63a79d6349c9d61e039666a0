@@ -1,0 +1,44 @@
+e2e/tests/specs/APP-066_resource-monitor.e2e.ts
+  s_d618cbfad59f25::t_5cab2bb85332ca 752,754
+  s_d618cbfad59f25::t_a6731a4950c7d4 753,755-758
+  s_d618cbfad59f25::t_3101dc5d035dbd 759-760
+crates/core-service/src/service/local_services/dto.rs
+  s_d618cbfad59f25::t_67bff1ecedafa5 87
+crates/core-service/src/service/resource_monitor/mod.rs
+  s_d618cbfad59f25::t_7f477a05d2ea37 658-659,661
+  s_d618cbfad59f25::t_09190d70fd4450 676-681
+  s_d618cbfad59f25::t_fb9e3864f23d51 416-420
+  s_d618cbfad59f25::t_d00a673d078327 584
+crates/core-service/src/service/local_services.rs
+  s_d618cbfad59f25::t_da393a8d735350 953
+  s_d618cbfad59f25::t_60b3cf84a3c61a 172-173
+crates/core-service/src/service/local_services/classification.rs
+  s_d618cbfad59f25::t_d0216cfdd75022 323,346
+crates/core-service/src/service/local_services/ownership.rs
+  s_d618cbfad59f25::t_aedcd815b6ef38 134
+crates/core-engine/src/local_services/mod.rs
+  s_d618cbfad59f25::t_c0e6cc22ea9a4d 17-18
+crates/core-engine/src/local_services/scanner.rs
+  s_d618cbfad59f25::t_4fe4ad98457948 85
+  s_d618cbfad59f25::t_0bf9e6a8c7a135 286-291
+  s_d618cbfad59f25::t_44ec1f704b61ed 314
+  s_d618cbfad59f25::t_931a0d259525df 327
+  s_d618cbfad59f25::t_0348b9fd46f17e 404
+  s_d618cbfad59f25::t_b9d7d98a725252 201
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d3287717726da42c63a79d6349c9d61e039666a0",
+  "prompts": {},
+  "sessions": {
+    "s_d618cbfad59f25": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2a71a714-4bf4-4aa1-b1fa-9cf2f2474026",
+        "model": "codex/gpt-6.2-sol"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
