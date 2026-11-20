@@ -1,0 +1,19 @@
+crates/agent/src/manager/native_chat.rs
+  s_d618cbfad59f25::t_6254b5cb7302d5 91
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b991c1681cdcebc25cc86cddac1097b01fa9f2c5",
+  "prompts": {},
+  "sessions": {
+    "s_d618cbfad59f25": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2a71a714-4bf4-4aa1-b1fa-9cf2f2474026",
+        "model": "codex/gpt-6.2-sol"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
