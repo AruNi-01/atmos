@@ -1,0 +1,830 @@
+# Instructions
+
+- Following Playwright test failed.
+- Explain why, be concise, respect Playwright best practices.
+- Provide a snippet of code with the fix, if possible.
+
+# Test info
+
+- Name: smoke/settings/settings-modal.e2e.ts >> smoke settings >> @smoke @stateful boots settings modal from project context route params
+- Location: tests/smoke/settings/settings-modal.e2e.ts:31:3
+
+# Error details
+
+```
+Error: Unexpected browser error output:
+- [response.404] http://localhost:30303/api/canvas/documents/Default.atmos.tldr
+```
+
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - generic [ref=e6]:
+        - button "Collapse left sidebar" [ref=e7]:
+          - img [ref=e8]
+        - generic [ref=e11]:
+          - button "Go back" [ref=e12]:
+            - img [ref=e13]
+          - button "Go forward" [ref=e15]:
+            - img [ref=e16]
+          - button "Refresh page" [ref=e18]:
+            - img [ref=e19]
+        - generic:
+          - generic [ref=e22]: /
+          - generic [ref=e23]: Atmos E2E
+        - generic [ref=e25]:
+          - button "Open O" [ref=e26]:
+            - generic: Open
+            - generic:
+              - generic: O
+          - button [ref=e28]:
+            - img [ref=e29]
+      - generic [ref=e31]:
+        - generic [ref=e32]:
+          - status "Unable to compare the remote branch with origin/main" [ref=e33]:
+            - img [ref=e35]
+          - generic [ref=e39]: HEAD
+        - img [ref=e40]
+        - button "origin/ main" [ref=e43] [cursor=pointer]:
+          - generic [ref=e44]: origin/
+          - generic [ref=e45]: main
+          - img [ref=e46]
+      - generic [ref=e48]:
+        - button "Search" [ref=e49] [cursor=pointer]:
+          - img [ref=e50]
+          - generic [ref=e53]: Search...
+          - generic:
+            - img
+            - generic: K
+        - button "Open workspace summary" [ref=e54]:
+          - img [ref=e55]
+        - generic [ref=e57]:
+          - button "Usage" [ref=e58]:
+            - img [ref=e59]
+          - button "Open actions menu" [ref=e62]:
+            - generic [ref=e63]: ···
+          - button "Collapse right sidebar" [ref=e65]:
+            - img [ref=e66]
+    - generic [ref=e70]:
+      - complementary [ref=e73]:
+        - generic [ref=e74]:
+          - generic [ref=e75] [cursor=pointer]:
+            - generic [ref=e76]:
+              - img [ref=e77]
+              - generic [ref=e81]: Management Center
+            - img [ref=e83]
+          - generic [ref=e85]:
+            - generic [ref=e87] [cursor=pointer]:
+              - img [ref=e89]
+              - generic [ref=e92]: Workspaces
+            - generic [ref=e94] [cursor=pointer]:
+              - img [ref=e96]
+              - generic [ref=e99]: Skills
+            - generic [ref=e101] [cursor=pointer]:
+              - img [ref=e103]
+              - generic [ref=e107]: Canvas
+            - generic [ref=e109] [cursor=pointer]:
+              - img [ref=e111]
+              - generic [ref=e114]: Kanban
+            - generic [ref=e116] [cursor=pointer]:
+              - img [ref=e118]
+              - generic [ref=e120]: New Workspace
+        - tabpanel "Projects" [ref=e123]:
+          - generic [ref=e126]:
+            - generic [ref=e128]:
+              - generic [ref=e129]:
+                - button "A Atmos E2E" [ref=e130] [cursor=pointer]:
+                  - generic [ref=e131]:
+                    - generic [ref=e133]: A
+                    - generic [ref=e134]: Atmos E2E
+                - generic [ref=e136]:
+                  - button [ref=e137]:
+                    - img [ref=e138]
+                  - button [ref=e140]:
+                    - img [ref=e141]
+              - button "gastly 29s" [ref=e150] [cursor=pointer]:
+                - generic [ref=e151]:
+                  - img [ref=e153]
+                  - generic [ref=e158]: gastly
+                  - generic:
+                    - generic: 29s
+                    - button "Archive":
+                      - img
+            - status [ref=e159]
+        - generic [ref=e161]:
+          - button "Add Project" [ref=e163]:
+            - img [ref=e165]
+          - generic [ref=e167]:
+            - button [ref=e168]:
+              - img [ref=e170]
+            - button "Open Kanban" [ref=e171]:
+              - img [ref=e173]
+      - separator [ref=e175]
+      - main [ref=e177]:
+        - generic [ref=e178]:
+          - tablist [ref=e179]:
+            - tab [ref=e180] [cursor=pointer]:
+              - img [ref=e181]
+            - tab "Terminal Term Close Term" [selected] [ref=e187] [cursor=pointer]:
+              - generic [ref=e188]:
+                - img [ref=e189]
+                - button "Terminal":
+                  - img
+              - generic [ref=e192]: Term
+              - button "Close Term" [ref=e194]:
+                - img [ref=e195]
+            - generic [ref=e198]:
+              - button "New tab" [ref=e199]:
+                - img [ref=e200]
+              - button "Open tab groups" [ref=e201] [cursor=pointer]:
+                - img
+          - generic [ref=e208]:
+            - generic [ref=e210]:
+              - generic [ref=e212]:
+                - img [ref=e213]
+                - generic [ref=e215]: atmos/atmos
+              - generic [ref=e216]:
+                - button "Pin to canvas (⌘⇧P)" [ref=e217] [cursor=pointer]:
+                  - img [ref=e218]
+                - generic [ref=e221]:
+                  - generic [ref=e222]:
+                    - button "Split horizontally (⌘D)" [ref=e223] [cursor=pointer]:
+                      - img [ref=e224]
+                    - button "Split vertically (⌘⇧D)" [ref=e226] [cursor=pointer]:
+                      - img [ref=e227]
+                  - generic [ref=e229]:
+                    - button "Maximize" [ref=e230] [cursor=pointer]:
+                      - img [ref=e231]
+                    - button "Close (⌘W)" [ref=e236] [cursor=pointer]:
+                      - img [ref=e237]
+            - generic [ref=e241]:
+              - textbox "Terminal input" [ref=e247]
+              - generic [ref=e250]:
+                - generic [ref=e252]:
+                  - generic [ref=e254]:
+                    - generic: "[⌘ + (⇧ Pin) + G] Input anything to terminal (@ annotation, / command, or paste img)"
+                  - button "Send to terminal" [disabled] [ref=e256]:
+                    - img [ref=e257]
+                - button "Open agent input" [ref=e260]
+            - heading "atmos/atmos" [level=4] [ref=e264]
+      - separator [ref=e265]
+      - complementary [ref=e268]:
+        - generic [ref=e270]:
+          - tablist [ref=e271]:
+            - tab "Changes" [selected] [ref=e272] [cursor=pointer]:
+              - img [ref=e273]
+            - tab "Review" [ref=e277] [cursor=pointer]:
+              - img [ref=e278]
+            - tab "Browser" [ref=e280] [cursor=pointer]:
+              - img [ref=e281]
+            - tab "Run" [ref=e284] [cursor=pointer]:
+              - img [ref=e285]
+            - tab "Files" [ref=e287] [cursor=pointer]:
+              - img [ref=e288]
+            - tab "Pull Requests" [ref=e293] [cursor=pointer]:
+              - img [ref=e294]
+            - tab "Actions" [ref=e298] [cursor=pointer]:
+              - img [ref=e299]
+          - generic [ref=e303]:
+            - tablist [ref=e306]:
+              - tab "Files Diff Refresh changes Select changes scope Show changed files as tree" [selected] [ref=e307] [cursor=pointer]:
+                - generic [ref=e308]:
+                  - img [ref=e309]
+                  - generic [ref=e312]: Files Diff
+                - generic:
+                  - button "Refresh changes":
+                    - img
+                    - generic: Refresh
+                  - button "Select changes scope":
+                    - generic: Branch
+                    - img
+                  - button "Show changed files as tree":
+                    - img
+              - tab "Commits Refresh commits" [ref=e313] [cursor=pointer]:
+                - generic [ref=e314]:
+                  - img [ref=e315]
+                  - generic [ref=e317]: Commits
+                - generic:
+                  - button "Refresh commits":
+                    - img
+                    - generic: Refresh
+            - generic [ref=e321]:
+              - generic [ref=e322] [cursor=pointer]:
+                - generic [ref=e323]:
+                  - 'img "File: adapt" [ref=e324]'
+                  - generic [ref=e325]: adapt
+                  - generic [ref=e326]: .atmos/skills/.disabled/.agent/skills/
+                - generic [ref=e328]:
+                  - generic [ref=e330]: "+1"
+                  - generic [ref=e331]: A
+              - generic [ref=e332] [cursor=pointer]:
+                - generic [ref=e333]:
+                  - 'img "File: animate" [ref=e334]'
+                  - generic [ref=e335]: animate
+                  - generic [ref=e336]: .atmos/skills/.disabled/.agent/skills/
+                - generic [ref=e338]:
+                  - generic [ref=e340]: "+1"
+                  - generic [ref=e341]: A
+              - generic [ref=e342] [cursor=pointer]:
+                - generic [ref=e343]:
+                  - 'img "File: colorize" [ref=e344]'
+                  - generic [ref=e345]: colorize
+                  - generic [ref=e346]: .atmos/skills/.disabled/.agent/skills/
+                - generic [ref=e348]:
+                  - generic [ref=e350]: "+1"
+                  - generic [ref=e351]: A
+              - generic [ref=e352] [cursor=pointer]:
+                - generic [ref=e353]:
+                  - 'img "File: SKILL.md" [ref=e354]'
+                  - generic [ref=e355]: SKILL.md
+                  - generic [ref=e356]: .atmos/skills/.disabled/.agents/skills/adapt/
+                - generic [ref=e358]:
+                  - generic [ref=e360]: "+198"
+                  - generic [ref=e361]: A
+              - generic [ref=e362] [cursor=pointer]:
+                - generic [ref=e363]:
+                  - 'img "File: SKILL.md" [ref=e364]'
+                  - generic [ref=e365]: SKILL.md
+                  - generic [ref=e366]: .atmos/skills/.disabled/.agents/skills/agent-browser/
+                - generic [ref=e368]:
+                  - generic [ref=e370]: "+55"
+                  - generic [ref=e371]: A
+              - generic [ref=e372] [cursor=pointer]:
+                - generic [ref=e373]:
+                  - 'img "File: SKILL.md" [ref=e374]'
+                  - generic [ref=e375]: SKILL.md
+                  - generic [ref=e376]: .atmos/skills/.disabled/.agents/skills/animate/
+                - generic [ref=e378]:
+                  - generic [ref=e380]: "+190"
+                  - generic [ref=e381]: A
+              - generic [ref=e382] [cursor=pointer]:
+                - generic [ref=e383]:
+                  - 'img "File: SKILL.md" [ref=e384]'
+                  - generic [ref=e385]: SKILL.md
+                  - generic [ref=e386]: .atmos/skills/.disabled/.agents/skills/colorize/
+                - generic [ref=e388]:
+                  - generic [ref=e390]: "+158"
+                  - generic [ref=e391]: A
+              - generic [ref=e392] [cursor=pointer]:
+                - generic [ref=e393]:
+                  - 'img "File: adapt" [ref=e394]'
+                  - generic [ref=e395]: adapt
+                  - generic [ref=e396]: .atmos/skills/.disabled/.claude/skills/
+                - generic [ref=e398]:
+                  - generic [ref=e400]: "+1"
+                  - generic [ref=e401]: A
+              - generic [ref=e402] [cursor=pointer]:
+                - generic [ref=e403]:
+                  - 'img "File: agent-browser" [ref=e404]'
+                  - generic [ref=e405]: agent-browser
+                  - generic [ref=e406]: .atmos/skills/.disabled/.claude/skills/
+                - generic [ref=e408]:
+                  - generic [ref=e410]: "+1"
+                  - generic [ref=e411]: A
+              - generic [ref=e412] [cursor=pointer]:
+                - generic [ref=e413]:
+                  - 'img "File: animate" [ref=e414]'
+                  - generic [ref=e415]: animate
+                  - generic [ref=e416]: .atmos/skills/.disabled/.claude/skills/
+                - generic [ref=e418]:
+                  - generic [ref=e420]: "+1"
+                  - generic [ref=e421]: A
+              - generic [ref=e422] [cursor=pointer]:
+                - generic [ref=e423]:
+                  - 'img "File: colorize" [ref=e424]'
+                  - generic [ref=e425]: colorize
+                  - generic [ref=e426]: .atmos/skills/.disabled/.claude/skills/
+                - generic [ref=e428]:
+                  - generic [ref=e430]: "+1"
+                  - generic [ref=e431]: A
+              - generic [ref=e432] [cursor=pointer]:
+                - generic [ref=e433]:
+                  - 'img "File: adapt" [ref=e434]'
+                  - generic [ref=e435]: adapt
+                  - generic [ref=e436]: .atmos/skills/.disabled/.factory/skills/
+                - generic [ref=e438]:
+                  - generic [ref=e440]: "+1"
+                  - generic [ref=e441]: A
+              - generic [ref=e442] [cursor=pointer]:
+                - generic [ref=e443]:
+                  - 'img "File: agent-browser" [ref=e444]'
+                  - generic [ref=e445]: agent-browser
+                  - generic [ref=e446]: .atmos/skills/.disabled/.factory/skills/
+                - generic [ref=e448]:
+                  - generic [ref=e450]: "+1"
+                  - generic [ref=e451]: A
+              - generic [ref=e452] [cursor=pointer]:
+                - generic [ref=e453]:
+                  - 'img "File: animate" [ref=e454]'
+                  - generic [ref=e455]: animate
+                  - generic [ref=e456]: .atmos/skills/.disabled/.factory/skills/
+                - generic [ref=e458]:
+                  - generic [ref=e460]: "+1"
+                  - generic [ref=e461]: A
+              - generic [ref=e462] [cursor=pointer]:
+                - generic [ref=e463]:
+                  - 'img "File: colorize" [ref=e464]'
+                  - generic [ref=e465]: colorize
+                  - generic [ref=e466]: .atmos/skills/.disabled/.factory/skills/
+                - generic [ref=e468]:
+                  - generic [ref=e470]: "+1"
+                  - generic [ref=e471]: A
+              - generic [ref=e472] [cursor=pointer]:
+                - generic [ref=e473]:
+                  - 'img "File: adapt" [ref=e474]'
+                  - generic [ref=e475]: adapt
+                  - generic [ref=e476]: .atmos/skills/.disabled/.kiro/skills/
+                - generic [ref=e478]:
+                  - generic [ref=e480]: "+1"
+                  - generic [ref=e481]: A
+              - generic [ref=e482] [cursor=pointer]:
+                - generic [ref=e483]:
+                  - 'img "File: agent-browser" [ref=e484]'
+                  - generic [ref=e485]: agent-browser
+                  - generic [ref=e486]: .atmos/skills/.disabled/.kiro/skills/
+                - generic [ref=e488]:
+                  - generic [ref=e490]: "+1"
+                  - generic [ref=e491]: A
+              - generic [ref=e492] [cursor=pointer]:
+                - generic [ref=e493]:
+                  - 'img "File: animate" [ref=e494]'
+                  - generic [ref=e495]: animate
+                  - generic [ref=e496]: .atmos/skills/.disabled/.kiro/skills/
+                - generic [ref=e498]:
+                  - generic [ref=e500]: "+1"
+                  - generic [ref=e501]: A
+              - generic [ref=e502] [cursor=pointer]:
+                - generic [ref=e503]:
+                  - 'img "File: colorize" [ref=e504]'
+                  - generic [ref=e505]: colorize
+                  - generic [ref=e506]: .atmos/skills/.disabled/.kiro/skills/
+                - generic [ref=e508]:
+                  - generic [ref=e510]: "+1"
+                  - generic [ref=e511]: A
+              - generic [ref=e512] [cursor=pointer]:
+                - generic [ref=e513]:
+                  - 'img "File: skills.rs" [ref=e514]'
+                  - generic [ref=e515]: skills.rs
+                  - generic [ref=e516]: apps/api/src/api/ws/message/
+                - generic [ref=e518]:
+                  - generic [ref=e520]: "+19"
+                  - generic [ref=e521]: M
+              - generic [ref=e522] [cursor=pointer]:
+                - generic [ref=e523]:
+                  - 'img "File: message.rs" [ref=e524]'
+                  - generic [ref=e525]: message.rs
+                  - generic [ref=e526]: apps/api/src/api/ws/
+                - generic [ref=e528]:
+                  - generic [ref=e530]: "+2"
+                  - generic [ref=e531]: M
+              - generic [ref=e532] [cursor=pointer]:
+                - generic [ref=e533]:
+                  - 'img "File: mod.rs" [ref=e534]'
+                  - generic [ref=e535]: mod.rs
+                  - generic [ref=e536]: apps/api/src/api/ws/router/
+                - generic [ref=e538]:
+                  - generic [ref=e540]: "+4"
+                  - generic [ref=e541]: M
+              - generic [ref=e542] [cursor=pointer]:
+                - generic [ref=e543]:
+                  - 'img "File: skills.rs" [ref=e544]'
+                  - generic [ref=e545]: skills.rs
+                  - generic [ref=e546]: apps/api/src/api/ws/router/
+                - generic [ref=e548]:
+                  - generic [ref=e549]:
+                    - generic [ref=e550]: "+36"
+                    - generic [ref=e551]: "-2"
+                  - generic [ref=e552]: M
+              - generic [ref=e553] [cursor=pointer]:
+                - generic [ref=e554]:
+                  - 'img "File: skill-management.mdx" [ref=e555]'
+                  - generic [ref=e556]: skill-management.mdx
+                  - generic: apps/docs/content/docs/(app)/features/
+                - generic [ref=e558]:
+                  - generic [ref=e560]: "+8"
+                  - generic [ref=e561]: M
+              - generic [ref=e562] [cursor=pointer]:
+                - generic [ref=e563]:
+                  - 'img "File: skill-management.zh.mdx" [ref=e564]'
+                  - generic [ref=e565]: skill-management.zh.mdx
+                  - generic [ref=e566]: apps/docs/content/docs/(app)/features/
+                - generic [ref=e569]: M
+              - generic [ref=e570] [cursor=pointer]:
+                - generic [ref=e571]:
+                  - 'img "File: dynamic-skills.mdx" [ref=e572]'
+                  - generic [ref=e573]: dynamic-skills.mdx
+                  - generic [ref=e574]: apps/docs/content/docs/(app)/how-it-works/
+                - generic [ref=e576]:
+                  - generic [ref=e578]: "+150"
+                  - generic [ref=e579]: A
+              - generic [ref=e580] [cursor=pointer]:
+                - generic [ref=e581]:
+                  - 'img "File: dynamic-skills.zh.mdx" [ref=e582]'
+                  - generic [ref=e583]: dynamic-skills.zh.mdx
+                  - generic [ref=e584]: apps/docs/content/docs/(app)/how-it-works/
+                - generic [ref=e587]: A
+              - generic [ref=e588] [cursor=pointer]:
+                - generic [ref=e589]:
+                  - 'img "File: meta.json" [ref=e590]'
+                  - generic [ref=e591]: meta.json
+                  - generic [ref=e592]: apps/docs/content/docs/(app)/how-it-works/
+                - generic [ref=e594]:
+                  - generic [ref=e596]: "+4"
+                  - generic [ref=e597]: A
+              - generic [ref=e598] [cursor=pointer]:
+                - generic [ref=e599]:
+                  - 'img "File: meta.zh.json" [ref=e600]'
+                  - generic [ref=e601]: meta.zh.json
+                  - generic [ref=e602]: apps/docs/content/docs/(app)/how-it-works/
+                - generic [ref=e604]:
+                  - generic [ref=e606]: "+4"
+                  - generic [ref=e607]: A
+              - generic [ref=e608] [cursor=pointer]:
+                - generic [ref=e609]:
+                  - 'img "File: meta.json" [ref=e610]'
+                  - generic [ref=e611]: meta.json
+                  - generic [ref=e612]: apps/docs/content/docs/(app)/
+                - generic [ref=e614]:
+                  - generic [ref=e616]: "+2"
+                  - generic [ref=e617]: M
+              - generic [ref=e618] [cursor=pointer]:
+                - generic [ref=e619]:
+                  - 'img "File: meta.zh.json" [ref=e620]'
+                  - generic [ref=e621]: meta.zh.json
+                  - generic [ref=e622]: apps/docs/content/docs/(app)/
+                - generic [ref=e624]:
+                  - generic [ref=e626]: "+2"
+                  - generic [ref=e627]: M
+              - generic [ref=e628] [cursor=pointer]:
+                - generic [ref=e629]:
+                  - 'img "File: en.json" [ref=e630]'
+                  - generic [ref=e631]: en.json
+                  - generic [ref=e632]: apps/web/messages/
+                - generic [ref=e634]:
+                  - generic [ref=e635]:
+                    - generic [ref=e636]: "+45"
+                    - generic [ref=e637]: "-1"
+                  - generic [ref=e638]: M
+              - generic [ref=e639] [cursor=pointer]:
+                - generic [ref=e640]:
+                  - 'img "File: zh.json" [ref=e641]'
+                  - generic [ref=e642]: zh.json
+                  - generic [ref=e643]: apps/web/messages/
+                - generic [ref=e645]:
+                  - generic [ref=e646]:
+                    - generic [ref=e647]: "+45"
+                    - generic [ref=e648]: "-1"
+                  - generic [ref=e649]: M
+              - generic [ref=e650] [cursor=pointer]:
+                - generic [ref=e651]:
+                  - 'img "File: skills-api.ts" [ref=e652]'
+                  - generic [ref=e653]: skills-api.ts
+                  - generic [ref=e654]: apps/web/src/api/ws/
+                - generic [ref=e656]:
+                  - generic [ref=e657]:
+                    - generic [ref=e658]: "+18"
+                    - generic [ref=e659]: "-2"
+                  - generic [ref=e660]: M
+              - generic [ref=e661] [cursor=pointer]:
+                - generic [ref=e662]:
+                  - 'img "File: CanvasTerminalCard.tsx" [ref=e663]'
+                  - generic [ref=e664]: CanvasTerminalCard.tsx
+                  - generic [ref=e665]: apps/web/src/features/canvas/components/
+                - generic [ref=e668]: M
+              - generic [ref=e669] [cursor=pointer]:
+                - generic [ref=e670]:
+                  - 'img "File: use-websocket.ts" [ref=e671]'
+                  - generic [ref=e672]: use-websocket.ts
+                  - generic [ref=e673]: apps/web/src/features/connection/hooks/
+                - generic [ref=e675]:
+                  - generic [ref=e677]: "+1"
+                  - generic [ref=e678]: M
+              - generic [ref=e679] [cursor=pointer]:
+                - generic [ref=e680]:
+                  - 'img "File: ComposerSkillsControl.tsx" [ref=e681]'
+                  - generic [ref=e682]: ComposerSkillsControl.tsx
+                  - generic [ref=e683]: apps/web/src/features/skills/components/
+                - generic [ref=e686]: A
+              - generic [ref=e687] [cursor=pointer]:
+                - generic [ref=e688]:
+                  - 'img "File: InstalledSkillListCard.tsx" [ref=e689]'
+                  - generic [ref=e690]: InstalledSkillListCard.tsx
+                  - generic [ref=e691]: apps/web/src/features/skills/components/
+                - generic [ref=e694]: M
+              - generic [ref=e695] [cursor=pointer]:
+                - generic [ref=e696]:
+                  - 'img "File: SkillDetail.tsx" [ref=e697]'
+                  - generic [ref=e698]: SkillDetail.tsx
+                  - generic [ref=e699]: apps/web/src/features/skills/components/
+                - generic [ref=e701]:
+                  - generic [ref=e703]: "+6"
+                  - generic [ref=e704]: M
+              - generic [ref=e705] [cursor=pointer]:
+                - generic [ref=e706]:
+                  - 'img "File: use-composer-disable-skills.ts" [ref=e707]'
+                  - generic [ref=e708]: use-composer-disable-skills.ts
+                  - generic: apps/web/src/features/skills/hooks/
+                - generic [ref=e711]: A
+              - generic [ref=e712] [cursor=pointer]:
+                - generic [ref=e713]:
+                  - 'img "File: skill-disable-protocol.ts" [ref=e714]'
+                  - generic [ref=e715]: skill-disable-protocol.ts
+                  - generic [ref=e716]: apps/web/src/features/skills/lib/
+                - generic [ref=e719]: A
+              - generic [ref=e720] [cursor=pointer]:
+                - generic [ref=e721]:
+                  - 'img "File: terminal-mosaic-scoped-pane-window.tsx" [ref=e722]'
+                  - generic [ref=e723]: terminal-mosaic-scoped-pane-window.tsx
+                  - generic: apps/web/src/features/terminal/components/
+                - generic [ref=e726]: M
+              - generic [ref=e727] [cursor=pointer]:
+                - generic [ref=e728]:
+                  - 'img "File: terminal-mosaic-workspace-pane-window.tsx" [ref=e729]'
+                  - generic [ref=e730]: terminal-mosaic-workspace-pane-window.tsx
+                  - generic: apps/web/src/features/terminal/components/
+                - generic [ref=e733]: M
+              - generic [ref=e734] [cursor=pointer]:
+                - generic [ref=e735]:
+                  - 'img "File: TerminalAgentInputOverlay.tsx" [ref=e736]'
+                  - generic [ref=e737]: TerminalAgentInputOverlay.tsx
+                  - generic: apps/web/src/features/terminal/components/
+                - generic [ref=e740]: M
+              - generic [ref=e741] [cursor=pointer]:
+                - generic [ref=e742]:
+                  - 'img "File: TerminalAgentInputPopovers.tsx" [ref=e743]'
+                  - generic [ref=e744]: TerminalAgentInputPopovers.tsx
+                  - generic: apps/web/src/features/terminal/components/
+                - generic [ref=e747]: M
+              - generic [ref=e748] [cursor=pointer]:
+                - generic [ref=e749]:
+                  - 'img "File: TerminalAgentInputShell.tsx" [ref=e750]'
+                  - generic [ref=e751]: TerminalAgentInputShell.tsx
+                  - generic: apps/web/src/features/terminal/components/
+                - generic [ref=e754]: M
+              - generic [ref=e755] [cursor=pointer]:
+                - generic [ref=e756]:
+                  - 'img "File: TerminalSideChatLayer.tsx" [ref=e757]'
+                  - generic [ref=e758]: TerminalSideChatLayer.tsx
+                  - generic: apps/web/src/features/terminal/components/
+                - generic [ref=e761]: M
+              - generic [ref=e762] [cursor=pointer]:
+                - generic [ref=e763]:
+                  - 'img "File: TerminalSideChatModal.tsx" [ref=e764]'
+                  - generic [ref=e765]: TerminalSideChatModal.tsx
+                  - generic: apps/web/src/features/terminal/components/
+                - generic [ref=e768]: M
+              - generic [ref=e769] [cursor=pointer]:
+                - generic [ref=e770]:
+                  - 'img "File: use-terminal-side-chats.tsx" [ref=e771]'
+                  - generic [ref=e772]: use-terminal-side-chats.tsx
+                  - generic: apps/web/src/features/terminal/hooks/
+                - generic [ref=e775]: M
+              - generic [ref=e776] [cursor=pointer]:
+                - generic [ref=e777]:
+                  - 'img "File: PromptComposer.tsx" [ref=e778]'
+                  - generic [ref=e779]: PromptComposer.tsx
+                  - generic [ref=e780]: apps/web/src/features/welcome/components/
+                - generic [ref=e783]: M
+              - generic [ref=e784] [cursor=pointer]:
+                - generic [ref=e785]:
+                  - 'img "File: SlashCommandPopover.tsx" [ref=e786]'
+                  - generic [ref=e787]: SlashCommandPopover.tsx
+                  - generic: apps/web/src/features/welcome/components/
+                - generic [ref=e790]: M
+              - generic [ref=e791] [cursor=pointer]:
+                - generic [ref=e792]:
+                  - 'img "File: WelcomeComposerCard.tsx" [ref=e793]'
+                  - generic [ref=e794]: WelcomeComposerCard.tsx
+                  - generic: apps/web/src/features/welcome/components/
+                - generic [ref=e797]: M
+              - generic [ref=e798] [cursor=pointer]:
+                - generic [ref=e799]:
+                  - 'img "File: WelcomeComposerControls.tsx" [ref=e800]'
+                  - generic [ref=e801]: WelcomeComposerControls.tsx
+                  - generic: apps/web/src/features/welcome/components/
+                - generic [ref=e804]: M
+              - generic [ref=e805] [cursor=pointer]:
+                - generic [ref=e806]:
+                  - 'img "File: WelcomePage.tsx" [ref=e807]'
+                  - generic [ref=e808]: WelcomePage.tsx
+                  - generic [ref=e809]: apps/web/src/features/welcome/components/
+                - generic [ref=e811]:
+                  - generic [ref=e812]:
+                    - generic [ref=e813]: "+191"
+                    - generic [ref=e814]: "-8"
+                  - generic [ref=e815]: M
+              - generic [ref=e816] [cursor=pointer]:
+                - generic [ref=e817]:
+                  - 'img "File: use-welcome-slash-navigation.ts" [ref=e818]'
+                  - generic [ref=e819]: use-welcome-slash-navigation.ts
+                  - generic: apps/web/src/features/welcome/hooks/
+                - generic [ref=e822]: M
+              - generic [ref=e823] [cursor=pointer]:
+                - generic [ref=e824]:
+                  - 'img "File: use-welcome-slash-search.ts" [ref=e825]'
+                  - generic [ref=e826]: use-welcome-slash-search.ts
+                  - generic: apps/web/src/features/welcome/hooks/
+                - generic [ref=e829]: M
+              - generic [ref=e830] [cursor=pointer]:
+                - generic [ref=e831]:
+                  - 'img "File: slash-skill-context.ts" [ref=e832]'
+                  - generic [ref=e833]: slash-skill-context.ts
+                  - generic [ref=e834]: apps/web/src/features/welcome/lib/
+                - generic [ref=e837]: M
+              - generic [ref=e838] [cursor=pointer]:
+                - generic [ref=e839]:
+                  - 'img "File: scanner.rs" [ref=e840]'
+                  - generic [ref=e841]: scanner.rs
+                  - generic [ref=e842]: crates/core-service/src/service/skill/
+                - generic [ref=e844]:
+                  - generic [ref=e845]:
+                    - generic [ref=e846]: "+57"
+                    - generic [ref=e847]: "-3"
+                  - generic [ref=e848]: M
+              - generic [ref=e849] [cursor=pointer]:
+                - generic [ref=e850]:
+                  - 'img "File: support.rs" [ref=e851]'
+                  - generic [ref=e852]: support.rs
+                  - generic [ref=e853]: crates/core-service/src/service/skill/
+                - generic [ref=e855]:
+                  - generic [ref=e856]:
+                    - generic [ref=e857]: "+155"
+                    - generic [ref=e858]: "-1"
+                  - generic [ref=e859]: M
+              - generic [ref=e860] [cursor=pointer]:
+                - generic [ref=e861]:
+                  - 'img "File: tests.rs" [ref=e862]'
+                  - generic [ref=e863]: tests.rs
+                  - generic [ref=e864]: crates/core-service/src/service/skill/
+                - generic [ref=e866]:
+                  - generic [ref=e868]: "+183"
+                  - generic [ref=e869]: M
+              - generic [ref=e870] [cursor=pointer]:
+                - generic [ref=e871]:
+                  - 'img "File: skill.rs" [ref=e872]'
+                  - generic [ref=e873]: skill.rs
+                  - generic [ref=e874]: crates/core-service/src/service/
+                - generic [ref=e876]:
+                  - generic [ref=e877]:
+                    - generic [ref=e878]: "+162"
+                    - generic [ref=e879]: "-18"
+                  - generic [ref=e880]: M
+              - generic [ref=e881] [cursor=pointer]:
+                - generic [ref=e882]:
+                  - 'img "File: BRAINSTORM.md" [ref=e883]'
+                  - generic [ref=e884]: BRAINSTORM.md
+                  - generic [ref=e885]: specs/APP/APP-040_composer-skills-disable/
+                - generic [ref=e887]:
+                  - generic [ref=e889]: "+78"
+                  - generic [ref=e890]: A
+              - generic [ref=e891] [cursor=pointer]:
+                - generic [ref=e892]:
+                  - 'img "File: PRD.md" [ref=e893]'
+                  - generic [ref=e894]: PRD.md
+                  - generic [ref=e895]: specs/APP/APP-040_composer-skills-disable/
+                - generic [ref=e897]:
+                  - generic [ref=e899]: "+61"
+                  - generic [ref=e900]: A
+              - generic [ref=e901] [cursor=pointer]:
+                - generic [ref=e902]:
+                  - 'img "File: TECH.md" [ref=e903]'
+                  - generic [ref=e904]: TECH.md
+                  - generic [ref=e905]: specs/APP/APP-040_composer-skills-disable/
+                - generic [ref=e907]:
+                  - generic [ref=e909]: "+105"
+                  - generic [ref=e910]: A
+              - generic [ref=e911] [cursor=pointer]:
+                - generic [ref=e912]:
+                  - 'img "File: TEST.md" [ref=e913]'
+                  - generic [ref=e914]: TEST.md
+                  - generic [ref=e915]: specs/APP/APP-040_composer-skills-disable/
+                - generic [ref=e917]:
+                  - generic [ref=e919]: "+100"
+                  - generic [ref=e920]: A
+              - generic [ref=e921] [cursor=pointer]:
+                - generic [ref=e922]:
+                  - 'img "File: README.md" [ref=e923]'
+                  - generic [ref=e924]: README.md
+                  - generic [ref=e925]: specs/
+                - generic [ref=e927]:
+                  - generic [ref=e929]: "+1"
+                  - generic [ref=e930]: M
+            - generic [ref=e933]:
+              - generic [ref=e934]:
+                - textbox "Message (Cmd/Ctrl+Enter to commit)" [ref=e935]
+                - button [disabled] [ref=e936]:
+                  - img [ref=e937]
+              - generic [ref=e940]:
+                - button "Publish Branch" [ref=e941]:
+                  - generic [ref=e942]: Publish Branch
+                - button [ref=e943]:
+                  - img [ref=e944]
+    - contentinfo [ref=e946]:
+      - generic [ref=e947]:
+        - generic [ref=e950] [cursor=pointer]: NORMAL
+        - button "LOCAL 0" [ref=e952]:
+          - img [ref=e953]
+          - generic [ref=e956]: LOCAL 0
+      - button "Napping ~" [ref=e958] [cursor=pointer]:
+        - generic [ref=e959]:
+          - generic [ref=e960]:
+            - img [ref=e961]
+            - generic [ref=e964]: z
+            - generic [ref=e965]: z
+            - generic [ref=e966]: z
+          - generic [ref=e967]: Napping ~
+  - alert [ref=e968]: Atmos E2E – ATMOS
+  - generic:
+    - region "Notifications"
+  - generic:
+    - region "Notifications"
+  - generic:
+    - region "Notifications"
+```
+
+# Test source
+
+```ts
+  1  | import type { ConsoleMessage, Page, TestInfo } from "@playwright/test";
+  2  | 
+  3  | const allowedConsoleErrorPatterns = [
+  4  |   /favicon\.ico/i,
+  5  |   /\[response\.404\] .*\/api\/system\/client-session\b/i,
+  6  |   // Setup / remote onboarding probes the relay proxy before credentials exist.
+  7  |   /\[response\.400\] .*\/api\/system\/computer\/relay\b/i,
+  8  |   // registerAccessTokenOnRelay treats 409 as success (token already registered).
+  9  |   /\[response\.409\] .*\/v1\/tenants\b/i,
+  10 |   /Encountered a script tag while rendering React component/i,
+  11 |   /(Failed to load (local models|skills)|Error fetching projects): Error: WebSocket disconnected/i,
+  12 |   /\[console\.error\] Error: WebSocket not connected\b/i,
+  13 |   /\[WebSocket\] Error: Event/i,
+  14 |   // TanStack Query cancels in-flight settings bootstrap on computer/scope change.
+  15 |   /CancelledError\b/,
+  16 | ];
+  17 | 
+  18 | function formatConsoleMessage(message: ConsoleMessage): string {
+  19 |   return `[console.${message.type()}] ${message.text()}`;
+  20 | }
+  21 | 
+  22 | function isAllowedConsoleError(message: string): boolean {
+  23 |   return allowedConsoleErrorPatterns.some((pattern) => pattern.test(message));
+  24 | }
+  25 | 
+  26 | export async function attachBrowserErrorCollector(
+  27 |   page: Page,
+  28 |   testInfo: TestInfo,
+  29 | ): Promise<() => Promise<void>> {
+  30 |   const errors: string[] = [];
+  31 |   const failedResponseUrls = new Set<string>();
+  32 | 
+  33 |   page.on("pageerror", (error) => {
+  34 |     errors.push(`[pageerror] ${error.stack || error.message}`);
+  35 |   });
+  36 | 
+  37 |   page.on("console", (message) => {
+  38 |     if (message.type() === "error") {
+  39 |       errors.push(formatConsoleMessage(message));
+  40 |     }
+  41 |   });
+  42 | 
+  43 |   page.on("response", (response) => {
+  44 |     const status = response.status();
+  45 |     if (status < 400) return;
+  46 |     const url = response.url();
+  47 |     failedResponseUrls.add(url);
+  48 |     errors.push(`[response.${status}] ${url}`);
+  49 |   });
+  50 | 
+  51 |   return async () => {
+  52 |     const unexpected = errors.filter((message) => {
+  53 |       if (isAllowedConsoleError(message)) return false;
+  54 |       if (
+  55 |         failedResponseUrls.size > 0 &&
+  56 |         /\[console\.error\] Failed to load resource: the server responded with a status of \d+/.test(message)
+  57 |       ) {
+  58 |         return false;
+  59 |       }
+  60 |       return true;
+  61 |     });
+  62 |     if (unexpected.length === 0) {
+  63 |       return;
+  64 |     }
+  65 | 
+  66 |     await testInfo.attach("browser-errors", {
+  67 |       body: unexpected.join("\n\n"),
+  68 |       contentType: "text/plain",
+  69 |     });
+  70 | 
+> 71 |     throw new Error(
+     |           ^ Error: Unexpected browser error output:
+  72 |       `Unexpected browser error output:\n${unexpected
+  73 |         .map((message) => `- ${message}`)
+  74 |         .join("\n")}`,
+  75 |     );
+  76 |   };
+  77 | }
+  78 | 
+```
