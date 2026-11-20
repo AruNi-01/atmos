@@ -1,0 +1,187 @@
+crates/agent/src/providers/codex/rpc.rs
+  s_2062fab5d1ece1::t_ed2f617393c949 358-361
+  s_2062fab5d1ece1::t_0ab517d69c2af4 462-471
+  s_2062fab5d1ece1::t_9b9a8d7ca22c66 328-340
+  s_2062fab5d1ece1::t_3aabf5fd1500e9 346-351
+  s_2062fab5d1ece1::t_7aaa12fcedd80d 480
+  s_2062fab5d1ece1::t_331abc6f2ba5ac 509
+crates/agent/src/contract/provider.rs
+  s_2062fab5d1ece1::t_62fc229dea84ae 162
+crates/agent/src/providers/codex/mod.rs
+  s_2062fab5d1ece1::t_fa13d6a7cb9a91 212-217
+  s_2062fab5d1ece1::t_e696e6d8891ccf 760-762,770-776,781-783,792,797-820,829,838-839,846-847
+  s_2062fab5d1ece1::t_9b8d6377cf018a 763-769,777-780,784-791,793-796,821-828,830-837,840-845
+  s_2062fab5d1ece1::t_33155d329a600e 128
+  s_2062fab5d1ece1::t_a59ec6905485f1 17,22-23
+  s_2062fab5d1ece1::t_43f20000e44e9b 473-476
+  s_2062fab5d1ece1::t_1eff3a7dc8fb11 211
+crates/agent/src/providers/pi/rpc.rs
+  s_2062fab5d1ece1::t_49a0a14e1cafda 175-180
+apps/web/src/app-shell/Footer.tsx
+  s_d618cbfad59f25::t_909f3d362793cf 386-391
+  s_d618cbfad59f25::t_47e0ef552eb2b1 33
+  s_d618cbfad59f25::t_957845e3f49e71 371-378,385,392-393,396-399,402,405-423
+crates/agent/src/testing.rs
+  s_2062fab5d1ece1::t_a589dab051fd20 62
+  s_2062fab5d1ece1::t_481ebf8fa5b14e 495
+  s_2062fab5d1ece1::t_9beffc78d07eef 507
+  s_2062fab5d1ece1::t_7ddbd87614d9af 39
+  s_2062fab5d1ece1::t_74c1ac83d35782 414-415,417-419
+  s_2062fab5d1ece1::t_87d6bbbb38ebd8 427-428
+  s_2062fab5d1ece1::t_204481e0e626ba 420
+apps/web/src/shared/components/__tests__/sidebar-empty-state.test.ts
+  s_d618cbfad59f25::t_9a09983f703816 29
+apps/web/src/app-shell/sidebar/ProjectItem.tsx
+  s_d618cbfad59f25::t_613705d8c04ea1 536
+  s_d618cbfad59f25::t_89d3cb6e4690cc 672
+  s_d618cbfad59f25::t_66fb641728c10d 643
+  s_d618cbfad59f25::t_21a490678c80da 546
+  s_d618cbfad59f25::t_c4ad293808a2e6 621,624-625,628,631-632
+crates/agent/src/acp_client/runner.rs
+  s_2062fab5d1ece1::t_560b5e17aeb91d 37-39
+  s_2062fab5d1ece1::t_002e3c395613da 1035,1040,1042
+  s_2062fab5d1ece1::t_d8d08354da4a5a 749
+  s_2062fab5d1ece1::t_73b59129b9bc98 1063
+  s_2062fab5d1ece1::t_5d1cc4aa89e280 1225-1228
+  s_2062fab5d1ece1::t_e48afa04ea0ff6 1421-1424,1427-1432
+  s_2062fab5d1ece1::t_b36cec982e4289 965
+  s_2062fab5d1ece1::t_7491f8fce69a79 726-730,732
+  s_2062fab5d1ece1::t_ee4b9aef31e6ab 817-824
+  s_2062fab5d1ece1::t_c265a84b954fd9 1670-1680,1685-1686,1689,1694
+apps/landing/messages/en.json
+  s_06834571e2c9dc::t_13556d3c2d0337 28
+  s_06834571e2c9dc::t_f52e4b7e1984bd 27
+crates/agent/src/providers/acp/adapter.rs
+  s_2062fab5d1ece1::t_5602f686447c28 113-115
+  s_2062fab5d1ece1::t_d4c82ab4cacc89 657-666,670
+  s_2062fab5d1ece1::t_99230704e88dac 15
+apps/web/src/shared/components/SidebarEmptyState.tsx
+  s_d618cbfad59f25::t_0892f57a1b8e95 43
+crates/core-service/src/service/agent_chat/service.rs
+  s_2062fab5d1ece1::t_01cdefa134f56e 1296-1297
+  s_2062fab5d1ece1::t_52aa78ad26eed9 1639-1653
+  s_2062fab5d1ece1::t_60ff7b13c7cc70 2079
+  s_2062fab5d1ece1::t_cc5f55ddd4e036 2093
+  s_2062fab5d1ece1::t_f5a9856c4cccd0 1618
+  s_2062fab5d1ece1::t_5925aee70b671c 46-51,2059,2251
+  s_2062fab5d1ece1::t_d31c230fcd6f1f 2094,2111-2127
+  s_2062fab5d1ece1::t_0694f35cf4b393 2188-2191
+  s_2062fab5d1ece1::t_af336316c5d639 1761,1768,1770,2227-2241,2243-2250
+  s_2062fab5d1ece1::t_aef69eaf03415f 1754,1757-1760
+  s_2062fab5d1ece1::t_9a7062d2a94207 16
+  s_2062fab5d1ece1::t_3acd01fe0d7aaa 1628
+  s_2062fab5d1ece1::t_aad375dbc98442 1753
+  s_2062fab5d1ece1::t_48210260d3bb8d 1769
+  s_2062fab5d1ece1::t_5969c64ddd19d8 1771
+  s_2062fab5d1ece1::t_f225021898eef4 2058
+  s_2062fab5d1ece1::t_fb3b11260d5a80 2060-2062
+  s_2062fab5d1ece1::t_afe246775cdc16 2128-2130
+  s_2062fab5d1ece1::t_76c69c155eda26 2192
+  s_2062fab5d1ece1::t_738f91690b2d0d 2252-2254
+  s_bde8a8e956644b::t_6f75752681352c 1763,2063-2064,2082-2083,2096-2097,2131,2194-2195,2201-2202,2255-2256
+apps/landing/src/components/blocks/feature-showcase.tsx
+  s_06834571e2c9dc::t_13556d3c2d0337 647-651,653-655,658-660
+  s_06834571e2c9dc::t_3c887f4fca7530 661
+crates/agent/src/providers/pi/mod.rs
+  s_2062fab5d1ece1::t_9a536747f9ca0f 127,130,132-139
+  s_2062fab5d1ece1::t_b0da5446d16c4f 624
+  s_2062fab5d1ece1::t_cce643bca01fb3 991
+  s_2062fab5d1ece1::t_1360505ce02c61 975
+  s_2062fab5d1ece1::t_f75b72265cd44f 1038-1044
+  s_2062fab5d1ece1::t_d398341e04afbf 1176-1182
+  s_2062fab5d1ece1::t_dcc007e6b30e80 1276-1277,1287-1288,1295-1302,1306-1307,1316-1317
+  s_2062fab5d1ece1::t_8bbc7614466ecb 1278-1286,1289-1294,1303-1305,1308-1315
+  s_2062fab5d1ece1::t_7a0c2081fb34b3 1144-1151
+  s_2062fab5d1ece1::t_a12e2d4c7a4d47 113
+  s_2062fab5d1ece1::t_03dbda9d170550 131
+  s_2062fab5d1ece1::t_02922a1434f953 966
+  s_d618cbfad59f25::t_99a58e00f8a9a5 1275
+crates/core-service/src/service/agent_chat/tests.rs
+  s_2062fab5d1ece1::t_81087354078194 2384-2473,2475-2482,2484,2487,2499,2502,2504,2507
+  s_2062fab5d1ece1::t_5e6e1d8b19f583 2483
+  s_2062fab5d1ece1::t_752b93bd637723 2485-2486
+  s_2062fab5d1ece1::t_7cd0424d31ce0e 2488-2490
+  s_2062fab5d1ece1::t_6cccd6eac08e40 2496-2498
+  s_2062fab5d1ece1::t_c6fc1be7d66ebe 2500-2501
+  s_2062fab5d1ece1::t_be8a2e96089d7d 2503
+  s_2062fab5d1ece1::t_6803c2bbe111fa 2505-2506
+  s_2062fab5d1ece1::t_405c94e8a61d53 2508-2510
+  s_bde8a8e956644b::t_ec98fe4e37e861 2492,2494-2495,2511,2513,2516
+crates/agent/src/providers/codex/options.rs
+  s_2062fab5d1ece1::t_025580e4a588eb 148-149
+crates/agent/src/providers/grok/mod.rs
+  s_2062fab5d1ece1::t_e086038ac88f2d 33
+  s_2062fab5d1ece1::t_1b63f18ec5c7bf 220-222
+  s_2062fab5d1ece1::t_64bafb7869e637 753-758,762
+  s_2062fab5d1ece1::t_9a8e816e1f6a28 985-987
+  s_2062fab5d1ece1::t_c779c05348f165 964-972,975-976
+  s_2062fab5d1ece1::t_07c1173eebe905 1013-1018
+  s_2062fab5d1ece1::t_6bcd6eaa7cc533 1121-1220
+crates/agent/src/providers/opencode/mod.rs
+  s_2062fab5d1ece1::t_400c0ab8fa8e03 18
+  s_2062fab5d1ece1::t_d3ad2ec3a11f54 1087
+  s_2062fab5d1ece1::t_45276ec2bd0da5 983-998,1000-1033,1035-1086,1088-1102
+  s_2062fab5d1ece1::t_bf45f7c9f24426 681
+  s_2062fab5d1ece1::t_96425120bf62cb 999
+  s_2062fab5d1ece1::t_872313be549db8 1034
+  s_2062fab5d1ece1::t_673d07be1e213e 693-698
+  s_2062fab5d1ece1::t_bd189722f8880a 847
+  s_2062fab5d1ece1::t_9a263e79b90285 158-160
+  s_2062fab5d1ece1::t_fbf10a5400dd3b 677,680,682-692,699-705,707-717
+  s_2062fab5d1ece1::t_18d3e65b378a94 616
+  s_2062fab5d1ece1::t_339736fcb2e09f 836
+  s_2062fab5d1ece1::t_d6739d7ba5f93a 69
+  s_2062fab5d1ece1::t_5d39857a986a4e 762-763
+  s_2062fab5d1ece1::t_c0b6bbcbf3582a 786
+  s_2062fab5d1ece1::t_8af2e7c1a392c8 70
+apps/landing/messages/zh.json
+  s_fea91cea8fa238::t_f36ce65579b4e0 27-28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "41d7cadc473e56e912d490979f2bc1285496bb76",
+  "prompts": {},
+  "sessions": {
+    "s_06834571e2c9dc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1f7e1-9dcc-7b21-9760-5de8f70f22c4",
+        "model": "gpt-6.1-terra"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_2062fab5d1ece1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ce68119d-0d72-441f-8163-368ee9cf45ba",
+        "model": "codex/gpt-6.2-sol"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_bde8a8e956644b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8e5ab790-5a3e-47ab-8a63-3253d8ef0270",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_d618cbfad59f25": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2a71a714-4bf4-4aa1-b1fa-9cf2f2474026",
+        "model": "codex/gpt-6.2-sol"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_fea91cea8fa238": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a41a24024a52895ae",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
