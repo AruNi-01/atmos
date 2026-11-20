@@ -84,6 +84,7 @@ pub(super) async fn build_service_dto(
         port: listener.port,
         pid: listener.pid,
         process_name: listener.process_name,
+        kernel_process_name: listener.kernel_process_name,
         command_preview: preview,
         command_path,
         cwd_display,

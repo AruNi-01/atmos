@@ -82,6 +82,7 @@ fn scan_macos() -> Result<Vec<LocalTcpListener>> {
                     process_name: command
                         .clone()
                         .or_else(|| meta.as_ref().and_then(|m| m.name.clone())),
+                    kernel_process_name: None,
                     local_addr,
                     port,
                     cwd: meta.as_ref().and_then(|m| m.cwd.clone()),
@@ -197,6 +198,7 @@ fn scan_linux() -> Result<Vec<LocalTcpListener>> {
                 records.push(LocalTcpListener {
                     pid: Some(pid),
                     process_name: meta.name.clone(),
+                    kernel_process_name: meta.kernel_process_name.clone(),
                     local_addr: addr.clone(),
                     port: *port,
                     cwd: meta.cwd.clone(),
@@ -281,8 +283,12 @@ fn process_metadata_linux(pid: u32) -> ProcessMetadataLinux {
     let cwd = std::fs::read_link(base.join("cwd")).ok();
     let exe = std::fs::read_link(base.join("exe")).ok();
     let stat = std::fs::read_to_string(base.join("stat")).ok();
-    let parent_pid = stat.and_then(|stat| {
-        let after_name = stat.rsplit_once(") ")?.1;
+    // Linux sysinfo takes the sampled name from the comm field of /proc/<pid>/stat.
+    let stat = stat.as_deref().and_then(|stat| stat.rsplit_once(") "));
+    let kernel_process_name = stat
+        .and_then(|(before_state, _)| before_state.split_once(" ("))
+        .map(|(_, name)| name.to_owned());
+    let parent_pid = stat.and_then(|(_, after_name)| {
         after_name
             .split_whitespace()
             .nth(1)
@@ -305,6 +311,7 @@ fn process_metadata_linux(pid: u32) -> ProcessMetadataLinux {
 
     ProcessMetadataLinux {
         name,
+        kernel_process_name,
         cwd,
         exe,
         command_line,
@@ -317,6 +324,7 @@ fn process_metadata_linux(pid: u32) -> ProcessMetadataLinux {
 #[derive(Debug, Clone)]
 struct ProcessMetadataLinux {
     name: Option<String>,
+    kernel_process_name: Option<String>,
     cwd: Option<PathBuf>,
     exe: Option<PathBuf>,
     command_line: Option<Vec<String>>,
@@ -393,6 +401,7 @@ foreach ($c in $connections) {
         records.push(LocalTcpListener {
             pid: Some(pid),
             process_name: (!columns[1].is_empty()).then(|| columns[1].to_string()),
+            kernel_process_name: None,
             local_addr: columns[2].to_string(),
             port,
             cwd: None,

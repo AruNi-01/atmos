@@ -3138,43 +3138,47 @@ async fn live_turn_snapshot_keeps_text_tool_thinking_ordinal_order() {
             tool_call: execute_tool("t2", agent::AgentToolStatus::Running),
         })
         .await;
-    tokio::time::sleep(COALESCE_FLUSH + Duration::from_millis(40)).await;
-
-    let mut latest_kinds = None;
-    let mut latest_texts = None;
-    while let Ok(event) = rx.try_recv() {
-        if let AgentChatPayload::TurnSnapshot { messages, .. } = event.payload {
-            let assistant = messages.iter().find(|message| message.role == "assistant");
-            latest_kinds = assistant.map(|message| {
-                message
-                    .parts
-                    .iter()
-                    .filter_map(|part| match part {
-                        MessagePart::Thinking { text, .. } if !text.is_empty() => Some("thinking"),
-                        MessagePart::ToolCall { .. } => Some("tool"),
-                        MessagePart::Text { text, .. } if !text.is_empty() => Some("text"),
-                        _ => None,
-                    })
-                    .collect::<Vec<_>>()
-            });
-            latest_texts = assistant.map(|message| {
-                message
-                    .parts
-                    .iter()
-                    .filter_map(|part| match part {
-                        MessagePart::Text { text, .. } if !text.is_empty() => Some(text.clone()),
-                        _ => None,
-                    })
-                    .collect::<Vec<_>>()
-            });
+    let assistant = timeout(Duration::from_secs(2), async {
+        loop {
+            let event = rx.recv().await.expect("chat event");
+            if let AgentChatPayload::TurnSnapshot { messages, .. } = event.payload {
+                if let Some(assistant) = messages.into_iter().find(|message| {
+                    message.role == "assistant"
+                        && message.parts.iter().any(|part| {
+                            matches!(part, MessagePart::ToolCall { tool_call_id, .. } if tool_call_id == "t2")
+                        })
+                }) {
+                    return assistant;
+                }
+            }
         }
-    }
+    })
+    .await
+    .expect("live TurnSnapshot containing the second tool call");
+    let kinds: Vec<_> = assistant
+        .parts
+        .iter()
+        .filter_map(|part| match part {
+            MessagePart::Thinking { text, .. } if !text.is_empty() => Some("thinking"),
+            MessagePart::ToolCall { .. } => Some("tool"),
+            MessagePart::Text { text, .. } if !text.is_empty() => Some("text"),
+            _ => None,
+        })
+        .collect();
+    let texts: Vec<_> = assistant
+        .parts
+        .iter()
+        .filter_map(|part| match part {
+            MessagePart::Text { text, .. } if !text.is_empty() => Some(text.as_str()),
+            _ => None,
+        })
+        .collect();
     assert_eq!(
-        latest_kinds.expect("live TurnSnapshot"),
+        kinds,
         ["text", "tool", "text", "thinking", "tool"],
         "live TurnSnapshot must follow #307 recorded-ordinal slot order"
     );
-    assert_eq!(latest_texts.expect("snapshot text"), ["look", "mid"]);
+    assert_eq!(texts, ["look", "mid"]);
 }
 
 #[test]

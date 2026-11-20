@@ -413,7 +413,11 @@ fn listener_ports_from_snapshot(snapshot: LocalServicesScanResponse) -> Vec<Cach
         .filter_map(|dto| {
             dto.pid.map(|pid| CachedListenerPort {
                 pid,
-                process_name: dto.process_name,
+                process_name: if cfg!(target_os = "linux") {
+                    dto.kernel_process_name
+                } else {
+                    dto.process_name
+                },
                 port: dto.port,
             })
         })
@@ -577,6 +581,7 @@ mod tests {
                 port,
                 pid: Some(pid),
                 process_name: Some(name.into()),
+                kernel_process_name: Some(name.into()),
                 command_preview: None,
                 command_path: None,
                 cwd_display: None,
@@ -650,11 +655,10 @@ mod tests {
             "context cache must not become the Resource Monitor port snapshot"
         );
 
+        let mut all_projects_scan = dummy_scan(3000, 11, "node");
+        all_projects_scan.services[0].kernel_process_name = Some("MainThread".into());
         local_services
-            .store_scan_result_for_test(
-                LocalServicesScope::AllAtmosProjects,
-                dummy_scan(3000, 11, "node"),
-            )
+            .store_scan_result_for_test(LocalServicesScope::AllAtmosProjects, all_projects_scan)
             .await;
         local_services
             .store_scan_result_for_test(
@@ -669,7 +673,12 @@ mod tests {
         assert_eq!(peeked.len(), 1);
         assert_eq!(peeked[0].pid, 11);
         assert_eq!(peeked[0].port, 3000);
-        assert_eq!(peeked[0].process_name.as_deref(), Some("node"));
+        let expected_name = if cfg!(target_os = "linux") {
+            "MainThread"
+        } else {
+            "node"
+        };
+        assert_eq!(peeked[0].process_name.as_deref(), Some(expected_name));
     }
 
     #[test]

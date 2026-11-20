@@ -14,6 +14,8 @@ pub use process::{
 pub struct LocalTcpListener {
     pub pid: Option<u32>,
     pub process_name: Option<String>,
+    /// Linux kernel process name, from the same source as the resource sampler.
+    pub kernel_process_name: Option<String>,
     pub local_addr: String,
     pub port: u16,
     pub cwd: Option<PathBuf>,

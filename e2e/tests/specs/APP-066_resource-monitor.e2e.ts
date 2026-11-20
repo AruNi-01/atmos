@@ -749,12 +749,15 @@ test.describe("APP-066 resource monitor", () => {
 
       await expect.poll(() => isHttpOpen(port), { timeout: 45_000 }).toBe(true);
 
-      const scan = await computerWsRequest<{ services?: Array<{ port?: number }> }>(
-        page,
-        "local_services_scan",
-        { scope: "all_atmos_projects", force: true },
-      );
-      expect(scan, "local_services_scan must return a payload").toBeTruthy();
+      const scan = await computerWsRequest<{
+        services: Array<{ port: number; owner: { workspace_id: string | null } }>;
+      }>(page, "local_services_scan", { scope: "all_atmos_projects", force: true });
+      expect(
+        scan.services.some(
+          (service) => service.port === port && service.owner.workspace_id === createdGuid,
+        ),
+        `Local Services must attribute :${port} to the workspace`,
+      ).toBe(true);
 
       await expect
         .poll(

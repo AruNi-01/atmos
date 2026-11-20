@@ -320,6 +320,7 @@ mod tests {
         let listener = LocalTcpListener {
             pid: Some(4242),
             process_name: Some("next-server".into()),
+            kernel_process_name: None,
             local_addr: "127.0.0.1".into(),
             port: 3000,
             cwd: None,
@@ -342,6 +343,7 @@ mod tests {
         let listener = LocalTcpListener {
             pid: Some(1),
             process_name: Some("tmux".into()),
+            kernel_process_name: None,
             local_addr: "127.0.0.1".into(),
             port: 1,
             cwd: None,

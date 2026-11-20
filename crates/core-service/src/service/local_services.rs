@@ -169,6 +169,8 @@ pub struct LocalServiceDto {
     pub port: u16,
     pub pid: Option<u32>,
     pub process_name: Option<String>,
+    #[serde(skip)]
+    pub(crate) kernel_process_name: Option<String>,
     pub command_preview: Option<String>,
     /// Path-bearing launch command when `command_preview` is a rewritten process title.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -948,6 +950,7 @@ mod tests {
                 port,
                 pid: Some(4242),
                 process_name: Some("node".into()),
+                kernel_process_name: None,
                 command_preview: None,
                 command_path: None,
                 cwd_display: None,
