@@ -26,7 +26,7 @@ describe("SidebarEmptyState", () => {
     expect(source).toContain("SidebarEmptyProjects");
     expect(source).toContain("emptyWorkspaces.cta");
     expect(source).toContain("emptyProjects.cta");
-    expect(source).toContain("<IconFolder");
+    expect(source).not.toContain("<IconFolder");
     expect(source).toContain("<IconCategory");
     expect(source).toContain("<IconPlus");
   });

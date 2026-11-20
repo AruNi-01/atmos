@@ -30,7 +30,7 @@ import { FooterAgentStatusIcon } from "@/features/agent/components/FooterAgentSt
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import { AnimatePresence, motion } from "motion/react";
 import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
-import { LayoutDashboard, MessagesSquare, X } from "lucide-react";
+import { Eraser, Eye, LayoutDashboard, MessagesSquare, X } from "lucide-react";
 import { ProviderGlyph } from "@/app-shell/QuotaPopover";
 import { NappingBotIcon } from "@/app-shell/NappingBotIcon";
 import { useExperimentSettingsStore } from "@/features/settings/store/experiment-settings-store";
@@ -368,37 +368,59 @@ export function AgentStatusPopoverContent({
     );
   }
 
+  const openAgentObserverLabel = t("footer.openAgentObserver");
+  const clearIdleLabel = t("footer.clearIdle");
+  const headerButtonSize = embedded ? "sm" : "icon-xs";
+  const headerButtonClassName = cn(
+    "text-muted-foreground hover:text-foreground",
+    embedded && "h-5 px-1.5 text-[10px]",
+  );
+
   return (
     <ScrollArea
       scrollFade
       className={cn(embedded ? "h-full" : "h-auto max-h-64 w-72")}
       viewportClassName={cn("p-2", !embedded && "h-auto max-h-64")}
     >
-      <div className="mb-2 flex items-center justify-between px-1">
-        <span className="text-[11px] font-semibold text-foreground">
-          {t("footer.agentSessions", { count: rows.length })}
-        </span>
-        <div className="flex items-center gap-1">
+      <div className="mb-2 flex items-center justify-between gap-1 px-1">
+        <div
+          className={cn("flex min-w-0 items-center gap-1", embedded && "flex-1 justify-between")}
+        >
+          <span
+            className={cn("text-[11px] font-semibold text-foreground", !embedded && "truncate")}
+          >
+            {t("footer.agentSessions", { count: rows.length })}
+          </span>
           <Button
             variant="ghost"
-            size="sm"
-            className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+            size={headerButtonSize}
+            className={headerButtonClassName}
+            aria-label={openAgentObserverLabel}
+            title={embedded ? undefined : openAgentObserverLabel}
             onClick={() => router.push("/agent-observer")}
           >
-            {t("footer.openAgentObserver")}
+            {embedded ? openAgentObserverLabel : <Eye aria-hidden="true" />}
           </Button>
-          {hasIdleSessions && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
-              onClick={() => clearIdleSessions()}
-            >
-              <X className="mr-0.5 size-3" />
-              {t("footer.clearIdle")}
-            </Button>
-          )}
         </div>
+        {hasIdleSessions && (
+          <Button
+            variant="ghost"
+            size={headerButtonSize}
+            className={headerButtonClassName}
+            aria-label={clearIdleLabel}
+            title={embedded ? undefined : clearIdleLabel}
+            onClick={() => clearIdleSessions()}
+          >
+            {embedded ? (
+              <>
+                <X aria-hidden="true" className="mr-0.5 size-3" />
+                {clearIdleLabel}
+              </>
+            ) : (
+              <Eraser aria-hidden="true" />
+            )}
+          </Button>
+        )}
       </div>
 
       <div className="space-y-2">

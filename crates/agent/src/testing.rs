@@ -36,6 +36,7 @@ pub struct FakeAgentProvider {
     pub id: String,
     pub counters: Arc<FakeProviderCounters>,
     pub supports_steer: bool,
+    pub supports_resume: bool,
     pub auto_complete: Arc<AtomicBool>,
     pub emit_permission_on_prompt: bool,
     last_resume: Arc<Mutex<Option<String>>>,
@@ -58,6 +59,7 @@ impl FakeAgentProvider {
             id: id.into(),
             counters: Arc::new(FakeProviderCounters::default()),
             supports_steer: true,
+            supports_resume: true,
             auto_complete: Arc::new(AtomicBool::new(true)),
             emit_permission_on_prompt: false,
             last_resume: Arc::new(Mutex::new(None)),
@@ -409,17 +411,21 @@ impl AgentRuntime for FakeSession {
     }
 }
 
-fn fake_descriptor(provider_id: &str, supports_steer: bool) -> AgentDescriptor {
+fn fake_descriptor(provider: &FakeAgentProvider) -> AgentDescriptor {
+    let provider_id = &provider.id;
     let mut capabilities = capabilities_for_provider(provider_id);
-    capabilities.steer = if supports_steer {
+    if !provider.supports_resume {
+        capabilities.resume = Capability::Unsupported;
+    }
+    capabilities.steer = if provider.supports_steer {
         Capability::Supported
     } else {
         Capability::Unsupported
     };
     AgentDescriptor {
         identity: AgentIdentity {
-            id: provider_id.to_string(),
-            name: provider_id.to_string(),
+            id: provider_id.clone(),
+            name: provider_id.clone(),
             version: None,
         },
         capabilities,
@@ -486,7 +492,7 @@ fn open_session(
         control: AgentRuntimeControl::new(inner),
         events_rx: rx,
         persistence,
-        descriptor: fake_descriptor(&provider.id, provider.supports_steer),
+        descriptor: fake_descriptor(provider),
         root_pid: provider.root_pid,
     })
 }
@@ -498,7 +504,7 @@ impl AgentProvider for FakeAgentProvider {
     }
 
     async fn descriptor(&self, _ctx: &AgentOptionsContext) -> AgentResult<AgentDescriptor> {
-        Ok(fake_descriptor(&self.id, self.supports_steer))
+        Ok(fake_descriptor(self))
     }
 
     async fn create_runtime(&self, cfg: AgentRuntimeConfig) -> AgentResult<Box<dyn AgentRuntime>> {

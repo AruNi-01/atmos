@@ -172,6 +172,12 @@ impl PiTransport {
         let _ = writer.shutdown().await;
     }
 
+    pub async fn fail_pending(&self) {
+        let mut pending = self.pending.lock().await;
+        self.order.lock().await.clear();
+        pending.clear();
+    }
+
     pub async fn call(&self, mut body: Value, wait: Duration) -> AgentResult<RpcResponse> {
         if is_forbidden_chat_command(&body) {
             return Err(AgentProviderError::message("forbidden pi command"));

@@ -13,7 +13,7 @@ use agent::{
     UserMessageKind,
 };
 use chrono::Utc;
-use tokio::sync::{broadcast, Mutex};
+use tokio::sync::{broadcast, mpsc, oneshot, Mutex};
 use tracing::warn;
 
 use crate::error::{Result, ServiceError};
@@ -43,6 +43,12 @@ struct LiveRuntime {
     alive: Arc<AtomicBool>,
     generation: u64,
     root_pid: Arc<AtomicU32>,
+    idle_unload: mpsc::Sender<IdleUnload>,
+}
+
+struct IdleUnload {
+    timeout: Duration,
+    done: oneshot::Sender<()>,
 }
 
 fn live_root_pid(slot: &AtomicU32) -> Option<u32> {
@@ -1287,6 +1293,8 @@ impl AgentChatService {
         request_id: &str,
         option_id: &str,
     ) -> Result<()> {
+        let gate = self.turn_gate(chat_id).await;
+        let _turn = gate.lock().await;
         let meta = self.store.get_meta(chat_id)?;
         let pending = self.pending_session_op(chat_id).await;
         let Some(pending) = pending else {
@@ -1607,6 +1615,7 @@ impl AgentChatService {
         let state = Arc::new(Mutex::new(runtime_state));
         let generation = self.generations.fetch_add(1, Ordering::SeqCst);
         let root_pid = Arc::new(AtomicU32::new(0));
+        let (idle_unload, idle_requests) = mpsc::channel(1);
         store_live_root_pid(&root_pid, session.root_pid());
         self.runtimes.lock().await.insert(
             chat_id.to_string(),
@@ -1616,6 +1625,7 @@ impl AgentChatService {
                 alive: Arc::clone(&alive),
                 generation,
                 root_pid: Arc::clone(&root_pid),
+                idle_unload,
             },
         );
         let store = Arc::clone(&self.store);
@@ -1626,55 +1636,21 @@ impl AgentChatService {
         let recent_events = Arc::clone(&self.recent_events);
         let turn_gates = Arc::clone(&self.turn_gates);
         let status = self.status.get().cloned();
-        tokio::spawn(async move {
-            pump_session(
-                chat_id_owned.clone(),
-                session,
-                store.clone(),
-                state,
-                events.clone(),
-                pump_control,
-                Arc::clone(&recent_events),
-                turn_gates,
-                status,
-                generation,
-                Arc::clone(&runtimes),
-                Arc::clone(&root_pid),
-            )
-            .await;
-            alive.store(false, Ordering::SeqCst);
-            let mut map = runtimes.lock().await;
-            if map
-                .get(&chat_id_owned)
-                .is_some_and(|runtime| runtime.generation == generation)
-            {
-                map.remove(&chat_id_owned);
-            }
-            drop(map);
-            let status = store
-                .get_meta(&chat_id_owned)
-                .map(|meta| meta.runtime_status)
-                .unwrap_or(RuntimeStatus::Detached);
-            if !matches!(status, RuntimeStatus::Closed | RuntimeStatus::Detached) {
-                let _ = store.update_meta(&chat_id_owned, |meta| {
-                    meta.runtime_status = RuntimeStatus::Detached;
-                });
-            }
-            let _ = emit_live(
-                &chat_id_owned,
-                AgentChatPayload::RuntimeStatus {
-                    status: if matches!(status, RuntimeStatus::Closed) {
-                        RuntimeStatus::Closed
-                    } else {
-                        RuntimeStatus::Detached
-                    },
-                    persistence_handle: None,
-                },
-                &store,
-                &events,
-                &recent_events,
-            );
-        });
+        tokio::spawn(pump_session(
+            chat_id_owned,
+            session,
+            store,
+            state,
+            events,
+            pump_control,
+            recent_events,
+            turn_gates,
+            status,
+            generation,
+            runtimes,
+            root_pid,
+            idle_requests,
+        ));
         Ok(control)
     }
 
@@ -1770,29 +1746,29 @@ impl AgentChatService {
     }
 
     pub async fn unload_idle(&self, timeout: Duration) -> Vec<String> {
-        let now = Instant::now();
         let mut closing = Vec::new();
         {
             let map = self.runtimes.lock().await;
             for (id, runtime) in map.iter() {
-                if !runtime.alive.load(Ordering::SeqCst) {
-                    continue;
-                }
                 let state = runtime.state.lock().await;
-                if state.current_turn_id.is_some()
-                    || state.pending_permission.is_some()
-                    || state.pending_session_op.is_some()
-                    || now.duration_since(state.last_activity) < timeout
-                {
+                if !runtime.alive.load(Ordering::SeqCst) || !is_idle(&state, timeout) {
                     continue;
                 }
-                closing.push((id.clone(), runtime.control.clone()));
+                let (done, closed) = oneshot::channel();
+                if runtime
+                    .idle_unload
+                    .try_send(IdleUnload { timeout, done })
+                    .is_ok()
+                {
+                    closing.push((id.clone(), closed));
+                }
             }
         }
         let mut closed = Vec::new();
-        for (id, control) in closing {
-            let _ = control.close().await;
-            closed.push(id);
+        for (id, done) in closing {
+            if done.await.is_ok() {
+                closed.push(id);
+            }
         }
         closed
     }
@@ -2079,6 +2055,13 @@ impl AgentChatService {
     }
 }
 
+fn is_idle(state: &RuntimeState, timeout: Duration) -> bool {
+    state.current_turn_id.is_none()
+        && state.pending_permission.is_none()
+        && state.pending_session_op.is_none()
+        && state.last_activity.elapsed() >= timeout
+}
+
 #[allow(clippy::too_many_arguments)]
 async fn pump_session(
     chat_id: String,
@@ -2093,9 +2076,11 @@ async fn pump_session(
     generation: u64,
     runtimes: Arc<Mutex<HashMap<String, LiveRuntime>>>,
     root_pid: Arc<AtomicU32>,
+    mut idle_requests: mpsc::Receiver<IdleUnload>,
 ) {
     store_live_root_pid(&root_pid, session.root_pid());
-    let mut closed_cleanly = false;
+    let mut close_event = None;
+    let mut idle_close = None;
     let mut coalescer = TextChunkCoalescer::new();
     let mut flush_tick =
         tokio::time::interval_at(tokio::time::Instant::now() + COALESCE_FLUSH, COALESCE_FLUSH);
@@ -2105,8 +2090,11 @@ async fn pump_session(
             next = session.next_event() => {
                 store_live_root_pid(&root_pid, session.root_pid());
                 let Some(envelope) = next else { break };
+                // A terminal event ends the runtime even if its control still holds
+                // an event sender (for example, native Codex).
                 if matches!(envelope.payload, AgentEvent::SessionClosed) {
-                    closed_cleanly = true;
+                    close_event = Some(envelope);
+                    break;
                 }
                 let flushed = if matches!(envelope.payload, AgentEvent::TextChunk { .. }) {
                     coalescer.push(envelope)
@@ -2119,6 +2107,27 @@ async fn pump_session(
                     .iter()
                     .any(|item| !is_high_frequency_agent_event(&item.payload));
                 (flushed, discrete)
+            }
+            Some(request) = idle_requests.recv() => {
+                let gate = turn_gates.lock().await.get(&chat_id).cloned();
+                let Some(gate) = gate.and_then(|gate| gate.try_lock_owned().ok()) else {
+                    continue;
+                };
+                // Recheck after acquiring the send/queue gate: the reaper's
+                // snapshot may predate a new turn or freshly advertised state.
+                if !is_idle(&*state.lock().await, request.timeout)
+                    || session.descriptor().capabilities.resume != Capability::Supported
+                    || !store.get_meta(&chat_id).is_ok_and(|meta| {
+                        meta.persistence_handle.is_some_and(|handle| !handle.trim().is_empty())
+                    })
+                {
+                    continue;
+                }
+                if let Err(error) = control.close().await {
+                    warn!(%error, "agent chat idle close failed");
+                }
+                idle_close = Some((gate, request.done));
+                break;
             }
             _ = flush_tick.tick() => (coalescer.flush_all(), true),
         };
@@ -2176,18 +2185,21 @@ async fn pump_session(
         .await;
     }
     let _ = flush_turn_snapshot(&chat_id, &store, &state, &events, &recent_events).await;
-    let replaced = runtimes
-        .lock()
-        .await
+    // Publish the old runtime's final state before send can observe it missing
+    // and install a replacement. A late close must not reset the resumed chat.
+    drop(session);
+    let mut map = runtimes.lock().await;
+    if map
         .get(&chat_id)
-        .is_some_and(|runtime| runtime.generation != generation);
-    if replaced {
+        .is_some_and(|runtime| runtime.generation != generation)
+    {
         return;
     }
     let emit = |payload: AgentChatPayload| -> Result<()> {
         emit_live(&chat_id, payload, &store, &events, &recent_events)
     };
-    if let Some(turn_id) = state.lock().await.current_turn_id.clone() {
+    let active_turn = state.lock().await.current_turn_id.clone();
+    if let Some(turn_id) = active_turn {
         if let Some(status) = &status {
             if let Ok(meta) = store.get_meta(&chat_id) {
                 agent_status::apply_host_event(
@@ -2212,15 +2224,36 @@ async fn pump_session(
         )
         .await;
     }
-    let _ = persist_open_parts_closed(&chat_id, &store, &state, &emit).await;
-    let status = if closed_cleanly {
-        RuntimeStatus::Closed
+    if let Some(envelope) = close_event.or_else(|| {
+        idle_close
+            .is_some()
+            .then(|| AgentEventEnvelope::new(None, AgentEvent::SessionClosed))
+    }) {
+        if let Some(status) = &status {
+            if let Ok(meta) = store.get_meta(&chat_id) {
+                agent_status::apply_host_event(status, &meta, &envelope.payload);
+            }
+        }
+        if let Err(error) =
+            apply_event(&chat_id, envelope, &store, &state, &events, &recent_events).await
+        {
+            warn!(%error, "agent chat close event failed");
+        }
     } else {
-        RuntimeStatus::Detached
-    };
-    let _ = store.update_meta(&chat_id, |meta| {
-        meta.runtime_status = status;
-    });
+        let _ = persist_open_parts_closed(&chat_id, &store, &state, &emit).await;
+        let _ = store.update_meta(&chat_id, |meta| {
+            meta.runtime_status = RuntimeStatus::Detached;
+        });
+        let _ = emit(AgentChatPayload::RuntimeStatus {
+            status: RuntimeStatus::Detached,
+            persistence_handle: None,
+        });
+    }
+    map.remove(&chat_id);
+    drop(map);
+    if let Some((_gate, done)) = idle_close {
+        let _ = done.send(());
+    }
 }
 
 #[allow(clippy::too_many_arguments)]

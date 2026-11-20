@@ -24,6 +24,8 @@
   },
   "featureShowcase": {
     "badge": "Features",
+    "introTitle": "Run and manage multiple coding agents in one space.",
+    "introDescription": "Give each agent an isolated workspace, follow its progress, and review changes without leaving Atmos.",
     "title": "See Atmos in Action",
     "sphere": {
       "subtitle": "Drag to spin the cloud of demos. Hover to zoom, click a card to play the video in focus.",

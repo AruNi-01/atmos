@@ -12,7 +12,7 @@ use crate::contract::{AgentCurrentConfig, AgentDescriptor, AgentIdentity, AgentS
 use crate::contract::{
     AgentOptionsContext, AgentPersistenceHandle, AgentPrompt, AgentProvider, AgentProviderError,
     AgentResult, AgentRuntime, AgentRuntimeCommands, AgentRuntimeConfig, AgentRuntimeConfigUpdate,
-    AgentRuntimeControl, AgentTurnHandle,
+    AgentRuntimeControl, AgentTurnHandle, Capability,
 };
 use crate::models::AgentLaunchSpec;
 use crate::options::cursor_model_has_brackets;
@@ -110,9 +110,9 @@ impl AgentRuntimeCommands for AcpCommands {
     async fn close(&self) -> AgentResult<()> {
         self.fail_pending_permissions().await;
         self.control
-            .send_close()
-            .map_err(AgentProviderError::message)?;
-        Ok(())
+            .close_and_wait()
+            .await
+            .map_err(AgentProviderError::message)
     }
 
     async fn action(&self, action: AgentAction) -> Result<AgentActionResult, AgentActionError> {
@@ -654,14 +654,20 @@ async fn open_acp_session(
         pending_permissions: Mutex::new(HashMap::new()),
     });
     let ext_rx = handle.subscribe_ext_notifications();
+    let mut map = EventMapState::new(
+        params.provider_id.clone(),
+        current_config_from_maps(params.default_config.as_ref(), &cfg),
+        resume.is_some(),
+    );
+    map.capabilities.resume = if handle.supports_resume {
+        Capability::Supported
+    } else {
+        Capability::Unsupported
+    };
     Ok(Box::new(AcpMappedSession {
         commands,
         handle,
-        map: EventMapState::new(
-            params.provider_id.clone(),
-            current_config_from_maps(params.default_config.as_ref(), &cfg),
-            resume.is_some(),
-        ),
+        map,
         ext_rx: Some(ext_rx),
     }))
 }

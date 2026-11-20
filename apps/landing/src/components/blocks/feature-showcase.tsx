@@ -644,10 +644,20 @@ export default function FeatureShowcase() {
               <Badge variant="outline" className="rounded-none">
                 {t("badge")}
               </Badge>
-              <h2 className="mt-3 text-2xl font-semibold tracking-tight text-balance sm:mt-4 sm:text-3xl lg:text-4xl">
-                {t("title")}
-              </h2>
             </div>
+
+            <div className="mt-10 grid w-full grid-cols-1 gap-5 text-left sm:mt-14 md:grid-cols-2 md:gap-10 lg:mt-16 lg:gap-16">
+              <h2 className="text-3xl font-semibold tracking-tight text-balance sm:text-4xl lg:text-5xl">
+                {t("introTitle")}
+              </h2>
+              <p className="max-w-xl text-base leading-relaxed text-pretty text-muted-foreground sm:text-lg lg:text-xl">
+                {t("introDescription")}
+              </p>
+            </div>
+
+            <h3 className="mt-12 text-center text-2xl font-semibold tracking-tight text-balance sm:mt-16 sm:text-3xl">
+              {t("title")}
+            </h3>
 
             <div className="mt-6 w-full min-w-0 overflow-hidden rounded-[28px] border border-border bg-transparent p-1.5 sm:mt-8 sm:rounded-t-[38px] sm:rounded-br-[38px] sm:rounded-bl-[52px] sm:p-[18px]">
               <div className="mb-2 flex w-full min-w-0 items-center gap-2 sm:mb-3 lg:mb-[18px]">

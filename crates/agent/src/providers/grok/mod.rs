@@ -30,7 +30,7 @@ use crate::contract::{AgentCurrentConfig, AgentDescriptor, AgentIdentity, AgentS
 use crate::contract::{
     AgentOptionsContext, AgentPersistenceHandle, AgentPrompt, AgentProvider, AgentProviderError,
     AgentResult, AgentRuntime, AgentRuntimeCommands, AgentRuntimeConfig, AgentRuntimeConfigUpdate,
-    AgentRuntimeControl, AgentTurnHandle,
+    AgentRuntimeControl, AgentTurnHandle, Capability,
 };
 use crate::policy::{capabilities_for_provider, option_support_for_provider};
 
@@ -217,9 +217,9 @@ impl AgentRuntimeCommands for GrokCommands {
     async fn close(&self) -> AgentResult<()> {
         self.fail_pending_permissions().await;
         self.control
-            .send_close()
-            .map_err(AgentProviderError::message)?;
-        Ok(())
+            .close_and_wait()
+            .await
+            .map_err(AgentProviderError::message)
     }
 
     async fn action(&self, action: AgentAction) -> Result<AgentActionResult, AgentActionError> {
@@ -750,10 +750,16 @@ async fn open_grok_session(
         prompt_n: Mutex::new(0),
     });
     let ext_rx = Some(handle.subscribe_ext_notifications());
+    let mut map = EventMapState::new("grok".into(), current_config_from(&cfg), resume.is_some());
+    map.capabilities.resume = if handle.supports_resume {
+        Capability::Supported
+    } else {
+        Capability::Unsupported
+    };
     Ok(Box::new(GrokMappedSession {
         commands,
         handle,
-        map: EventMapState::new("grok".into(), current_config_from(&cfg), resume.is_some()),
+        map,
         ext_rx,
         last_user_turn_id: None,
     }))
@@ -955,9 +961,19 @@ for raw in sys.stdin:
     method = msg.get("method")
     rec({"method": method, "params": msg.get("params")})
     if method == "initialize":
-        reply(msg, {"protocolVersion": 1, "agentCapabilities": {"loadSession": True}})
+        restore = os.environ.get("FAKE_GROK_RESTORE", "load")
+        session_caps = {}
+        if restore == "resume":
+            session_caps["resume"] = {}
+        if os.environ.get("FAKE_GROK_CLOSE"):
+            session_caps["close"] = {}
+        reply(msg, {"protocolVersion": 1, "agentCapabilities": {
+            "loadSession": restore == "load", "sessionCapabilities": session_caps,
+        }})
     elif method == "session/new":
         reply(msg, {"sessionId": "sess_grok_1"})
+        if os.environ.get("FAKE_GROK_EOF") == "idle":
+            os.close(sys.stdout.fileno())
     elif method == "session/load":
         reply(msg, {"sessionId": msg.get("params", {}).get("sessionId") or "sess_grok_1"})
     elif method == "session/prompt":
@@ -966,7 +982,9 @@ for raw in sys.stdin:
         for block in (msg.get("params") or {}).get("prompt") or []:
             if isinstance(block, dict) and block.get("type") == "text":
                 text += block.get("text") or ""
-        if text.startswith("/"):
+        if os.environ.get("FAKE_GROK_EOF") == "prompt":
+            os.close(sys.stdout.fileno())
+        elif text.startswith("/"):
             reply(msg, {"stopReason": "end_turn"})
         else:
             pending_prompt = msg
@@ -992,6 +1010,12 @@ for raw in sys.stdin:
             reply(pending_prompt, {"stopReason": "cancelled"})
             pending_prompt = None
     elif method == "session/close":
+        close = os.environ.get("FAKE_GROK_CLOSE")
+        if close == "error":
+            error(msg, -32601, "Method not found")
+            continue
+        if close == "timeout":
+            continue
         if pending_prompt is not None:
             reply(pending_prompt, {"stopReason": "cancelled"})
             pending_prompt = None
@@ -1092,6 +1116,106 @@ for raw in sys.stdin:
             }
         }
         panic!("no SessionStarted");
+    }
+
+    #[tokio::test]
+    async fn fake_runtime_resume_support_matches_initialize_before_events() {
+        use crate::providers::acp::{AcpAgentProvider, AcpProviderParams};
+
+        let fake = write_fake();
+        let program = fake.program.to_string_lossy().into_owned();
+        let grok = GrokNativeProvider::with_program(program.clone());
+        let acp = AcpAgentProvider::new(AcpProviderParams {
+            provider_id: "gemini".into(),
+            launch_spec: AgentLaunchSpec {
+                program,
+                args: Vec::new(),
+                env: None,
+            },
+            env_overrides: None,
+            default_config: None,
+            tool_handler: Arc::new(GrokFsHandler {
+                allow_file_access: false,
+            }),
+        });
+        let providers: [&dyn AgentProvider; 2] = [&grok, &acp];
+        for provider in providers {
+            for (restore, expected) in [
+                ("none", Capability::Unsupported),
+                ("load", Capability::Supported),
+                ("resume", Capability::Supported),
+            ] {
+                let mut cfg = fake_cfg(&fake, false);
+                cfg.env_overrides
+                    .get_or_insert_with(HashMap::new)
+                    .insert("FAKE_GROK_RESTORE".into(), restore.into());
+                let runtime = provider.create_runtime(cfg).await.expect("runtime");
+                assert_eq!(runtime.descriptor().capabilities.resume, expected);
+                runtime.control().close().await.expect("close runtime");
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn fake_runtime_eof_ends_worker_and_settles_pending_turn() {
+        let fake = write_fake();
+        let provider = GrokNativeProvider::with_program(fake.program.to_string_lossy());
+        for eof_at in ["idle", "prompt"] {
+            let mut cfg = fake_cfg(&fake, false);
+            cfg.env_overrides
+                .get_or_insert_with(HashMap::new)
+                .insert("FAKE_GROK_EOF".into(), eof_at.into());
+            let mut runtime = provider.create_runtime(cfg).await.expect("runtime");
+            await_session_started(&mut runtime).await;
+            let expected_failed_turn = if eof_at == "prompt" {
+                let turn = runtime
+                    .control()
+                    .send(AgentPrompt {
+                        text: "prompt before EOF".into(),
+                        ..AgentPrompt::default()
+                    })
+                    .await
+                    .expect("send prompt");
+                Some(turn.turn_id)
+            } else {
+                None
+            };
+            let mut failed_turn = None;
+            let mut closed = false;
+            timeout(Duration::from_secs(5), async {
+                while let Some(event) = runtime.next_event().await {
+                    match event.payload {
+                        AgentEvent::TurnFailed { turn_id, .. } => failed_turn = Some(turn_id),
+                        AgentEvent::SessionClosed => closed = true,
+                        _ => {}
+                    }
+                }
+            })
+            .await
+            .expect("worker should end after EOF");
+            assert!(closed);
+            assert_eq!(failed_turn, expected_failed_turn);
+        }
+    }
+
+    #[tokio::test]
+    async fn fake_runtime_idle_close_waits_for_shutdown_after_rpc_failure() {
+        let fake = write_fake();
+        let provider = GrokNativeProvider::with_program(fake.program.to_string_lossy());
+        for close in ["error", "timeout"] {
+            std::fs::write(&fake.log, "").expect("clear fake log");
+            let mut cfg = fake_cfg(&fake, false);
+            cfg.env_overrides
+                .get_or_insert_with(HashMap::new)
+                .insert("FAKE_GROK_CLOSE".into(), close.into());
+            let runtime = provider.create_runtime(cfg).await.expect("runtime");
+            let control = runtime.control();
+            control.close().await.expect("close worker");
+            assert!(control.cancel().await.is_err());
+            assert!(log_entries(&fake.log)
+                .iter()
+                .any(|entry| entry["method"] == "session/close"));
+        }
     }
 
     #[tokio::test]

@@ -145,12 +145,8 @@ async fn probe_inner(isolated_cwd: &Path) -> Result<NativeOptionsProbeResult, St
 }
 
 async fn close_shared(shared: &Arc<CodexShared>, child: &mut tokio::process::Child) -> bool {
-    let _ = shared.fail_outstanding().await;
-    {
-        let mut stdin = shared.stdin.lock().await;
-        *stdin = None;
-    }
-    shared.emit_closed();
+    shared.fail_outstanding().await;
+    shared.close_transport().await;
     let _ = child.start_kill();
     timeout(Duration::from_secs(2), child.wait()).await.is_ok()
 }

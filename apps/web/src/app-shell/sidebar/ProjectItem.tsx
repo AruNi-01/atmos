@@ -533,7 +533,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
       >
         <div
           className={cn(
-            "relative ml-2 flex min-w-0 items-center rounded-sm px-2 py-1.5 hover:bg-sidebar-accent",
+            "relative ml-2 flex min-w-0 items-center rounded-sm py-1.5 pr-3 pl-2 hover:bg-sidebar-accent",
             LEFT_SIDEBAR_DIVIDER_GUTTER_MR_CLASS,
             isDragging && "scale-[1.02] bg-sidebar-accent shadow-2xl",
             (isActiveProject || isSelected) && "bg-sidebar-accent",
@@ -543,7 +543,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
             {...attributes}
             {...listeners}
             className={cn(
-              "flex min-w-0 flex-1 items-center pr-8 select-none",
+              "flex min-w-0 flex-1 items-center select-none",
               disableRowClick ? "cursor-default" : "cursor-pointer",
               dimAsAttentionParent && "opacity-45",
             )}
@@ -618,32 +618,18 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
           </div>
 
           {!isDragging && shortcutDigit != null ? (
-            <div
-              className={cn(
-                "absolute top-1/2 right-3 z-10 flex -translate-y-1/2 items-center justify-end",
-              )}
-            >
-              <SidebarHeldShortcutBadge targetKey={projectShortcutKey} />
-            </div>
+            <SidebarHeldShortcutBadge targetKey={projectShortcutKey} className="ml-1.5" />
           ) : (
             !isDragging && (
-              <div
-                className={cn(
-                  "absolute top-1/2 right-3 z-10 flex -translate-y-1/2 items-center justify-end",
-                )}
-              >
-                {/*
-              Match terminal pane toolbar action-rail motion:
-              fixed open width (not max-width) + cubic-bezier expand + short opacity fade.
-              Stay open while the ··· menu is open so the rail doesn't collapse under a portaled menu.
-            */}
+              <div className="flex shrink-0 items-center">
+                {/* The extra 6px leaves a gap as the rail pushes the status mark left. */}
                 <div
                   className={cn(
-                    "flex items-center overflow-hidden",
+                    "flex items-center justify-end overflow-hidden",
                     "[transition:width_0.22s_cubic-bezier(0.22,1,0.36,1),opacity_0.16s_ease]",
                     isProjectMenuOpen
-                      ? "w-[44px] opacity-100"
-                      : "pointer-events-none w-0 opacity-0 group-focus-within/project:pointer-events-auto group-focus-within/project:w-[44px] group-focus-within/project:opacity-100 group-hover/project:pointer-events-auto group-hover/project:w-[44px] group-hover/project:opacity-100",
+                      ? "w-[50px] opacity-100"
+                      : "pointer-events-none w-0 opacity-0 group-focus-within/project:pointer-events-auto group-focus-within/project:w-[50px] group-focus-within/project:opacity-100 group-hover/project:pointer-events-auto group-hover/project:w-[50px] group-hover/project:opacity-100",
                   )}
                 >
                   <TooltipProvider>
@@ -654,7 +640,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                             e.stopPropagation();
                             onQuickAddWorkspace(project.id);
                           }}
-                          className="rounded-sm p-1 hover:cursor-pointer hover:bg-sidebar-accent"
+                          className="shrink-0 rounded-sm p-1 hover:cursor-pointer hover:bg-sidebar-accent"
                         >
                           <Zap className="size-3.5 text-muted-foreground" />
                         </button>
@@ -683,7 +669,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                     <DropdownMenuTrigger asChild>
                       <button
                         ref={triggerRef}
-                        className="rounded-sm p-1 hover:cursor-pointer hover:bg-sidebar-accent"
+                        className="shrink-0 rounded-sm p-1 hover:cursor-pointer hover:bg-sidebar-accent"
                         onMouseEnter={openProjectMenu}
                         onMouseLeave={scheduleProjectMenuClose}
                       >
