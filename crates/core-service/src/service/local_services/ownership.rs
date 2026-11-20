@@ -131,6 +131,7 @@ mod tests {
         let listener = LocalTcpListener {
             pid: Some(42),
             process_name: Some("node".into()),
+            kernel_process_name: None,
             local_addr: "127.0.0.1".into(),
             port: 5173,
             cwd: Some(PathBuf::from("/repo/apps/web")),
