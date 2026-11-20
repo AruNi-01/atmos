@@ -110,7 +110,7 @@ struct PiCommands {
 #[async_trait]
 impl AgentRuntimeCommands for PiCommands {
     async fn send(&self, input: AgentPrompt) -> AgentResult<AgentTurnHandle> {
-        if self.transport.is_streaming.load(Ordering::SeqCst) {
+        if self.transport.is_streaming.swap(true, Ordering::SeqCst) {
             return Err(AgentProviderError::message(
                 "cannot prompt while agent is streaming",
             ));
@@ -124,12 +124,19 @@ impl AgentRuntimeCommands for PiCommands {
             .steered_this_turn
             .store(false, Ordering::SeqCst);
         *self.running_turn.lock().await = Some(turn_id.clone());
-        let response = self
+        let accepted = self
             .transport
             .call(cmd_prompt(&input.text, &images), ACCEPT_TIMEOUT)
-            .await?;
-        response.require_ok()?;
-        self.transport.is_streaming.store(true, Ordering::SeqCst);
+            .await
+            .and_then(|response| response.require_ok().map(|_| ()));
+        if let Err(error) = accepted {
+            let mut running = self.running_turn.lock().await;
+            if running.as_deref() == Some(turn_id.as_str()) {
+                *running = None;
+                self.transport.is_streaming.store(false, Ordering::SeqCst);
+            }
+            return Err(error);
+        }
         Ok(AgentTurnHandle { turn_id })
     }
 
@@ -614,6 +621,7 @@ async fn read_loop(
             Err(_) => break,
         }
     }
+    transport.fail_pending().await;
 }
 
 async fn handshake(
@@ -955,6 +963,7 @@ mod tests {
         switch_cancelled: bool,
         emit_confirm: bool,
         session_file: String,
+        first_prompt_ack_gate: Option<Arc<tokio::sync::Notify>>,
     }
 
     impl Default for MockOpts {
@@ -963,6 +972,7 @@ mod tests {
                 switch_cancelled: false,
                 emit_confirm: false,
                 session_file: "/tmp/pi-agent/sessions/abc.jsonl".into(),
+                first_prompt_ack_gate: None,
             }
         }
     }
@@ -978,7 +988,7 @@ mod tests {
         reader: impl AsyncRead + Unpin,
         mut writer: impl AsyncWrite + Unpin,
         received: Arc<Mutex<Vec<Value>>>,
-        opts: MockOpts,
+        mut opts: MockOpts,
     ) {
         let mut reader = BufReader::new(reader);
         let mut buf = Vec::new();
@@ -1024,6 +1034,13 @@ mod tests {
                         "messageCount": 0,
                         "pendingMessageCount": 0
                     }
+                }),
+                "get_session_stats" => json!({
+                    "id": id,
+                    "type": "response",
+                    "command": "get_session_stats",
+                    "success": true,
+                    "data": {}
                 }),
                 "get_available_models" => json!({
                     "id": id,
@@ -1124,10 +1141,14 @@ mod tests {
                 "extension_ui_response" => continue,
                 _ => continue,
             };
-            if let Ok(bytes) = codec::encode_line(&reply) {
-                if writer.write_all(&bytes).await.is_err() {
-                    break;
-                }
+            let ack_gate = if ty == "prompt" {
+                opts.first_prompt_ack_gate.take()
+            } else {
+                None
+            };
+            let reply_bytes = codec::encode_line(&reply).expect("encode reply");
+            if ack_gate.is_none() && writer.write_all(&reply_bytes).await.is_err() {
+                break;
             }
             let extra: Vec<Value> = match ty {
                 "prompt" => {
@@ -1152,6 +1173,13 @@ mod tests {
                 }
             }
             let _ = writer.flush().await;
+            if let Some(gate) = ack_gate {
+                gate.notified().await;
+                if writer.write_all(&reply_bytes).await.is_err() {
+                    break;
+                }
+                let _ = writer.flush().await;
+            }
         }
     }
 
@@ -1242,6 +1270,49 @@ mod tests {
         .err()
         .expect("cancelled resume");
         assert!(error.to_string().contains("cancelled"));
+    }
+
+    #[tokio::test]
+    async fn turn_settled_before_prompt_ack_allows_followup() {
+        let gate = Arc::new(tokio::sync::Notify::new());
+        let (mut runtime, _) = connect(
+            None,
+            MockOpts {
+                first_prompt_ack_gate: Some(gate.clone()),
+                ..MockOpts::default()
+            },
+        )
+        .await
+        .unwrap();
+        let control = runtime.control();
+        let first = tokio::spawn(async move {
+            control
+                .send(AgentPrompt {
+                    text: "first".into(),
+                    ..AgentPrompt::default()
+                })
+                .await
+        });
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while let Some(event) = runtime.next_event().await {
+                if matches!(event.payload, AgentEvent::TurnCompleted { .. }) {
+                    return;
+                }
+            }
+            panic!("turn never settled");
+        })
+        .await
+        .expect("settled before ack");
+        gate.notify_one();
+        first.await.unwrap().unwrap();
+        runtime
+            .control()
+            .send(AgentPrompt {
+                text: "continue".into(),
+                ..AgentPrompt::default()
+            })
+            .await
+            .unwrap();
     }
 
     #[tokio::test]

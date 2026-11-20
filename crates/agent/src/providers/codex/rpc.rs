@@ -325,28 +325,40 @@ impl CodexShared {
         let Some(stdin) = guard.as_mut() else {
             return Err(AgentProviderError::message("codex stdin closed"));
         };
-        stdin
-            .write_all(line.as_bytes())
-            .await
-            .map_err(|error| AgentProviderError::message(format!("codex write failed: {error}")))?;
-        stdin
-            .flush()
-            .await
-            .map_err(|error| AgentProviderError::message(format!("codex flush failed: {error}")))
+        let result = async {
+            stdin.write_all(line.as_bytes()).await?;
+            stdin.flush().await
+        }
+        .await;
+        if let Err(error) = result {
+            *guard = None;
+            drop(guard);
+            self.emit_closed();
+            self.fail_client_requests().await;
+            return Err(AgentProviderError::message(format!("codex stdin: {error}")));
+        }
+        Ok(())
     }
 
     pub async fn request(&self, method: &str, params: Value) -> AgentResult<Value> {
         let id = RpcId::Number(self.next_id.fetch_add(1, Ordering::SeqCst));
         let (tx, rx) = oneshot::channel();
-        self.client_rpc.lock().await.insert(id.key(), tx);
-        self.write_line(encode_request(&id, method, params)).await?;
+        let key = id.key();
+        self.client_rpc.lock().await.insert(key.clone(), tx);
+        if let Err(error) = self.write_line(encode_request(&id, method, params)).await {
+            self.client_rpc.lock().await.remove(&key);
+            return Err(error);
+        }
         match timeout(RPC_TIMEOUT, rx).await {
             Ok(Ok(ClientRpcOutcome::Result(value))) => Ok(value),
             Ok(Ok(ClientRpcOutcome::Error { message })) => {
                 Err(AgentProviderError::message(message))
             }
             Ok(Err(_)) => Err(AgentProviderError::message(format!("{method} cancelled"))),
-            Err(_) => Err(AgentProviderError::message(format!("{method} timed out"))),
+            Err(_) => {
+                self.client_rpc.lock().await.remove(&key);
+                Err(AgentProviderError::message(format!("{method} timed out")))
+            }
         }
     }
 
@@ -447,6 +459,16 @@ impl CodexShared {
             };
             let _ = self.write_line(body).await;
         }
+        self.fail_client_requests().await;
+    }
+
+    pub async fn close_transport(&self) {
+        *self.stdin.lock().await = None;
+        self.emit_closed();
+        self.fail_client_requests().await;
+    }
+
+    async fn fail_client_requests(&self) {
         let mut client = self.client_rpc.lock().await;
         for (_, tx) in client.drain() {
             let _ = tx.send(ClientRpcOutcome::Error {
@@ -455,7 +477,7 @@ impl CodexShared {
         }
     }
 
-    pub fn emit_closed(&self) {
+    fn emit_closed(&self) {
         if self.closed.swap(true, Ordering::SeqCst) {
             return;
         }
@@ -484,7 +506,7 @@ where
             }
         }
     }
-    shared.emit_closed();
+    shared.close_transport().await;
 }
 
 pub async fn stderr_loop<R>(stderr: R)

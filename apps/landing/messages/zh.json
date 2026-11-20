@@ -24,6 +24,8 @@
   },
   "featureShowcase": {
     "badge": "功能",
+    "introTitle": "在一个地方运行和管理多个 Coding Agent。",
+    "introDescription": "为每个 Agent 提供独立的工作区，跟踪执行进度，并在 Atmos 中直接审查更改。",
     "title": "看看 Atmos 如何运作",
     "sphere": {
       "subtitle": "拖拽旋转演示云。悬停放大，点击卡片即可聚焦播放视频。",

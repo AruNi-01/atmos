@@ -6,7 +6,6 @@ import {
   EmptyAction,
   EmptyState,
   IconCategory,
-  IconFolder,
   IconPlus,
   type EmptyStateProps,
 } from "@workspace/ui";
@@ -41,12 +40,11 @@ export function SidebarEmptyWorkspaces({
   return (
     <div
       className={cn(
-        "flex h-full min-h-full w-full flex-col items-center justify-center px-2",
+        "flex h-full min-h-full w-full flex-col items-center justify-center p-2",
         className,
       )}
     >
       <SidebarEmptyState
-        icon={<IconFolder />}
         title={t("leftSidebarControls.emptyWorkspaces.title")}
         actions={
           <EmptyAction

@@ -2381,33 +2381,139 @@ fn next_seq_does_not_rewrite_meta_per_delta() {
 }
 
 #[tokio::test]
-async fn unload_idle_closes_ready_runtime_and_keeps_transcript() {
-    let provider = Arc::new(FakeAgentProvider::new("claude"));
-    let (_dir, service) = make_service(Arc::clone(&provider));
-    let meta = service.create(create_req("/tmp/proj")).unwrap();
+async fn idle_unload_resumes_same_chat_on_next_send() {
+    for id in ["codex", "claude", "pi", "opencode", "grok", "cursor"] {
+        let provider = Arc::new(FakeAgentProvider::new(id));
+        let (_dir, service) = make_service(Arc::clone(&provider));
+        let meta = service.create(create_req_for("/tmp/proj", id)).unwrap();
+        let mut events = service.subscribe();
+        let first = service.send(&meta.id, "hello", Vec::new()).await.unwrap();
+        wait_for_chat_payload(&mut events, |event| {
+            matches!(event, AgentChatPayload::TurnCompleted { turn_id, .. } if turn_id == &first)
+        })
+        .await;
+        let handle = service.get(&meta.id).await.unwrap().meta.persistence_handle;
+        assert!(handle.is_some(), "{id}");
+        let closed = timeout(Duration::from_secs(2), service.unload_idle(Duration::ZERO))
+            .await
+            .expect("idle close must not depend on event channel EOF");
+        assert_eq!(closed, vec![meta.id.clone()], "{id}");
+        assert_eq!(provider.close_count(), 1, "{id}");
+        assert_eq!(
+            service.get(&meta.id).await.unwrap().meta.runtime_status,
+            RuntimeStatus::Closed
+        );
+
+        let second = service
+            .send(&meta.id, "continue", Vec::new())
+            .await
+            .unwrap();
+        wait_for_chat_payload(&mut events, |event| {
+            matches!(event, AgentChatPayload::TurnCompleted { turn_id, status: TurnStatus::Completed, .. } if turn_id == &second)
+        })
+        .await;
+        assert_eq!(provider.create_count(), 1, "{id}");
+        assert_eq!(provider.resume_count(), 1, "{id}");
+        assert_eq!(provider.last_resume_handle().await, handle, "{id}");
+        assert_eq!(provider.send_count(), 2, "{id}");
+        let snapshot = service.get(&meta.id).await.unwrap();
+        assert_eq!(snapshot.meta.runtime_status, RuntimeStatus::Ready, "{id}");
+        assert_eq!(
+            snapshot
+                .messages
+                .iter()
+                .filter(|m| m.role == "user")
+                .count(),
+            2
+        );
+    }
+}
+
+#[tokio::test]
+async fn idle_unload_keeps_runtimes_that_cannot_resume() {
+    for supports_resume in [false, true] {
+        let mut provider = FakeAgentProvider::new("cursor");
+        provider.supports_resume = supports_resume;
+        let provider = Arc::new(provider);
+        let (_dir, service) = make_service(provider.clone());
+        let meta = service
+            .create(create_req_for("/tmp/proj", "cursor"))
+            .unwrap();
+        let mut events = service.subscribe();
+        service.send(&meta.id, "hello", Vec::new()).await.unwrap();
+        wait_for_chat_payload(&mut events, |event| {
+            matches!(event, AgentChatPayload::TurnCompleted { .. })
+        })
+        .await;
+        if supports_resume {
+            // Resume support alone isn't enough without a persisted handle.
+            service
+                .store()
+                .update_meta(&meta.id, |meta| meta.persistence_handle = None)
+                .unwrap();
+        }
+        assert!(service.unload_idle(Duration::ZERO).await.is_empty());
+        assert_eq!(provider.close_count(), 0);
+        service
+            .send(&meta.id, "continue", Vec::new())
+            .await
+            .unwrap();
+        assert_eq!(provider.resume_count(), 0);
+        assert_eq!(provider.send_count(), 2);
+    }
+}
+
+#[tokio::test]
+async fn terminal_session_event_settles_running_turn_and_releases_runtime() {
+    let provider = Arc::new(FakeAgentProvider::new("codex"));
+    provider.set_auto_complete(false);
+    let (_dir, service) = make_service(provider.clone());
+    let meta = service
+        .create(create_req_for("/tmp/proj", "codex"))
+        .unwrap();
     let mut events = service.subscribe();
-    let _ = service.send(&meta.id, "hello", Vec::new()).await.unwrap();
-    timeout(Duration::from_secs(2), async {
-        loop {
-            let event = events.recv().await.expect("event");
-            if matches!(event.payload, AgentChatPayload::TurnCompleted { .. }) {
-                return;
+    let first = service.send(&meta.id, "first", Vec::new()).await.unwrap();
+    assert!(service.unload_idle(Duration::ZERO).await.is_empty());
+    let handle = service.get(&meta.id).await.unwrap().meta.persistence_handle;
+
+    // The fake (like Codex) keeps its event sender after delivering SessionClosed.
+    provider.push_event(AgentEvent::SessionClosed).await;
+    wait_for_chat_payload(&mut events, |event| {
+        matches!(event, AgentChatPayload::TurnCompleted { turn_id, status: TurnStatus::Failed, .. } if turn_id == &first)
+    })
+    .await;
+    wait_for_chat_payload(&mut events, |event| {
+        matches!(
+            event,
+            AgentChatPayload::RuntimeStatus {
+                status: RuntimeStatus::Closed,
+                ..
             }
-        }
+        )
     })
-    .await
-    .expect("turn completed");
-    let closed = service.unload_idle(Duration::from_millis(0)).await;
-    assert_eq!(closed, vec![meta.id.clone()]);
+    .await;
+    let second = service
+        .send(&meta.id, "continue", Vec::new())
+        .await
+        .unwrap();
+    assert_eq!(provider.last_resume_handle().await, handle);
+    assert_eq!(provider.resume_count(), 1);
+    assert_eq!(provider.send_count(), 2);
+    assert_eq!(
+        service.get(&meta.id).await.unwrap().running_turn_id,
+        Some(second)
+    );
+}
+
+async fn wait_for_chat_payload(
+    events: &mut tokio::sync::broadcast::Receiver<super::types::AgentChatEvent>,
+    matches: impl Fn(&AgentChatPayload) -> bool,
+) {
     timeout(Duration::from_secs(2), async {
-        while provider.close_count() == 0 {
-            tokio::time::sleep(Duration::from_millis(10)).await;
-        }
+        while !matches(&events.recv().await.expect("chat event").payload) {}
     })
     .await
-    .expect("provider close");
-    let snapshot = service.get(&meta.id).await.unwrap();
-    assert!(!snapshot.messages.is_empty());
+    .expect("chat event timeout");
 }
 
 #[tokio::test]

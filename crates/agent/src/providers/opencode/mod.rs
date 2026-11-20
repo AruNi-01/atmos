@@ -15,6 +15,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use serde_json::{json, Value};
+use tokio::process::Child;
 use tokio::sync::{mpsc, oneshot, watch, Mutex};
 
 use crate::contract::{AgentAction, AgentActionError, AgentActionKind, AgentActionResult};
@@ -65,8 +66,8 @@ struct OpenCodeCommands {
     http: OpenCodeHttp,
     session_id: String,
     routes: OpenApiRoutes,
-    child: Mutex<Option<tokio::process::Child>>,
-    root_pid: AtomicU32,
+    child: Arc<Mutex<Option<Child>>>,
+    root_pid: Arc<AtomicU32>,
     shutdown: watch::Sender<bool>,
     running_turn: tokio::sync::Mutex<Option<String>>,
     current_config: std::sync::Mutex<AgentCurrentConfig>,
@@ -154,7 +155,9 @@ impl AgentRuntimeCommands for OpenCodeCommands {
         let _ = self.http.post_empty("/instance/dispose").await;
         if let Some(mut child) = self.child.lock().await.take() {
             let _ = child.start_kill();
-            let _ = tokio::time::timeout(Duration::from_secs(2), child.wait()).await;
+            if let Ok(Ok(_)) = tokio::time::timeout(Duration::from_secs(2), child.wait()).await {
+                self.root_pid.store(0, Ordering::Relaxed);
+            }
         }
         Ok(())
     }
@@ -610,7 +613,7 @@ async fn open_runtime(
     cfg: AgentRuntimeConfig,
     resume: Option<String>,
 ) -> AgentResult<Box<dyn AgentRuntime>> {
-    let mut serve: ServeChild = spawn_serve(
+    let serve: ServeChild = spawn_serve(
         cmd,
         &cfg.cwd,
         cfg.permission_mode.as_deref(),
@@ -671,29 +674,47 @@ async fn open_runtime(
     };
 
     let (event_tx, event_rx) = mpsc::unbounded_channel();
-    let (shutdown_tx, shutdown_rx) = watch::channel(false);
+    let (shutdown_tx, mut shutdown_rx) = watch::channel(false);
     let (ready_tx, ready_rx) = oneshot::channel();
     let idle_armed = Arc::new(AtomicBool::new(false));
-    let sse_task = tokio::spawn(sse_loop(
-        http.clone(),
-        session_id.clone(),
-        event_tx,
-        shutdown_rx,
-        Arc::clone(&idle_armed),
-        Some(ready_tx),
-    ));
+    let root_pid = Arc::new(AtomicU32::new(serve.child.id().unwrap_or(0)));
+    let child = Arc::new(Mutex::new(Some(serve.child)));
+    let sse_task = {
+        let child = Arc::clone(&child);
+        let root_pid = Arc::clone(&root_pid);
+        let http = http.clone();
+        let session_id = session_id.clone();
+        let idle_armed = Arc::clone(&idle_armed);
+        tokio::spawn(async move {
+            tokio::select! {
+                // A shutdown signal or a dropped sender cancels every stage of SSE.
+                _ = shutdown_rx.changed() => {}
+                _ = event_tx.closed() => {}
+                Ok(Some(status)) = async {
+                    match child.lock().await.as_mut() {
+                        Some(child) => child.wait().await.map(Some),
+                        None => Ok(None),
+                    }
+                } => {
+                    root_pid.store(0, Ordering::Relaxed);
+                    tracing::debug!(%status, "opencode serve exited");
+                }
+                _ = sse_loop(http, session_id, &event_tx, idle_armed, Some(ready_tx)) => {}
+            }
+        })
+    };
 
-    if tokio::time::timeout(Duration::from_secs(10), ready_rx)
-        .await
-        .map_err(|_| AgentProviderError::message("timeout waiting for server.connected"))?
-        .is_err()
-    {
-        let _ = shutdown_tx.send(true);
-        sse_task.abort();
-        let _ = serve.child.start_kill();
-        return Err(AgentProviderError::message(
-            "sse closed before server.connected",
-        ));
+    match tokio::time::timeout(Duration::from_secs(10), ready_rx).await {
+        Ok(Ok(())) => {}
+        result => {
+            sse_task.abort();
+            let message = if result.is_err() {
+                "timeout waiting for server.connected"
+            } else {
+                "sse closed before server.connected"
+            };
+            return Err(AgentProviderError::message(message));
+        }
     }
 
     let mut map = EventMapState::with_auto_locked(
@@ -734,13 +755,12 @@ async fn open_runtime(
         },
     ));
 
-    let child = serve.child;
     let commands = Arc::new(OpenCodeCommands {
         http,
         session_id,
         routes,
-        root_pid: AtomicU32::new(child.id().unwrap_or(0)),
-        child: Mutex::new(Some(child)),
+        root_pid,
+        child,
         shutdown: shutdown_tx,
         running_turn: tokio::sync::Mutex::new(None),
         current_config: std::sync::Mutex::new(current_config),
@@ -763,27 +783,18 @@ async fn open_runtime(
 async fn sse_loop(
     http: OpenCodeHttp,
     session_id: String,
-    tx: mpsc::UnboundedSender<codec::BusEvent>,
-    mut shutdown: watch::Receiver<bool>,
+    tx: &mpsc::UnboundedSender<codec::BusEvent>,
     idle_armed: Arc<AtomicBool>,
     mut handshake: Option<oneshot::Sender<()>>,
 ) {
     let mut saw_busy = false;
     loop {
-        if *shutdown.borrow() {
-            return;
-        }
         match http.get_sse().await {
             Ok(mut response) => {
                 let mut decoder = codec::SseDecoder::new();
                 let mut utf8 = codec::Utf8Buf::new();
                 loop {
                     tokio::select! {
-                        _ = shutdown.changed() => {
-                            if *shutdown.borrow() {
-                                return;
-                            }
-                        }
                         chunk = response.chunk() => {
                             match chunk {
                                 Ok(Some(bytes)) => {
@@ -822,24 +833,18 @@ async fn sse_loop(
                         }
                         _ = tokio::time::sleep(Duration::from_millis(500)) => {
                             if idle_armed.load(Ordering::SeqCst) {
-                                poll_turn(&http, &session_id, &tx, &mut saw_busy).await;
+                                poll_turn(&http, &session_id, tx, &mut saw_busy).await;
                             }
                         }
                     }
                 }
             }
             Err(_) => {
-                if *shutdown.borrow() {
-                    return;
-                }
                 tokio::time::sleep(Duration::from_millis(400)).await;
                 continue;
             }
         }
-        if *shutdown.borrow() {
-            return;
-        }
-        poll_turn(&http, &session_id, &tx, &mut saw_busy).await;
+        poll_turn(&http, &session_id, tx, &mut saw_busy).await;
         if handshake.is_some() {
             if let Some(ready) = handshake.take() {
                 let _ = ready.send(());
@@ -973,6 +978,126 @@ mod tests {
         let handle = AgentPersistenceHandle::new("ses_live");
         assert!(handle.as_str().starts_with("ses_"));
         assert_ne!(handle.as_str(), "chat_id");
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn sse_reconnects_until_owned_serve_exits() {
+        use std::os::unix::fs::PermissionsExt;
+        use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+        use tokio::net::TcpListener;
+        use tokio::process::Command;
+        use tokio::time::timeout;
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
+        let address = listener.local_addr().expect("listener address");
+        let script = dir.path().join("fake-opencode");
+        std::fs::write(
+            &script,
+            format!(
+                "#!/bin/sh\nprintf '%s\\n' 'opencode server listening on http://{address}'\nexec sleep 60\n"
+            ),
+        )
+        .expect("write fake serve");
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755))
+            .expect("mark fake serve executable");
+
+        let (reconnected_tx, reconnected_rx) = oneshot::channel();
+        let server = tokio::spawn(async move {
+            let mut reconnected_tx = Some(reconnected_tx);
+            let mut sent_handshake = false;
+            let mut stalled_sse = None;
+            loop {
+                let (socket, _) = listener.accept().await.expect("accept");
+                let mut stream = BufReader::new(socket);
+                let mut request = String::new();
+                stream.read_line(&mut request).await.expect("read request");
+                let path = request.split_whitespace().nth(1).expect("request path");
+                let path = path.split('?').next().expect("path without query");
+                let mut header = String::new();
+                while stream.read_line(&mut header).await.expect("read header") != 0
+                    && header != "\r\n"
+                {
+                    header.clear();
+                }
+                let (status, content_type, body) = match path {
+                    "/event" if !sent_handshake => {
+                        sent_handshake = true;
+                        (
+                            "200 OK",
+                            "text/event-stream",
+                            "data: {\"type\":\"server.connected\",\"properties\":{}}\n\n",
+                        )
+                    }
+                    "/event" => {
+                        // Keep the connection open without sending response headers.
+                        let _ = stalled_sse.insert(stream);
+                        if let Some(reconnected_tx) = reconnected_tx.take() {
+                            let _ = reconnected_tx.send(());
+                        }
+                        continue;
+                    }
+                    "/doc" | "/global/health" | "/session/status" => {
+                        ("200 OK", "application/json", "{}")
+                    }
+                    "/session/ses_test" => ("200 OK", "application/json", r#"{"id":"ses_test"}"#),
+                    _ => ("404 Not Found", "application/json", "{}"),
+                };
+                let response = format!(
+                    "HTTP/1.1 {status}\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                );
+                stream
+                    .get_mut()
+                    .write_all(response.as_bytes())
+                    .await
+                    .expect("write response");
+            }
+        });
+
+        let wait = Duration::from_secs(5);
+        let provider = OpenCodeNativeProvider::with_cmd(script.to_str().expect("script path"));
+        let mut runtime = timeout(
+            wait,
+            provider.resume_runtime(
+                AgentPersistenceHandle::new("ses_test"),
+                AgentRuntimeConfig {
+                    cwd: dir.path().into(),
+                    ..Default::default()
+                },
+            ),
+        )
+        .await
+        .expect("runtime startup deadline")
+        .expect("resume runtime");
+        let pid = runtime.root_pid().expect("owned serve pid");
+        assert!(matches!(
+            runtime.next_event().await.expect("first event").payload,
+            AgentEvent::SessionStarted { .. }
+        ));
+        timeout(wait, reconnected_rx)
+            .await
+            .expect("reconnect deadline")
+            .expect("SSE reconnect");
+        assert!(timeout(Duration::from_millis(50), runtime.next_event())
+            .await
+            .is_err());
+
+        let status = Command::new("kill")
+            .args(["-KILL", &pid.to_string()])
+            .status()
+            .await
+            .expect("kill fake serve");
+        assert!(status.success());
+        let event = timeout(wait, runtime.next_event())
+            .await
+            .expect("terminal event deadline")
+            .expect("terminal event");
+        assert!(matches!(event.payload, AgentEvent::SessionClosed));
+        assert_eq!(runtime.root_pid(), None);
+        assert!(runtime.next_event().await.is_none());
+        server.abort();
     }
 
     /// Live OpenCode CLI: spawn serve → prompt_async → assistant text → idle complete.

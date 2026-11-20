@@ -34,6 +34,9 @@ use super::process::spawn_agent;
 
 pub(crate) type ExtNotificationPayload = (String, Value);
 
+const CLOSE_REQUEST_TIMEOUT: Duration = Duration::from_secs(1);
+const WORKER_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(2);
+
 /// ACP extension JSON-RPC `method` must start with `_`.
 pub(crate) fn ensure_ext_wire_method(method: &str) -> String {
     if method.starts_with('_') {
@@ -720,8 +723,13 @@ fn auth_required_message(auth_methods: Vec<AuthMethodSummary>) -> Result<String,
     crate::acp_client::types::encode_auth_required(auth_methods, "Authentication required by agent")
 }
 
+struct ReadySession {
+    session_id: String,
+    supports_resume: bool,
+}
+
 fn send_auth_required_error(
-    ready_tx: &mut Option<oneshot::Sender<Result<String, String>>>,
+    ready_tx: &mut Option<oneshot::Sender<Result<ReadySession, String>>>,
     auth_methods: Vec<AuthMethodSummary>,
 ) -> Result<(), String> {
     let msg = match auth_required_message(auth_methods) {
@@ -738,6 +746,7 @@ fn send_auth_required_error(
 pub struct AcpSessionHandle {
     pub session_id: String,
     pub root_pid: Option<u32>,
+    pub(crate) supports_resume: bool,
     cmd_tx: mpsc::UnboundedSender<SessionCommand>,
     event_rx: mpsc::UnboundedReceiver<AcpSessionEvent>,
     permission_rx: mpsc::UnboundedReceiver<(PermissionRequest, oneshot::Sender<String>)>,
@@ -803,6 +812,14 @@ impl AcpSessionControl {
         self.cmd_tx
             .send(SessionCommand::Close)
             .map_err(|_| "ACP session is no longer running".to_string())
+    }
+
+    pub(crate) async fn close_and_wait(&self) -> Result<(), String> {
+        // A worker that already exited is also closed.
+        let _ = self.send_close();
+        timeout(WORKER_SHUTDOWN_TIMEOUT, self.cmd_tx.closed())
+            .await
+            .map_err(|_| "ACP session shutdown timed out".to_string())
     }
 
     pub async fn set_config_option(
@@ -945,7 +962,7 @@ pub async fn run_acp_session(
     let (cmd_tx, mut cmd_rx) = mpsc::unbounded_channel::<SessionCommand>();
     let (event_tx, event_rx) = mpsc::unbounded_channel::<AcpSessionEvent>();
     let (permission_tx, permission_rx) = mpsc::unbounded_channel();
-    let (ready_tx, ready_rx) = oneshot::channel::<Result<String, String>>();
+    let (ready_tx, ready_rx) = oneshot::channel();
     let pid_slot: Arc<std::sync::OnceLock<u32>> = Arc::new(std::sync::OnceLock::new());
     let pid_slot_thread = Arc::clone(&pid_slot);
     let (ext_notify, _) = broadcast::channel(32);
@@ -1015,13 +1032,14 @@ pub async fn run_acp_session(
         })
         .map_err(|e| format!("Failed to spawn ACP thread: {}", e))?;
 
-    let session_id = ready_rx
+    let ready = ready_rx
         .await
         .map_err(|_| "ACP session setup channel closed".to_string())??;
 
     Ok(AcpSessionHandle {
-        session_id,
+        session_id: ready.session_id,
         root_pid: pid_slot.get().copied(),
+        supports_resume: ready.supports_resume,
         cmd_tx,
         event_rx,
         permission_rx,
@@ -1042,7 +1060,7 @@ async fn run_session_inner(
     cmd_rx: &mut mpsc::UnboundedReceiver<SessionCommand>,
     event_tx: mpsc::UnboundedSender<AcpSessionEvent>,
     permission_tx: mpsc::UnboundedSender<(PermissionRequest, oneshot::Sender<String>)>,
-    mut ready_tx: Option<oneshot::Sender<Result<String, String>>>,
+    mut ready_tx: Option<oneshot::Sender<Result<ReadySession, String>>>,
     default_config: Option<std::collections::HashMap<String, String>>,
     session_config_snapshot: Option<HashMap<String, String>>,
     ext_notify: broadcast::Sender<ExtNotificationPayload>,
@@ -1204,6 +1222,10 @@ async fn run_session_inner(
 
             let agent_info = map_implementation_info(init_response.agent_info.clone());
             let capabilities = map_agent_capabilities(&init_response.agent_capabilities);
+            let restore_method = select_session_restore_method(
+                capabilities.load_session.supported,
+                capabilities.session_resume.supported,
+            );
             let _ = event_tx.send(AcpSessionEvent::AgentInfoUpdate(agent_info.clone()));
             let _ = event_tx.send(AcpSessionEvent::CapabilitiesUpdate(capabilities.clone()));
 
@@ -1260,14 +1282,6 @@ async fn run_session_inner(
                 // host id first so their token counters never become this chat's fill.
                 host_client.set_host_session_id(resume_id.clone());
                 let requested = schema::SessionId::new(resume_id.clone());
-                let restore_method = select_session_restore_method(
-                    init_response.agent_capabilities.load_session,
-                    init_response
-                        .agent_capabilities
-                        .session_capabilities
-                        .resume
-                        .is_some(),
-                );
                 if restore_method == Some(SessionRestoreMethod::LoadWithHistory) {
                     match conn
                         .send_request(schema::LoadSessionRequest::new(
@@ -1404,10 +1418,18 @@ async fn run_session_inner(
             });
 
             if let Some(tx) = ready_tx.take() {
-                let _ = tx.send(Ok(session_id_acp.to_string()));
+                let _ = tx.send(Ok(ReadySession {
+                    session_id: session_id_acp.to_string(),
+                    supports_resume: restore_method.is_some(),
+                }));
             }
 
-            while let Some(cmd) = cmd_rx.recv().await {
+            // Clean EOF fails pending RPCs, but it does not wake an idle command receiver.
+            while let Some(cmd) = tokio::select! {
+                biased;
+                _ = conn.incoming_closed() => None,
+                cmd = cmd_rx.recv() => cmd,
+            } {
                 match cmd {
                     SessionCommand::Prompt {
                         text,
@@ -1645,25 +1667,31 @@ async fn run_session_inner(
                             });
                             break;
                         }
-                        match conn
-                            .send_request(schema::CloseSessionRequest::new(session_id_acp.clone()))
-                            .block_task()
-                            .await
-                        {
+                        let result = timeout(
+                            CLOSE_REQUEST_TIMEOUT,
+                            conn.send_request(schema::CloseSessionRequest::new(
+                                session_id_acp.clone(),
+                            ))
+                            .block_task(),
+                        )
+                        .await
+                        .map_err(|_| "ACP session/close timed out".to_string())
+                        .and_then(|result| result.map_err(|error| error.to_string()));
+                        match result {
                             Ok(_) => {
                                 let _ =
                                     event_tx.send(AcpSessionEvent::SessionClosed { reason: None });
-                                break;
                             }
-                            Err(e) => {
-                                warn!("Close session failed: {}", e);
+                            Err(message) => {
+                                warn!("Close session failed: {}", message);
                                 let _ = event_tx.send(AcpSessionEvent::Error {
                                     code: "CLOSE_FAILED".to_string(),
-                                    message: e.to_string(),
+                                    message,
                                     recoverable: true,
                                 });
                             }
                         }
+                        break;
                     }
                     SessionCommand::SetConfigOption {
                         config_id,

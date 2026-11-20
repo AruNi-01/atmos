@@ -159,6 +159,7 @@ pub trait AgentRuntime: Send {
     fn control(&self) -> AgentRuntimeControl;
     fn persistence_handle(&self) -> Option<AgentPersistenceHandle>;
     fn descriptor(&self) -> AgentDescriptor;
+    /// `SessionClosed` is terminal even if the underlying event channel is still open.
     async fn next_event(&mut self) -> Option<AgentEventEnvelope>;
     /// OS pid of the spawned agent process, when this runtime owns one.
     fn root_pid(&self) -> Option<u32> {

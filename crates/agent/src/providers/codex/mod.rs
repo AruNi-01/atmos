@@ -14,11 +14,13 @@ mod tool_map;
 
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
 
 use async_trait::async_trait;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::process::Child;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, Mutex};
+use tokio::time::timeout;
 
 use crate::contract::AgentEventEnvelope;
 use crate::contract::{AgentAction, AgentActionError, AgentActionKind, AgentActionResult};
@@ -123,12 +125,12 @@ fn provider_descriptor(current: AgentCurrentConfig) -> AgentDescriptor {
 
 struct CodexCommands {
     shared: Arc<CodexShared>,
+    child: Mutex<Option<Child>>,
 }
 
 struct CodexRuntime {
     commands: Arc<CodexCommands>,
     events_rx: mpsc::UnboundedReceiver<AgentEventEnvelope>,
-    _child: Option<Child>,
     root_pid: Option<u32>,
 }
 
@@ -206,9 +208,13 @@ impl AgentRuntimeCommands for CodexCommands {
 
     async fn close(&self) -> AgentResult<()> {
         self.shared.fail_outstanding().await;
-        let mut stdin = self.shared.stdin.lock().await;
-        *stdin = None;
-        self.shared.emit_closed();
+        self.shared.close_transport().await;
+        if let Some(mut child) = self.child.lock().await.take() {
+            // Give app-server time to flush the thread before the next resume.
+            if timeout(Duration::from_secs(2), child.wait()).await.is_err() {
+                let _ = child.kill().await;
+            }
+        }
         Ok(())
     }
 
@@ -464,9 +470,11 @@ async fn open_runtime(
     shared.handshake(&cfg.cwd, resume.as_deref()).await?;
     let root_pid = child.as_ref().and_then(Child::id);
     Ok(Box::new(CodexRuntime {
-        commands: Arc::new(CodexCommands { shared }),
+        commands: Arc::new(CodexCommands {
+            shared,
+            child: Mutex::new(child),
+        }),
         events_rx,
-        _child: child,
         root_pid,
     }))
 }
@@ -747,6 +755,94 @@ for raw in sys.stdin:
         assert_eq!(writes.1["params"]["model"], "gpt-5.6-luna");
         assert_eq!(writes.1["params"]["effort"], "low");
         drop(runtime);
+    }
+
+    #[tokio::test]
+    async fn closed_app_server_resumes_the_same_thread() {
+        let cli = fake_cli();
+        let provider = CodexNativeProvider::with_program(
+            cli.program.to_string_lossy().into_owned(),
+        )
+        .with_env(HashMap::from([(
+            "CODEX_TEST_CAPTURE".into(),
+            cli.capture.to_string_lossy().into_owned(),
+        )]));
+        let cfg = AgentRuntimeConfig {
+            cwd: PathBuf::from("/abs/project"),
+            ..AgentRuntimeConfig::default()
+        };
+        let mut runtime = provider.create_runtime(cfg.clone()).await.unwrap();
+        let handle = runtime.persistence_handle().unwrap();
+        runtime.control().close().await.unwrap();
+        let _ = drain_until(&mut runtime, |event| {
+            matches!(event, AgentEvent::SessionClosed)
+        })
+        .await;
+        drop(runtime);
+
+        let runtime = provider.resume_runtime(handle.clone(), cfg).await.unwrap();
+        runtime
+            .control()
+            .send(AgentPrompt {
+                text: "continue".into(),
+                ..AgentPrompt::default()
+            })
+            .await
+            .unwrap();
+        let writes = load_capture(&cli.capture);
+        let resume = writes
+            .iter()
+            .position(|frame| frame["method"] == "thread/resume")
+            .unwrap();
+        assert_eq!(writes[resume]["params"]["threadId"], handle.as_str());
+        assert!(writes[resume + 1..].iter().any(|frame| {
+            frame["method"] == "turn/start" && frame["params"]["threadId"] == handle.as_str()
+        }));
+    }
+
+    #[tokio::test]
+    async fn stdout_eof_closes_transport_and_releases_pending_request() {
+        use tokio::io::{AsyncBufReadExt, BufReader};
+
+        let (stdin, peer_stdin) = tokio::io::duplex(1024);
+        let (stdout, peer_stdout) = tokio::io::duplex(1024);
+        let (events_tx, mut events_rx) = mpsc::unbounded_channel();
+        let shared = CodexShared::new(
+            Box::new(stdin),
+            events_tx,
+            AgentCurrentConfig::default(),
+            StickyConfig::from_runtime(&AgentRuntimeConfig::default()),
+        );
+        let reader = tokio::spawn(reader_loop(stdout, shared.clone()));
+        let request = tokio::spawn({
+            let shared = shared.clone();
+            async move { shared.request("turn/start", json!({})).await }
+        });
+        timeout(
+            Duration::from_secs(2),
+            BufReader::new(peer_stdin).lines().next_line(),
+        )
+        .await
+        .unwrap()
+        .unwrap()
+        .expect("request written");
+        drop(peer_stdout);
+        timeout(Duration::from_secs(2), reader)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(matches!(
+            events_rx.recv().await.unwrap().payload,
+            AgentEvent::SessionClosed
+        ));
+        assert!(request.await.unwrap().is_err());
+        assert!(shared.client_rpc.lock().await.is_empty());
+        assert!(shared
+            .request("turn/start", json!({}))
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("stdin closed"));
     }
 
     #[tokio::test]
