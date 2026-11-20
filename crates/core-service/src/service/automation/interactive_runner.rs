@@ -466,10 +466,7 @@ async fn wait_for_tui_ready(
         }
         tokio::time::sleep(Duration::from_millis(500)).await;
     }
-    if looks_like_directory_trust_prompt(&last_text) {
-        return false;
-    }
-    true
+    !looks_like_directory_trust_prompt(&last_text)
 }
 
 pub fn interactive_cwd(
