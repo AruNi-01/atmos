@@ -1,0 +1,21 @@
+crates/core-service/src/service/automation/interactive_runner.rs
+  s_d618cbfad59f25::t_47d95ebb6f8a26 469
+crates/core-service/src/service/agent_chat/tests.rs
+  s_d618cbfad59f25::t_53aeac6ac3a745 3141-3153,3155-3175,3177,3181
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "920a08859a683ec1cdfcc929e3c074264e6d6dfb",
+  "prompts": {},
+  "sessions": {
+    "s_d618cbfad59f25": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2a71a714-4bf4-4aa1-b1fa-9cf2f2474026",
+        "model": "codex/gpt-6.2-sol"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
