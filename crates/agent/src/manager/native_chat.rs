@@ -88,10 +88,7 @@ pub fn default_acp_enabled(
     if let Some(enabled) = overlay_enabled {
         return enabled;
     }
-    if provision_is_native && native_chat_sibling_id(registry_id).is_some() {
-        return false;
-    }
-    true
+    !(provision_is_native && native_chat_sibling_id(registry_id).is_some())
 }
 
 /// Native hosts are off until the overlay records `enabled: true`.
