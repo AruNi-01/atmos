@@ -7,17 +7,8 @@ import {
 import {
   collectAgentStatusSessionTitles,
   findTerminalPaneByStableAgentPaneId,
-  paneTitleIndicatesAgentExited,
-  terminalSessionIsCurrentAgent,
   uniquePaneTitleForAgentStatus,
 } from "../agent-status-pane-title";
-
-const claudeAgent = {
-  id: "claude",
-  label: "Claude Code",
-  command: "claude",
-  iconType: "built-in" as const,
-};
 
 function pane(
   partial: Partial<TerminalPaneProps> & Pick<TerminalPaneProps, "id" | "label">,
@@ -42,129 +33,6 @@ describe("uniquePaneTitleForAgentStatus", () => {
 
   it("returns null when the title is only the agent brand", () => {
     expect(uniquePaneTitleForAgentStatus("Claude Code", "Claude Code")).toBeNull();
-  });
-});
-
-describe("paneTitleIndicatesAgentExited", () => {
-  it("is false while the live title still brands the agent", () => {
-    expect(
-      paneTitleIndicatesAgentExited(
-        pane({
-          id: "a",
-          label: "Claude Code",
-          agent: claudeAgent,
-          dynamicTitle: "claude",
-          oscTitle: "debugging auth",
-        }),
-      ),
-    ).toBe(false);
-  });
-
-  it("is true when the live title has returned to a cwd", () => {
-    expect(
-      paneTitleIndicatesAgentExited(
-        pane({
-          id: "a",
-          label: "Claude Code",
-          agent: claudeAgent,
-          dynamicTitle: "/Users/me/own_space/OpenSource/atmos",
-        }),
-      ),
-    ).toBe(true);
-  });
-
-  it("keeps a typed grok binary that has no stored pane agent", () => {
-    expect(
-      paneTitleIndicatesAgentExited(
-        pane({
-          id: "a",
-          label: "1",
-          tmuxWindowName: "1",
-          dynamicTitle: "grok-1.0.46",
-          oscTitle: "Launch Subagent to Explore Project",
-        }),
-      ),
-    ).toBe(false);
-    expect(
-      paneTitleIndicatesAgentExited(
-        pane({
-          id: "a",
-          label: "1",
-          dynamicTitle: "grok",
-        }),
-      ),
-    ).toBe(false);
-  });
-
-  it("still treats a cwd title as exited when the pane agent was never stored", () => {
-    expect(
-      paneTitleIndicatesAgentExited(
-        pane({
-          id: "a",
-          label: "1",
-          dynamicTitle: ".../atmos/koffing",
-        }),
-      ),
-    ).toBe(true);
-  });
-});
-
-describe("terminalSessionIsCurrentAgent", () => {
-  it("hides a pane whose title has fallen back to a path", () => {
-    expect(
-      terminalSessionIsCurrentAgent("ws-1:1", {
-        workspacePanes: {
-          "ws-1": {
-            "pane-a": pane({
-              id: "pane-a",
-              label: "Claude Code",
-              tmuxWindowName: "1",
-              agent: claudeAgent,
-              dynamicTitle: "/Users/me/own_space/OpenSource/atmos",
-            }),
-          },
-        },
-      }),
-    ).toBe(false);
-  });
-
-  it("keeps a pane that still brands the agent", () => {
-    expect(
-      terminalSessionIsCurrentAgent("ws-1:1", {
-        workspacePanes: {
-          "ws-1": {
-            "pane-a": pane({
-              id: "pane-a",
-              label: "Claude Code",
-              tmuxWindowName: "1",
-              agent: claudeAgent,
-              dynamicTitle: "claude",
-              oscTitle: "debugging auth",
-            }),
-          },
-        },
-      }),
-    ).toBe(true);
-  });
-
-  it("drops a closed window once that host's terminals are loaded", () => {
-    expect(
-      terminalSessionIsCurrentAgent("ws-1:1", {
-        workspacePanes: {
-          "ws-1": {
-            "pane-b": pane({
-              id: "pane-b",
-              label: "2",
-              tmuxWindowName: "2",
-            }),
-          },
-        },
-      }),
-    ).toBe(false);
-  });
-
-  it("keeps a catalog row until that host's terminals are loaded", () => {
-    expect(terminalSessionIsCurrentAgent("ws-1:1", { workspacePanes: {} })).toBe(true);
   });
 });
 

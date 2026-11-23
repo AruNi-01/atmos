@@ -8,7 +8,6 @@ import { useAgentActivityStore } from "@/features/agent/store/agent-activity-sto
 import { initServerTerminalTitles } from "@/features/terminal/lib/terminal-server-title";
 import { useAgentNotifications } from "@/features/agent/hooks/use-agent-notifications";
 import { useAutomationRunSurfaceSync } from "@/features/automations/hooks/use-automation-run-surface-sync";
-import { useDismissExitedAgentStatusSessions } from "@/features/agent/hooks/use-dismiss-exited-agent-status-sessions";
 import { useLayoutSettingsStore } from "@/features/settings/store/layout-settings-store";
 import { useAgentActivityIndicatorSettingsStore } from "@/features/settings/store/agent-activity-indicator-settings-store";
 import { useExperimentSettingsStore } from "@/features/settings/store/experiment-settings-store";
@@ -127,7 +126,6 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 
   useAgentNotifications();
   useAutomationRunSurfaceSync();
-  useDismissExitedAgentStatusSessions();
 
   return <>{children}</>;
 }
