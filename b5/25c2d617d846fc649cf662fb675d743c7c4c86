@@ -1,0 +1,20 @@
+apps/web/src/providers/app/websocket-provider.agent-status.test.tsx
+  s_396a864b3eb6e3::t_a1f9dc420b4377 82-84
+  s_396a864b3eb6e3::t_7308c00004cf5e 1-81,85-106
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b525c2d617d846fc649cf662fb675d743c7c4c86",
+  "prompts": {},
+  "sessions": {
+    "s_396a864b3eb6e3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1bab839d-6a8b-4f45-a7ff-481881ad1137",
+        "model": "codex/gpt-6.2-sol"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
