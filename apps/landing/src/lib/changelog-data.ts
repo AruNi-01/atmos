@@ -34,6 +34,61 @@ export interface ChangelogItem {
 
 export const changelogData: ChangelogItem[] = [
   {
+    id: "desktop-2026.11.20",
+    title: {
+      zh: "Agent Chat 会话续接、终端标签隔离与远程流式传输",
+      en: "Agent Chat Resume, Terminal Tab Isolation & Remote Streaming",
+    },
+    description: {
+      zh: "Atmos Desktop 2026.11.20 让你更容易继续 Agent Chat 会话，让 Agent 活动留在所属的终端标签，并更准确地显示额度重置时间。通过 Atmos Computer 远程连接时，大文件等数据也能更高效地传输。",
+      en: "Atmos Desktop 2026.11.20 makes Agent Chat sessions easier to pick up again, keeps Agent activity in the right terminal tab, and shows more accurate quota reset times. Remote connections through Atmos Computer handle large transfers more efficiently.",
+    },
+    date: "2026-11-23",
+    version: "2026.11.20",
+    releaseUrl: "https://github.com/AruNi-01/atmos/releases/tag/desktop-electron-2026.11.20",
+    tags: [
+      { zh: "Agent Chat", en: "Agent Chat" },
+      { zh: "终端", en: "Terminal" },
+      { zh: "Atmos Computer", en: "Atmos Computer" },
+    ],
+    content: {
+      zh: {
+        improvements: [
+          "**Atmos Computer** — 远程请求和响应通过 Relay 流式传输，不再需要等整段数据缓冲完毕。取消请求时会停止正在进行的处理。受支持的连接可以为客户端与 Computer 之间的 HTTP 内容、应用和终端数据帧加密。",
+          "**侧栏与底栏** — 没有工作区的项目只显示空状态提示和新建按钮。项目操作按钮出现时，Agent 状态会向左让位。底栏的 Agent 会话弹窗把 Observer 图标放在标题旁，把清除空闲会话图标放在最右侧。",
+        ],
+        fixes: [
+          "**Agent Chat** — 支持的 Agent 在运行时因空闲而关闭后，发送下一条消息即可接续原会话。提供方断开时不再留下卡在运行中的回合，流式输出的思考和工具活动也会归到正确的回复。",
+          "**终端标签** — 即使同时打开多个 Codex 会话，Agent 事件和终端标题也会留在所属标签。滚动遵循当前终端应用的鼠标模式，重连时不会擅自开启鼠标跟踪。",
+          "**额度用量** — 更准确地显示 Codex、Claude、Factory Droid 和 OpenCode 报告的额度周期与重置时间。",
+          "**启动与工作区面板** — 本地连接检查有了超时，连接时会加载通知偏好，恢复工作区不会重新打开已关闭的中心面板。",
+          "**Resource Monitor** — Linux 上，即使启动命令中的名称与系统报告的进程名不同，工作区进程的监听端口也能正确显示。",
+          "**安全** — 桌面工作区升级到已修补的 Next.js 16.4.5。Agent 工具解压时会拒绝可能写到目标目录以外的条目。",
+        ],
+        others: [
+          "完整对比：https://github.com/AruNi-01/atmos/compare/desktop-electron-2026.11.1...desktop-electron-2026.11.20",
+        ],
+      },
+      en: {
+        improvements: [
+          "**Atmos Computer** — Remote requests and responses stream through Relay instead of buffering the entire body first. Cancelling a request stops in-flight work. Supported connections can encrypt HTTP payloads and app and terminal frames between the client and Computer.",
+          "**Sidebar and footer** — Projects without workspaces show just the empty label and a New button. Project-row Agent status moves aside when actions appear. In the footer’s Agent Sessions popover, the Observer icon sits beside the title and Clear idle sits at the right edge.",
+        ],
+        fixes: [
+          "**Agent Chat** — Supported agents resume the same conversation on the next message after the runtime shuts down while idle. Provider disconnects no longer leave turns stuck running, and streamed thinking and tool activity stay with the right assistant message.",
+          "**Terminal tabs** — Agent events and terminal titles stay in their own tabs, even with multiple Codex sessions open. Scrolling respects the active terminal app’s mouse mode, and reconnecting no longer turns on mouse tracking that was disabled.",
+          "**Quota usage** — Codex, Claude, Factory Droid, and OpenCode quota displays better reflect the windows and reset times their providers report.",
+          "**Startup and workspace panels** — Local connection checks time out instead of waiting indefinitely, notification preferences load on connection, and closed center panels stay closed when a workspace is restored.",
+          "**Resource Monitor** — On Linux, workspace processes show listening ports even when the launch command name differs from the kernel’s process name.",
+          "**Security** — The desktop workbench uses the patched Next.js 16.4.5 release. Agent tooling rejects archive entries that would write outside the extraction directory.",
+        ],
+        others: [
+          "Full comparison: https://github.com/AruNi-01/atmos/compare/desktop-electron-2026.11.1...desktop-electron-2026.11.20",
+        ],
+      },
+    },
+  },
+  {
     id: "desktop-2026.11.1",
     title: {
       zh: "原生 Agent Chat · 会话收件箱 · Observer",
