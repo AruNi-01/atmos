@@ -1,0 +1,332 @@
+# Instructions
+
+- Following Playwright test failed.
+- Explain why, be concise, respect Playwright best practices.
+- Provide a snippet of code with the fix, if possible.
+
+# Test info
+
+- Name: smoke/settings/settings-modal.e2e.ts >> smoke settings >> @smoke @stateful boots settings modal from project context route params
+- Location: tests/smoke/settings/settings-modal.e2e.ts:31:3
+
+# Error details
+
+```
+Error: Unexpected browser error output:
+- [response.404] http://localhost:30303/api/canvas/documents/Default.atmos.tldr
+```
+
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - generic [ref=e6]:
+        - button "Collapse left sidebar" [ref=e7]:
+          - img [ref=e8]
+        - generic [ref=e11]:
+          - button "Go back" [ref=e12]:
+            - img [ref=e13]
+          - button "Go forward" [ref=e15]:
+            - img [ref=e16]
+          - button "Refresh page" [ref=e18]:
+            - img [ref=e19]
+        - generic:
+          - generic [ref=e22]: /
+          - generic [ref=e23]: Atmos E2E
+        - generic [ref=e25]:
+          - button "Open O" [ref=e26]:
+            - generic: Open
+            - generic:
+              - generic: O
+          - button [ref=e28]:
+            - img [ref=e29]
+      - generic [ref=e31]:
+        - generic [ref=e32]:
+          - status "Unable to compare the remote branch with origin/main" [ref=e33]:
+            - img [ref=e35]
+          - generic [ref=e39]: HEAD
+        - img [ref=e40]
+        - button "origin/ main" [ref=e43] [cursor=pointer]:
+          - generic [ref=e44]: origin/
+          - generic [ref=e45]: main
+          - img [ref=e46]
+      - generic [ref=e48]:
+        - button "Search" [ref=e49] [cursor=pointer]:
+          - img [ref=e50]
+          - generic [ref=e53]: Search...
+          - generic:
+            - img
+            - generic: K
+        - button "Open workspace summary" [ref=e54]:
+          - img [ref=e55]
+        - generic [ref=e57]:
+          - button "Usage" [ref=e58]:
+            - img [ref=e59]
+          - button "Open actions menu" [ref=e62]:
+            - generic [ref=e63]: ···
+          - button "Collapse right sidebar" [ref=e65]:
+            - img [ref=e66]
+    - generic [ref=e70]:
+      - complementary [ref=e73]:
+        - generic [ref=e74]:
+          - generic [ref=e75] [cursor=pointer]:
+            - generic [ref=e76]:
+              - img [ref=e77]
+              - generic [ref=e81]: Management Center
+            - img [ref=e83]
+          - generic [ref=e85]:
+            - generic [ref=e87] [cursor=pointer]:
+              - img [ref=e89]
+              - generic [ref=e92]: Workspaces
+            - generic [ref=e94] [cursor=pointer]:
+              - img [ref=e96]
+              - generic [ref=e99]: Skills
+            - generic [ref=e101] [cursor=pointer]:
+              - img [ref=e103]
+              - generic [ref=e107]: Canvas
+            - generic [ref=e109] [cursor=pointer]:
+              - img [ref=e111]
+              - generic [ref=e114]: Kanban
+            - generic [ref=e116] [cursor=pointer]:
+              - img [ref=e118]
+              - generic [ref=e120]: New Workspace
+        - tabpanel "Projects" [ref=e123]:
+          - generic [ref=e126]:
+            - generic [ref=e128]:
+              - generic [ref=e129]:
+                - button "A Atmos E2E" [ref=e130] [cursor=pointer]:
+                  - generic [ref=e131]:
+                    - generic [ref=e133]: A
+                    - generic [ref=e134]: Atmos E2E
+                - generic [ref=e136]:
+                  - button [ref=e137]:
+                    - img [ref=e138]
+                  - button [ref=e140]:
+                    - img [ref=e141]
+              - button "seel 23s" [ref=e150] [cursor=pointer]:
+                - generic [ref=e151]:
+                  - img [ref=e153]
+                  - generic [ref=e158]: seel
+                  - generic:
+                    - generic: 23s
+                    - button "Archive":
+                      - img
+            - status [ref=e159]
+        - generic [ref=e161]:
+          - button "Add Project" [ref=e163]:
+            - img [ref=e165]
+          - generic [ref=e167]:
+            - button [ref=e168]:
+              - img [ref=e170]
+            - button "Open Kanban" [ref=e171]:
+              - img [ref=e173]
+      - separator [ref=e175]
+      - main [ref=e177]:
+        - generic [ref=e178]:
+          - tablist [ref=e179]:
+            - tab [ref=e180] [cursor=pointer]:
+              - img [ref=e181]
+            - tab "Terminal Term Close Term" [selected] [ref=e187] [cursor=pointer]:
+              - generic [ref=e188]:
+                - img [ref=e189]
+                - button "Terminal":
+                  - img
+              - generic [ref=e192]: Term
+              - button "Close Term" [ref=e194]:
+                - img [ref=e195]
+            - generic [ref=e198]:
+              - button "New tab" [ref=e199]:
+                - img [ref=e200]
+              - button "Open tab groups" [ref=e201] [cursor=pointer]:
+                - img
+          - generic [ref=e208]:
+            - generic [ref=e210]:
+              - generic [ref=e212]:
+                - img [ref=e213]
+                - generic [ref=e215]: atmos/atmos
+              - generic [ref=e216]:
+                - button "Pin to canvas (⌘⇧P)" [ref=e217] [cursor=pointer]:
+                  - img [ref=e218]
+                - generic [ref=e221]:
+                  - generic [ref=e222]:
+                    - button "Split horizontally (⌘D)" [ref=e223] [cursor=pointer]:
+                      - img [ref=e224]
+                    - button "Split vertically (⌘⇧D)" [ref=e226] [cursor=pointer]:
+                      - img [ref=e227]
+                  - generic [ref=e229]:
+                    - button "Maximize" [ref=e230] [cursor=pointer]:
+                      - img [ref=e231]
+                    - button "Close (⌘W)" [ref=e236] [cursor=pointer]:
+                      - img [ref=e237]
+            - generic [ref=e241]:
+              - textbox "Terminal input" [active] [ref=e247]
+              - generic [ref=e250]:
+                - generic [ref=e252]:
+                  - generic [ref=e254]:
+                    - generic: "[⌘ + (⇧ Pin) + G] Input anything to terminal (@ annotation, / command, or paste img)"
+                  - button "Send to terminal" [disabled] [ref=e256]:
+                    - img [ref=e257]
+                - button "Open agent input" [ref=e260]
+            - heading "atmos/atmos" [level=4] [ref=e264]
+      - separator [ref=e265]
+      - complementary [ref=e268]:
+        - generic [ref=e270]:
+          - tablist [ref=e271]:
+            - tab "Changes" [selected] [ref=e272] [cursor=pointer]:
+              - img [ref=e273]
+            - tab "Review" [ref=e277] [cursor=pointer]:
+              - img [ref=e278]
+            - tab "Browser" [ref=e280] [cursor=pointer]:
+              - img [ref=e281]
+            - tab "Run" [ref=e284] [cursor=pointer]:
+              - img [ref=e285]
+            - tab "Files" [ref=e287] [cursor=pointer]:
+              - img [ref=e288]
+            - tab "Pull Requests" [ref=e293] [cursor=pointer]:
+              - img [ref=e294]
+            - tab "Actions" [ref=e298] [cursor=pointer]:
+              - img [ref=e299]
+          - generic [ref=e303]:
+            - tablist [ref=e306]:
+              - tab "Files Diff Refresh changes Select changes scope Show changed files as tree" [selected] [ref=e307] [cursor=pointer]:
+                - generic [ref=e308]:
+                  - img [ref=e309]
+                  - generic [ref=e312]: Files Diff
+                - generic:
+                  - button "Refresh changes":
+                    - img
+                    - generic: Refresh
+                  - button "Select changes scope":
+                    - generic: Branch
+                    - img
+                  - button "Show changed files as tree":
+                    - img
+              - tab "Commits Refresh commits" [ref=e313] [cursor=pointer]:
+                - generic [ref=e314]:
+                  - img [ref=e315]
+                  - generic [ref=e317]: Commits
+                - generic:
+                  - button "Refresh commits":
+                    - img
+                    - generic: Refresh
+            - generic [ref=e320]:
+              - img [ref=e321]
+              - generic [ref=e323]: No changes against origin/main
+            - generic [ref=e326]:
+              - generic [ref=e327]:
+                - textbox "Message (Cmd/Ctrl+Enter to commit)" [ref=e328]
+                - button [disabled] [ref=e329]:
+                  - img [ref=e330]
+              - generic [ref=e333]:
+                - button "Publish Branch" [ref=e334]:
+                  - generic [ref=e335]: Publish Branch
+                - button [ref=e336]:
+                  - img [ref=e337]
+    - contentinfo [ref=e339]:
+      - generic [ref=e340]:
+        - generic [ref=e343] [cursor=pointer]: NORMAL
+        - button "LOCAL 0" [ref=e345]:
+          - img [ref=e346]
+          - generic [ref=e349]: LOCAL 0
+      - button "Napping ~" [ref=e351] [cursor=pointer]:
+        - generic [ref=e352]:
+          - generic [ref=e353]:
+            - img [ref=e354]
+            - generic [ref=e357]: z
+            - generic [ref=e358]: z
+            - generic [ref=e359]: z
+          - generic [ref=e360]: Napping ~
+  - alert [ref=e361]: Atmos E2E – ATMOS
+  - generic:
+    - region "Notifications"
+  - generic:
+    - region "Notifications"
+  - generic:
+    - region "Notifications"
+```
+
+# Test source
+
+```ts
+  1  | import type { ConsoleMessage, Page, TestInfo } from "@playwright/test";
+  2  | 
+  3  | const allowedConsoleErrorPatterns = [
+  4  |   /favicon\.ico/i,
+  5  |   /\[response\.404\] .*\/api\/system\/client-session\b/i,
+  6  |   // Setup / remote onboarding probes the relay proxy before credentials exist.
+  7  |   /\[response\.400\] .*\/api\/system\/computer\/relay\b/i,
+  8  |   // registerAccessTokenOnRelay treats 409 as success (token already registered).
+  9  |   /\[response\.409\] .*\/v1\/tenants\b/i,
+  10 |   /Encountered a script tag while rendering React component/i,
+  11 |   /(Failed to load (local models|skills)|Error fetching projects): Error: WebSocket disconnected/i,
+  12 |   /\[console\.error\] Error: WebSocket not connected\b/i,
+  13 |   /\[WebSocket\] Error: Event/i,
+  14 |   // TanStack Query cancels in-flight settings bootstrap on computer/scope change.
+  15 |   /CancelledError\b/,
+  16 | ];
+  17 | 
+  18 | function formatConsoleMessage(message: ConsoleMessage): string {
+  19 |   return `[console.${message.type()}] ${message.text()}`;
+  20 | }
+  21 | 
+  22 | function isAllowedConsoleError(message: string): boolean {
+  23 |   return allowedConsoleErrorPatterns.some((pattern) => pattern.test(message));
+  24 | }
+  25 | 
+  26 | export async function attachBrowserErrorCollector(
+  27 |   page: Page,
+  28 |   testInfo: TestInfo,
+  29 | ): Promise<() => Promise<void>> {
+  30 |   const errors: string[] = [];
+  31 |   const failedResponseUrls = new Set<string>();
+  32 | 
+  33 |   page.on("pageerror", (error) => {
+  34 |     errors.push(`[pageerror] ${error.stack || error.message}`);
+  35 |   });
+  36 | 
+  37 |   page.on("console", (message) => {
+  38 |     if (message.type() === "error") {
+  39 |       errors.push(formatConsoleMessage(message));
+  40 |     }
+  41 |   });
+  42 | 
+  43 |   page.on("response", (response) => {
+  44 |     const status = response.status();
+  45 |     if (status < 400) return;
+  46 |     const url = response.url();
+  47 |     failedResponseUrls.add(url);
+  48 |     errors.push(`[response.${status}] ${url}`);
+  49 |   });
+  50 | 
+  51 |   return async () => {
+  52 |     const unexpected = errors.filter((message) => {
+  53 |       if (isAllowedConsoleError(message)) return false;
+  54 |       if (
+  55 |         failedResponseUrls.size > 0 &&
+  56 |         /\[console\.error\] Failed to load resource: the server responded with a status of \d+/.test(message)
+  57 |       ) {
+  58 |         return false;
+  59 |       }
+  60 |       return true;
+  61 |     });
+  62 |     if (unexpected.length === 0) {
+  63 |       return;
+  64 |     }
+  65 | 
+  66 |     await testInfo.attach("browser-errors", {
+  67 |       body: unexpected.join("\n\n"),
+  68 |       contentType: "text/plain",
+  69 |     });
+  70 | 
+> 71 |     throw new Error(
+     |           ^ Error: Unexpected browser error output:
+  72 |       `Unexpected browser error output:\n${unexpected
+  73 |         .map((message) => `- ${message}`)
+  74 |         .join("\n")}`,
+  75 |     );
+  76 |   };
+  77 | }
+  78 | 
+```

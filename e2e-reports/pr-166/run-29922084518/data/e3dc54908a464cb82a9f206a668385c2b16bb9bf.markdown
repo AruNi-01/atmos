@@ -1,0 +1,605 @@
+# Instructions
+
+- Following Playwright test failed.
+- Explain why, be concise, respect Playwright best practices.
+- Provide a snippet of code with the fix, if possible.
+
+# Test info
+
+- Name: smoke/project/project-context-route.e2e.ts >> smoke project >> @smoke @stateful boots project context route with stable params
+- Location: tests/smoke/project/project-context-route.e2e.ts:12:3
+
+# Error details
+
+```
+Error: Unexpected browser error output:
+- [response.404] http://localhost:30303/api/canvas/documents/Default.atmos.tldr
+```
+
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - generic [ref=e6]:
+        - button "Collapse left sidebar" [ref=e7]:
+          - img [ref=e8]
+        - generic [ref=e11]:
+          - button "Go back" [ref=e12]:
+            - img [ref=e13]
+          - button "Go forward" [ref=e15]:
+            - img [ref=e16]
+          - button "Refresh page" [ref=e18]:
+            - img [ref=e19]
+        - generic:
+          - generic [ref=e22]: /
+          - generic [ref=e23]: Atmos E2E
+        - generic [ref=e25]:
+          - button "Open O" [ref=e26]:
+            - generic: Open
+            - generic:
+              - generic: O
+          - button [ref=e28]:
+            - img [ref=e29]
+      - generic [ref=e31]:
+        - generic [ref=e32]:
+          - status "Unable to compare the remote branch with origin/main" [ref=e33]:
+            - img [ref=e35]
+          - generic [ref=e39]: HEAD
+        - img [ref=e40]
+        - button "origin/ main" [ref=e43] [cursor=pointer]:
+          - generic [ref=e44]: origin/
+          - generic [ref=e45]: main
+          - img [ref=e46]
+      - generic [ref=e48]:
+        - button "Search" [ref=e49] [cursor=pointer]:
+          - img [ref=e50]
+          - generic [ref=e53]: Search...
+          - generic:
+            - img
+            - generic: K
+        - button "Open workspace summary" [ref=e54]:
+          - img [ref=e55]
+        - generic [ref=e57]:
+          - button "Usage" [ref=e58]:
+            - img [ref=e59]
+          - button "Open actions menu" [ref=e62]:
+            - generic [ref=e63]: ···
+          - button "Collapse right sidebar" [ref=e65]:
+            - img [ref=e66]
+    - generic [ref=e70]:
+      - complementary [ref=e73]:
+        - generic [ref=e74]:
+          - generic [ref=e75] [cursor=pointer]:
+            - generic [ref=e76]:
+              - img [ref=e77]
+              - generic [ref=e81]: Management Center
+            - img [ref=e83]
+          - generic [ref=e85]:
+            - generic [ref=e87] [cursor=pointer]:
+              - img [ref=e89]
+              - generic [ref=e92]: Workspaces
+            - generic [ref=e94] [cursor=pointer]:
+              - img [ref=e96]
+              - generic [ref=e99]: Skills
+            - generic [ref=e101] [cursor=pointer]:
+              - img [ref=e103]
+              - generic [ref=e107]: Canvas
+            - generic [ref=e109] [cursor=pointer]:
+              - img [ref=e111]
+              - generic [ref=e114]: Kanban
+            - generic [ref=e116] [cursor=pointer]:
+              - img [ref=e118]
+              - generic [ref=e120]: New Workspace
+        - tabpanel "Projects" [ref=e123]:
+          - generic [ref=e126]:
+            - generic [ref=e128]:
+              - generic [ref=e129]:
+                - button "A Atmos E2E" [ref=e130] [cursor=pointer]:
+                  - generic [ref=e131]:
+                    - generic [ref=e133]: A
+                    - generic [ref=e134]: Atmos E2E
+                - generic [ref=e136]:
+                  - button [ref=e137]:
+                    - img [ref=e138]
+                  - button [ref=e140]:
+                    - img [ref=e141]
+              - button "mewtwo 12s" [ref=e150] [cursor=pointer]:
+                - generic [ref=e151]:
+                  - img [ref=e153]
+                  - generic [ref=e158]: mewtwo
+                  - generic:
+                    - generic: 12s
+                    - button "Archive":
+                      - img
+            - status [ref=e159]
+        - generic [ref=e161]:
+          - button "Add Project" [ref=e163]:
+            - img [ref=e165]
+          - generic [ref=e167]:
+            - button [ref=e168]:
+              - img [ref=e170]
+            - button "Open Kanban" [ref=e171]:
+              - img [ref=e173]
+      - separator [ref=e175]
+      - main [ref=e177]:
+        - generic [ref=e178]:
+          - tablist [ref=e179]:
+            - tab [ref=e180] [cursor=pointer]:
+              - img [ref=e181]
+            - tab "Terminal Term Close Term" [selected] [ref=e187] [cursor=pointer]:
+              - generic [ref=e188]:
+                - img [ref=e189]
+                - button "Terminal":
+                  - img
+              - generic [ref=e192]: Term
+              - button "Close Term" [ref=e194]:
+                - img [ref=e195]
+            - generic [ref=e198]:
+              - button "New tab" [ref=e199]:
+                - img [ref=e200]
+              - button "Open tab groups" [ref=e201] [cursor=pointer]:
+                - img
+          - generic [ref=e208]:
+            - generic [ref=e210]:
+              - generic [ref=e212]:
+                - img [ref=e213]
+                - generic [ref=e215]: "1"
+              - generic [ref=e216]:
+                - button "Pin to canvas (⌘⇧P)" [ref=e217] [cursor=pointer]:
+                  - img [ref=e218]
+                - generic [ref=e221]:
+                  - generic [ref=e222]:
+                    - button "Split horizontally (⌘D)" [ref=e223] [cursor=pointer]:
+                      - img [ref=e224]
+                    - button "Split vertically (⌘⇧D)" [ref=e226] [cursor=pointer]:
+                      - img [ref=e227]
+                  - generic [ref=e229]:
+                    - button "Maximize" [ref=e230] [cursor=pointer]:
+                      - img [ref=e231]
+                    - button "Close (⌘W)" [ref=e236] [cursor=pointer]:
+                      - img [ref=e237]
+            - generic [ref=e241]:
+              - generic [ref=e242]:
+                - generic [ref=e243]:
+                  - img [ref=e244]
+                  - generic [ref=e246]: Connecting to terminal...
+                - generic [ref=e250]:
+                  - generic:
+                    - textbox "Terminal input" [active]
+              - generic [ref=e253]:
+                - generic [ref=e255]:
+                  - generic [ref=e257]:
+                    - generic: "[⌘ + (⇧ Pin) + G] Input anything to terminal (@ annotation, / command, or paste img)"
+                  - button "Send to terminal" [disabled] [ref=e259]:
+                    - img [ref=e260]
+                - button "Open agent input" [ref=e263]
+            - heading "1" [level=4] [ref=e267]
+      - separator [ref=e268]
+      - complementary [ref=e271]:
+        - generic [ref=e273]:
+          - tablist [ref=e274]:
+            - tab "Changes" [selected] [ref=e275] [cursor=pointer]:
+              - img [ref=e276]
+            - tab "Review" [ref=e280] [cursor=pointer]:
+              - img [ref=e281]
+            - tab "Browser" [ref=e283] [cursor=pointer]:
+              - img [ref=e284]
+            - tab "Run" [ref=e287] [cursor=pointer]:
+              - img [ref=e288]
+            - tab "Files" [ref=e290] [cursor=pointer]:
+              - img [ref=e291]
+            - tab "Pull Requests" [ref=e296] [cursor=pointer]:
+              - img [ref=e297]
+            - tab "Actions" [ref=e301] [cursor=pointer]:
+              - img [ref=e302]
+          - generic [ref=e306]:
+            - tablist [ref=e309]:
+              - tab "Files Diff Refresh changes (refreshing) Select changes scope Show changed files as tree" [selected] [ref=e310] [cursor=pointer]:
+                - generic [ref=e311]:
+                  - img [ref=e312]
+                  - generic [ref=e315]: Files Diff
+                - generic [ref=e316]:
+                  - button "Refresh changes (refreshing)" [ref=e317]:
+                    - img [ref=e318]
+                    - generic [ref=e320]: Refresh
+                  - button "Select changes scope" [ref=e321]:
+                    - generic [ref=e322]: Branch
+                    - img [ref=e323]
+                  - button "Show changed files as tree" [ref=e325]:
+                    - img [ref=e326]
+              - tab "Commits Refresh commits" [ref=e329] [cursor=pointer]:
+                - generic [ref=e330]:
+                  - img [ref=e331]
+                  - generic [ref=e333]: Commits
+                - generic:
+                  - button "Refresh commits":
+                    - img
+                    - generic: Refresh
+            - generic [ref=e337]:
+              - generic [ref=e338] [cursor=pointer]:
+                - generic [ref=e339]:
+                  - 'img "File: browser-cookie-commands.json" [ref=e340]'
+                  - generic [ref=e341]: browser-cookie-commands.json
+                  - generic: apps/desktop/src-tauri/capabilities/
+                - generic [ref=e344]: A
+              - generic [ref=e345] [cursor=pointer]:
+                - generic [ref=e346]:
+                  - 'img "File: Cargo.toml" [ref=e347]'
+                  - generic [ref=e348]: Cargo.toml
+                  - generic [ref=e349]: apps/desktop/src-tauri/
+                - generic [ref=e351]:
+                  - generic [ref=e353]: "+19"
+                  - generic [ref=e354]: M
+              - generic [ref=e355] [cursor=pointer]:
+                - generic [ref=e356]:
+                  - 'img "File: acl-manifests.json" [ref=e357]'
+                  - generic [ref=e358]: acl-manifests.json
+                  - generic [ref=e359]: apps/desktop/src-tauri/gen/schemas/
+                - generic [ref=e361]:
+                  - generic [ref=e362]:
+                    - generic [ref=e363]: "+1"
+                    - generic [ref=e364]: "-1"
+                  - generic [ref=e365]: M
+              - generic [ref=e366] [cursor=pointer]:
+                - generic [ref=e367]:
+                  - 'img "File: capabilities.json" [ref=e368]'
+                  - generic [ref=e369]: capabilities.json
+                  - generic [ref=e370]: apps/desktop/src-tauri/gen/schemas/
+                - generic [ref=e372]:
+                  - generic [ref=e373]:
+                    - generic [ref=e374]: "+1"
+                    - generic [ref=e375]: "-1"
+                  - generic [ref=e376]: M
+              - generic [ref=e377] [cursor=pointer]:
+                - generic [ref=e378]:
+                  - 'img "File: desktop-schema.json" [ref=e379]'
+                  - generic [ref=e380]: desktop-schema.json
+                  - generic [ref=e381]: apps/desktop/src-tauri/gen/schemas/
+                - generic [ref=e383]:
+                  - generic [ref=e385]: "+6"
+                  - generic [ref=e386]: M
+              - generic [ref=e387] [cursor=pointer]:
+                - generic [ref=e388]:
+                  - 'img "File: macOS-schema.json" [ref=e389]'
+                  - generic [ref=e390]: macOS-schema.json
+                  - generic [ref=e391]: apps/desktop/src-tauri/gen/schemas/
+                - generic [ref=e393]:
+                  - generic [ref=e395]: "+6"
+                  - generic [ref=e396]: M
+              - generic [ref=e397] [cursor=pointer]:
+                - generic [ref=e398]:
+                  - 'img "File: browser-cookie-commands.toml" [ref=e399]'
+                  - generic [ref=e400]: browser-cookie-commands.toml
+                  - generic: apps/desktop/src-tauri/permissions/
+                - generic [ref=e403]: A
+              - generic [ref=e404] [cursor=pointer]:
+                - generic [ref=e405]:
+                  - 'img "File: mod.rs" [ref=e406]'
+                  - generic [ref=e407]: mod.rs
+                  - generic [ref=e408]: apps/desktop/src-tauri/src/browser_cookies/
+                - generic [ref=e410]:
+                  - generic [ref=e412]: "+378"
+                  - generic [ref=e413]: A
+              - generic [ref=e414] [cursor=pointer]:
+                - generic [ref=e415]:
+                  - 'img "File: store.rs" [ref=e416]'
+                  - generic [ref=e417]: store.rs
+                  - generic [ref=e418]: apps/desktop/src-tauri/src/browser_cookies/
+                - generic [ref=e420]:
+                  - generic [ref=e422]: "+377"
+                  - generic [ref=e423]: A
+              - generic [ref=e424] [cursor=pointer]:
+                - generic [ref=e425]:
+                  - 'img "File: main.rs" [ref=e426]'
+                  - generic [ref=e427]: main.rs
+                  - generic [ref=e428]: apps/desktop/src-tauri/src/
+                - generic [ref=e430]:
+                  - generic [ref=e432]: "+6"
+                  - generic [ref=e433]: M
+              - generic [ref=e434] [cursor=pointer]:
+                - generic [ref=e435]:
+                  - 'img "File: mod.rs" [ref=e436]'
+                  - generic [ref=e437]: mod.rs
+                  - generic [ref=e438]: apps/desktop/src-tauri/src/preview_bridge/
+                - generic [ref=e440]:
+                  - generic [ref=e442]: "+8"
+                  - generic [ref=e443]: M
+              - generic [ref=e444] [cursor=pointer]:
+                - generic [ref=e445]:
+                  - 'img "File: state.rs" [ref=e446]'
+                  - generic [ref=e447]: state.rs
+                  - generic [ref=e448]: apps/desktop/src-tauri/src/
+                - generic [ref=e450]:
+                  - generic [ref=e452]: "+1"
+                  - generic [ref=e453]: M
+              - generic [ref=e454] [cursor=pointer]:
+                - generic [ref=e455]:
+                  - 'img "File: en.json" [ref=e456]'
+                  - generic [ref=e457]: en.json
+                  - generic [ref=e458]: apps/web/messages/
+                - generic [ref=e460]:
+                  - generic [ref=e462]: "+70"
+                  - generic [ref=e463]: M
+              - generic [ref=e464] [cursor=pointer]:
+                - generic [ref=e465]:
+                  - 'img "File: zh.json" [ref=e466]'
+                  - generic [ref=e467]: zh.json
+                  - generic [ref=e468]: apps/web/messages/
+                - generic [ref=e470]:
+                  - generic [ref=e472]: "+70"
+                  - generic [ref=e473]: M
+              - generic [ref=e474] [cursor=pointer]:
+                - generic [ref=e475]:
+                  - 'img "File: BrowserCookieImportDialog.tsx" [ref=e476]'
+                  - generic [ref=e477]: BrowserCookieImportDialog.tsx
+                  - generic: apps/web/src/features/run-preview/components/
+                - generic [ref=e480]: A
+              - generic [ref=e481] [cursor=pointer]:
+                - generic [ref=e482]:
+                  - 'img "File: Preview.tsx" [ref=e483]'
+                  - generic [ref=e484]: Preview.tsx
+                  - generic [ref=e485]: apps/web/src/features/run-preview/components/
+                - generic [ref=e487]:
+                  - generic [ref=e488]:
+                    - generic [ref=e489]: "+45"
+                    - generic [ref=e490]: "-1"
+                  - generic [ref=e491]: M
+              - generic [ref=e492] [cursor=pointer]:
+                - generic [ref=e493]:
+                  - 'img "File: PreviewBrowserTabBar.tsx" [ref=e494]'
+                  - generic [ref=e495]: PreviewBrowserTabBar.tsx
+                  - generic [ref=e496]: apps/web/src/features/run-preview/components/
+                - generic [ref=e499]: M
+              - generic [ref=e500] [cursor=pointer]:
+                - generic [ref=e501]:
+                  - 'img "File: browser-cookie-commands.ts" [ref=e502]'
+                  - generic [ref=e503]: browser-cookie-commands.ts
+                  - generic: apps/web/src/features/run-preview/lib/
+                - generic [ref=e506]: A
+              - generic [ref=e507] [cursor=pointer]:
+                - generic [ref=e508]:
+                  - 'img "File: Cargo.lock" [ref=e509]'
+                  - generic [ref=e510]: Cargo.lock
+                - generic [ref=e512]:
+                  - generic [ref=e514]: "+23"
+                  - generic [ref=e515]: M
+              - generic [ref=e516] [cursor=pointer]:
+                - generic [ref=e517]:
+                  - 'img "File: Cargo.toml" [ref=e518]'
+                  - generic [ref=e519]: Cargo.toml
+                  - generic [ref=e520]: crates/ai-usage/
+                - generic [ref=e522]:
+                  - generic [ref=e524]: "+1"
+                  - generic [ref=e525]: M
+              - generic [ref=e526] [cursor=pointer]:
+                - generic [ref=e527]:
+                  - 'img "File: browser.rs" [ref=e528]'
+                  - generic [ref=e529]: browser.rs
+                  - generic [ref=e530]: crates/ai-usage/src/support/
+                - generic [ref=e532]:
+                  - generic [ref=e533]:
+                    - generic [ref=e534]: "+57"
+                    - generic [ref=e535]: "-400"
+                  - generic [ref=e536]: M
+              - generic [ref=e537] [cursor=pointer]:
+                - generic [ref=e538]:
+                  - 'img "File: Cargo.toml" [ref=e539]'
+                  - generic [ref=e540]: Cargo.toml
+                  - generic [ref=e541]: crates/browser-cookies/
+                - generic [ref=e543]:
+                  - generic [ref=e545]: "+21"
+                  - generic [ref=e546]: A
+              - generic [ref=e547] [cursor=pointer]:
+                - generic [ref=e548]:
+                  - 'img "File: decrypt.rs" [ref=e549]'
+                  - generic [ref=e550]: decrypt.rs
+                  - generic [ref=e551]: crates/browser-cookies/src/
+                - generic [ref=e553]:
+                  - generic [ref=e555]: "+169"
+                  - generic [ref=e556]: A
+              - generic [ref=e557] [cursor=pointer]:
+                - generic [ref=e558]:
+                  - 'img "File: discovery.rs" [ref=e559]'
+                  - generic [ref=e560]: discovery.rs
+                  - generic [ref=e561]: crates/browser-cookies/src/
+                - generic [ref=e563]:
+                  - generic [ref=e565]: "+344"
+                  - generic [ref=e566]: A
+              - generic [ref=e567] [cursor=pointer]:
+                - generic [ref=e568]:
+                  - 'img "File: extract.rs" [ref=e569]'
+                  - generic [ref=e570]: extract.rs
+                  - generic [ref=e571]: crates/browser-cookies/src/
+                - generic [ref=e573]:
+                  - generic [ref=e575]: "+565"
+                  - generic [ref=e576]: A
+              - generic [ref=e577] [cursor=pointer]:
+                - generic [ref=e578]:
+                  - 'img "File: keychain.rs" [ref=e579]'
+                  - generic [ref=e580]: keychain.rs
+                  - generic [ref=e581]: crates/browser-cookies/src/
+                - generic [ref=e583]:
+                  - generic [ref=e585]: "+89"
+                  - generic [ref=e586]: A
+              - generic [ref=e587] [cursor=pointer]:
+                - generic [ref=e588]:
+                  - 'img "File: lib.rs" [ref=e589]'
+                  - generic [ref=e590]: lib.rs
+                  - generic [ref=e591]: crates/browser-cookies/src/
+                - generic [ref=e593]:
+                  - generic [ref=e595]: "+50"
+                  - generic [ref=e596]: A
+              - generic [ref=e597] [cursor=pointer]:
+                - generic [ref=e598]:
+                  - 'img "File: sqlite.rs" [ref=e599]'
+                  - generic [ref=e600]: sqlite.rs
+                  - generic [ref=e601]: crates/browser-cookies/src/
+                - generic [ref=e603]:
+                  - generic [ref=e605]: "+579"
+                  - generic [ref=e606]: A
+              - generic [ref=e607] [cursor=pointer]:
+                - generic [ref=e608]:
+                  - 'img "File: types.rs" [ref=e609]'
+                  - generic [ref=e610]: types.rs
+                  - generic [ref=e611]: crates/browser-cookies/src/
+                - generic [ref=e613]:
+                  - generic [ref=e615]: "+112"
+                  - generic [ref=e616]: A
+              - generic [ref=e617] [cursor=pointer]:
+                - generic [ref=e618]:
+                  - 'img "File: BRAINSTORM.md" [ref=e619]'
+                  - generic [ref=e620]: BRAINSTORM.md
+                  - generic [ref=e621]: specs/APP/APP-041_browser-cookie-sync/
+                - generic [ref=e623]:
+                  - generic [ref=e625]: "+125"
+                  - generic [ref=e626]: A
+              - generic [ref=e627] [cursor=pointer]:
+                - generic [ref=e628]:
+                  - 'img "File: PRD.md" [ref=e629]'
+                  - generic [ref=e630]: PRD.md
+                  - generic [ref=e631]: specs/APP/APP-041_browser-cookie-sync/
+                - generic [ref=e633]:
+                  - generic [ref=e635]: "+153"
+                  - generic [ref=e636]: A
+              - generic [ref=e637] [cursor=pointer]:
+                - generic [ref=e638]:
+                  - 'img "File: TECH.md" [ref=e639]'
+                  - generic [ref=e640]: TECH.md
+                  - generic [ref=e641]: specs/APP/APP-041_browser-cookie-sync/
+                - generic [ref=e643]:
+                  - generic [ref=e645]: "+465"
+                  - generic [ref=e646]: A
+              - generic [ref=e647] [cursor=pointer]:
+                - generic [ref=e648]:
+                  - 'img "File: TEST.md" [ref=e649]'
+                  - generic [ref=e650]: TEST.md
+                  - generic [ref=e651]: specs/APP/APP-041_browser-cookie-sync/
+                - generic [ref=e653]:
+                  - generic [ref=e655]: "+154"
+                  - generic [ref=e656]: A
+              - generic [ref=e657] [cursor=pointer]:
+                - generic [ref=e658]:
+                  - 'img "File: README.md" [ref=e659]'
+                  - generic [ref=e660]: README.md
+                  - generic [ref=e661]: specs/
+                - generic [ref=e663]:
+                  - generic [ref=e665]: "+1"
+                  - generic [ref=e666]: M
+            - generic [ref=e669]:
+              - generic [ref=e670]:
+                - textbox "Message (Cmd/Ctrl+Enter to commit)" [ref=e671]
+                - button [disabled] [ref=e672]:
+                  - img [ref=e673]
+              - generic [ref=e676]:
+                - button "Publish Branch" [ref=e677]:
+                  - generic [ref=e678]: Publish Branch
+                - button [ref=e679]:
+                  - img [ref=e680]
+    - contentinfo [ref=e682]:
+      - generic [ref=e683]:
+        - generic [ref=e686] [cursor=pointer]: NORMAL
+        - button "LOCAL 0" [ref=e688]:
+          - img [ref=e689]
+          - generic [ref=e692]: LOCAL 0
+      - button "Napping ~" [ref=e694] [cursor=pointer]:
+        - generic [ref=e695]:
+          - generic [ref=e696]:
+            - img [ref=e697]
+            - generic [ref=e700]: z
+            - generic [ref=e701]: z
+            - generic [ref=e702]: z
+          - generic [ref=e703]: Napping ~
+  - alert [ref=e704]: Atmos E2E – ATMOS
+  - generic:
+    - region "Notifications"
+  - generic:
+    - region "Notifications"
+  - generic:
+    - region "Notifications"
+```
+
+# Test source
+
+```ts
+  1  | import type { ConsoleMessage, Page, TestInfo } from "@playwright/test";
+  2  | 
+  3  | const allowedConsoleErrorPatterns = [
+  4  |   /favicon\.ico/i,
+  5  |   /\[response\.404\] .*\/api\/system\/client-session\b/i,
+  6  |   // Setup / remote onboarding probes the relay proxy before credentials exist.
+  7  |   /\[response\.400\] .*\/api\/system\/computer\/relay\b/i,
+  8  |   // registerAccessTokenOnRelay treats 409 as success (token already registered).
+  9  |   /\[response\.409\] .*\/v1\/tenants\b/i,
+  10 |   /Encountered a script tag while rendering React component/i,
+  11 |   /(Failed to load (local models|skills)|Error fetching projects): Error: WebSocket disconnected/i,
+  12 |   /\[console\.error\] Error: WebSocket not connected\b/i,
+  13 |   /\[WebSocket\] Error: Event/i,
+  14 |   // TanStack Query cancels in-flight settings bootstrap on computer/scope change.
+  15 |   /CancelledError\b/,
+  16 | ];
+  17 | 
+  18 | function formatConsoleMessage(message: ConsoleMessage): string {
+  19 |   return `[console.${message.type()}] ${message.text()}`;
+  20 | }
+  21 | 
+  22 | function isAllowedConsoleError(message: string): boolean {
+  23 |   return allowedConsoleErrorPatterns.some((pattern) => pattern.test(message));
+  24 | }
+  25 | 
+  26 | export async function attachBrowserErrorCollector(
+  27 |   page: Page,
+  28 |   testInfo: TestInfo,
+  29 | ): Promise<() => Promise<void>> {
+  30 |   const errors: string[] = [];
+  31 |   const failedResponseUrls = new Set<string>();
+  32 | 
+  33 |   page.on("pageerror", (error) => {
+  34 |     errors.push(`[pageerror] ${error.stack || error.message}`);
+  35 |   });
+  36 | 
+  37 |   page.on("console", (message) => {
+  38 |     if (message.type() === "error") {
+  39 |       errors.push(formatConsoleMessage(message));
+  40 |     }
+  41 |   });
+  42 | 
+  43 |   page.on("response", (response) => {
+  44 |     const status = response.status();
+  45 |     if (status < 400) return;
+  46 |     const url = response.url();
+  47 |     failedResponseUrls.add(url);
+  48 |     errors.push(`[response.${status}] ${url}`);
+  49 |   });
+  50 | 
+  51 |   return async () => {
+  52 |     const unexpected = errors.filter((message) => {
+  53 |       if (isAllowedConsoleError(message)) return false;
+  54 |       if (
+  55 |         failedResponseUrls.size > 0 &&
+  56 |         /\[console\.error\] Failed to load resource: the server responded with a status of \d+/.test(message)
+  57 |       ) {
+  58 |         return false;
+  59 |       }
+  60 |       return true;
+  61 |     });
+  62 |     if (unexpected.length === 0) {
+  63 |       return;
+  64 |     }
+  65 | 
+  66 |     await testInfo.attach("browser-errors", {
+  67 |       body: unexpected.join("\n\n"),
+  68 |       contentType: "text/plain",
+  69 |     });
+  70 | 
+> 71 |     throw new Error(
+     |           ^ Error: Unexpected browser error output:
+  72 |       `Unexpected browser error output:\n${unexpected
+  73 |         .map((message) => `- ${message}`)
+  74 |         .join("\n")}`,
+  75 |     );
+  76 |   };
+  77 | }
+  78 | 
+```
