@@ -1,0 +1,20 @@
+apps/landing/src/lib/changelog-data.ts
+  s_d618cbfad59f25::t_0281b612da40e5 37-90
+  s_d618cbfad59f25::t_5a1aaf3b24a683 36
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "528fa5add07fe368651a4e128a6ce6497d846044",
+  "prompts": {},
+  "sessions": {
+    "s_d618cbfad59f25": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2a71a714-4bf4-4aa1-b1fa-9cf2f2474026",
+        "model": "codex/gpt-6.2-sol"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
